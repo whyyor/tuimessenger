@@ -144,6 +144,14 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetRelatedEventsParams) ([]*database.Event, error) {
 			return h.DB.Event.GetRelatedEvents(ctx, params.RoomID, params.EventID, params.RelationType)
 		})
+	case jsoncmd.ReqGetEventContext:
+		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetEventContextParams) (*jsoncmd.EventContextResponse, error) {
+			return h.GetEventContext(mautrix.WithMaxRetries(ctx, 0), params.RoomID, params.EventID, params.Limit)
+		})
+	case jsoncmd.ReqPaginateManual:
+		return unmarshalAndCall(req.Data, func(params *jsoncmd.PaginateManualParams) (*jsoncmd.ManualPaginationResponse, error) {
+			return h.PaginateManual(mautrix.WithMaxRetries(ctx, 0), params.RoomID, params.Since, params.Direction, params.Limit)
+		})
 	case jsoncmd.ReqGetRoomState:
 		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetRoomStateParams) ([]*database.Event, error) {
 			return h.GetRoomState(ctx, params.RoomID, params.IncludeMembers, params.FetchMembers, params.Refetch)
