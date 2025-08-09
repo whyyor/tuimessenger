@@ -178,10 +178,11 @@ type PaginateParams struct {
 }
 
 type PaginateManualParams struct {
-	RoomID    id.RoomID         `json:"room_id"`
-	Since     string            `json:"since"`
-	Direction mautrix.Direction `json:"direction"`
-	Limit     int               `json:"limit"`
+	RoomID     id.RoomID         `json:"room_id"`
+	ThreadRoot id.EventID        `json:"thread_root"`
+	Since      string            `json:"since"`
+	Direction  mautrix.Direction `json:"direction"`
+	Limit      int               `json:"limit"`
 }
 
 type JoinRoomParams struct {

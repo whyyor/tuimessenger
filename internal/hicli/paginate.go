@@ -456,17 +456,41 @@ func (h *HiClient) GetEventContext(ctx context.Context, roomID id.RoomID, eventI
 	return wrappedResp, nil
 }
 
-func (h *HiClient) PaginateManual(ctx context.Context, roomID id.RoomID, since string, direction mautrix.Direction, limit int) (*jsoncmd.ManualPaginationResponse, error) {
-	resp, err := h.Client.Messages(ctx, roomID, since, "", direction, nil, limit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get messages from server: %w", err)
+func (h *HiClient) PaginateManual(
+	ctx context.Context,
+	roomID id.RoomID,
+	threadRoot id.EventID,
+	since string,
+	direction mautrix.Direction,
+	limit int,
+) (*jsoncmd.ManualPaginationResponse, error) {
+	var chunk []*event.Event
+	var wrappedResp jsoncmd.ManualPaginationResponse
+	if threadRoot == "" {
+		resp, err := h.Client.Messages(ctx, roomID, since, "", direction, nil, limit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get messages from server: %w", err)
+		}
+		chunk = resp.Chunk
+		wrappedResp.NextBatch = resp.End
+	} else {
+		resp, err := h.Client.GetRelations(ctx, roomID, threadRoot, &mautrix.ReqGetRelations{
+			RelationType: event.RelThread,
+			Dir:          direction,
+			From:         since,
+			Limit:        limit,
+			Recurse:      true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get thread messages from server: %w", err)
+		}
+		chunk = resp.Chunk
+		wrappedResp.NextBatch = resp.NextBatch
 	}
-	wrappedResp := &jsoncmd.ManualPaginationResponse{
-		Events:    make([]*database.Event, len(resp.Chunk)),
-		NextBatch: resp.End,
-	}
+	wrappedResp.Events = make([]*database.Event, len(chunk))
 	decryptionQueue := make(map[id.SessionID]*database.SessionRequest)
-	for i, evt := range resp.Chunk {
+	var err error
+	for i, evt := range chunk {
 		if wrappedResp.Events[i], err = h.processEvent(ctx, evt, nil, decryptionQueue, true); err != nil {
 			return nil, fmt.Errorf("failed to process event #%d: %w", i+1, err)
 		}
@@ -480,5 +504,5 @@ func (h *HiClient) PaginateManual(ctx context.Context, roomID id.RoomID, since s
 	if len(decryptionQueue) > 0 {
 		h.WakeupRequestQueue()
 	}
-	return wrappedResp, nil
+	return &wrappedResp, nil
 }
