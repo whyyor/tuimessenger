@@ -164,7 +164,7 @@ func (seq *SpaceEdgeQuery) SetChildren(ctx context.Context, spaceID id.RoomID, c
 		}
 	}
 	if len(removedChildren) > 0 {
-		err := seq.Exec(ctx, deleteEmptySpaceEdgeRowsQuery, spaceID)
+		err := seq.Exec(ctx, deleteEmptySpaceEdgeRowsQuery)
 		if err != nil {
 			return err
 		}
