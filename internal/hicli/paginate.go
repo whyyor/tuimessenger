@@ -387,7 +387,7 @@ func (h *HiClient) PaginateServer(ctx context.Context, roomID id.RoomID, limit i
 		}
 		err = h.DB.Event.FillReactionCounts(ctx, roomID, events)
 		if err != nil {
-			return fmt.Errorf("failed to fill last edit row IDs: %w", err)
+			return fmt.Errorf("failed to fill reaction counts: %w", err)
 		}
 		err = h.DB.Event.FillLastEditRowIDs(ctx, roomID, events)
 		if err != nil {
