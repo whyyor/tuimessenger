@@ -16,7 +16,7 @@ import (
 
 func init() {
 	isDatabaseBusyError = func(err error) bool {
-		var sqliteErr sqlite_wasm_js.Error
+		var sqliteErr *sqlite_wasm_js.Error
 		return errors.As(err, &sqliteErr) && sqliteErr.Code == 5
 	}
 }
