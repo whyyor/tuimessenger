@@ -136,6 +136,7 @@ type ImageAuthToken string
 type InitComplete struct{}
 
 type RunData struct {
-	RunID string `json:"run_id"`
-	ETag  string `json:"etag"`
+	RunID    string `json:"run_id"`
+	ETag     string `json:"etag"`
+	VAPIDKey string `json:"vapid_key"`
 }

@@ -48,6 +48,7 @@ type PushType string
 
 const (
 	PushTypeFCM PushType = "fcm"
+	PushTypeWeb PushType = "web"
 )
 
 type EncryptionKey struct {
