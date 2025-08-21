@@ -1270,6 +1270,10 @@ func processImportantEvent(
 			Stringer("event_type", &evt.Type).
 			Stringer("event_id", evt.ID).
 			Msg("Failed to parse state event, skipping")
+		switch evt.Type {
+		case event.StateTopic:
+			updatedRoom.Topic = ptr.Ptr("[malformed topic event]")
+		}
 		return
 	}
 	switch evt.Type {
