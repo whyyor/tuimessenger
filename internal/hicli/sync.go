@@ -1272,7 +1272,8 @@ func processImportantEvent(
 			Msg("Failed to parse state event, skipping")
 		switch evt.Type {
 		case event.StateTopic:
-			updatedRoom.Topic = ptr.Ptr("[malformed topic event]")
+			topicStr, _ := evt.Content.Raw["topic"].(string)
+			updatedRoom.Topic = ptr.Ptr("[MALFORMED ROOM TOPIC EVENT] " + topicStr)
 		}
 		return
 	}
