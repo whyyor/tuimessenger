@@ -180,6 +180,10 @@ func (h *HiClient) postProcessSyncResponse(ctx context.Context, resp *mautrix.Re
 
 func (h *HiClient) asyncPostProcessSyncResponse(ctx context.Context, resp *mautrix.RespSync, since string) {
 	for _, evt := range resp.ToDevice.Events {
+		ctx := zerolog.Ctx(ctx).With().
+			Stringer("sender", evt.Sender).
+			Str("type", evt.Type.Type).
+			Logger().WithContext(ctx)
 		switch content := evt.Content.Parsed.(type) {
 		case *event.SecretRequestEventContent:
 			h.Crypto.HandleSecretRequest(ctx, evt.Sender, content)
