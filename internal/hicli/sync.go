@@ -1288,7 +1288,9 @@ func processImportantEvent(
 		updatedRoom.Tombstone, _ = evt.Content.Parsed.(*event.TombstoneEventContent)
 	case event.StateEncryption:
 		newEncryption, _ := evt.Content.Parsed.(*event.EncryptionEventContent)
-		if existingRoomData.EncryptionEvent == nil || existingRoomData.EncryptionEvent.Algorithm == newEncryption.Algorithm {
+		if existingRoomData.EncryptionEvent == nil ||
+			existingRoomData.EncryptionEvent.Algorithm == "" ||
+			existingRoomData.EncryptionEvent.Algorithm == newEncryption.Algorithm {
 			updatedRoom.EncryptionEvent = newEncryption
 		}
 	case event.StateRoomName:
