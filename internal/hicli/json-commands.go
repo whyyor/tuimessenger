@@ -115,7 +115,7 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 		})
 	case jsoncmd.ReqSetProfileField:
 		return unmarshalAndCall(req.Data, func(params *jsoncmd.SetProfileFieldParams) (bool, error) {
-			return true, h.Client.UnstableSetProfileField(ctx, params.Field, params.Value)
+			return true, h.Client.SetProfileField(ctx, params.Field, params.Value)
 		})
 	case jsoncmd.ReqGetMutualRooms:
 		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetProfileParams) ([]id.RoomID, error) {
