@@ -25,6 +25,7 @@ import (
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
 	"maunium.net/go/mautrix/crypto/backup"
+	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 	"maunium.net/go/mautrix/pushrules"
 
@@ -134,6 +135,8 @@ func New(rawDB, cryptoDB *dbutil.Database, log zerolog.Logger, pickleKey []byte,
 		Store:      (*hiStore)(c),
 		StateStore: c.ClientStore,
 		Log:        log.With().Str("component", "mautrix client").Logger(),
+
+		SyncPresence: event.PresenceOffline,
 
 		DefaultHTTPBackoff: 1 * time.Second,
 		DefaultHTTPRetries: 6,
