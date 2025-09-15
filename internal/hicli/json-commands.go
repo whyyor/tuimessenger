@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -189,7 +190,12 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 	case jsoncmd.ReqLeaveRoom:
 		return unmarshalAndCall(req.Data, func(params *jsoncmd.LeaveRoomParams) (*mautrix.RespLeaveRoom, error) {
 			resp, err := h.Client.LeaveRoom(mautrix.WithMaxRetries(ctx, 2), params.RoomID, &mautrix.ReqLeave{Reason: params.Reason})
-			if err == nil || errors.Is(err, mautrix.MNotFound) || errors.Is(err, mautrix.MForbidden) {
+			if err == nil ||
+				errors.Is(err, mautrix.MNotFound) ||
+				errors.Is(err, mautrix.MForbidden) ||
+				// Synapse-specific hack: the server incorrectly returns M_UNKNOWN in some cases
+				// instead of a sensible code like M_NOT_FOUND.
+				strings.Contains(err.Error(), "Not a known room") {
 				deleteInviteErr := h.DB.InvitedRoom.Delete(ctx, params.RoomID)
 				if deleteInviteErr != nil {
 					zerolog.Ctx(ctx).Err(deleteInviteErr).
