@@ -892,7 +892,9 @@ func (h *HiClient) processStateAndTimeline(
 		if err != nil {
 			return err
 		}
-		setNewState(evt.Type, *evt.StateKey, rowID)
+		if !evt.Unsigned.ElementSoftFailed {
+			setNewState(evt.Type, *evt.StateKey, rowID)
+		}
 	}
 	var timelineRowTuples []database.TimelineRowTuple
 	receiptMap := make(map[id.EventID][]*database.Receipt)
@@ -953,7 +955,7 @@ func (h *HiClient) processStateAndTimeline(
 			if err != nil {
 				return err
 			}
-			if evt.StateKey != nil {
+			if evt.StateKey != nil && !evt.Unsigned.ElementSoftFailed {
 				setNewState(evt.Type, *evt.StateKey, timelineIDs[i])
 			}
 		}
