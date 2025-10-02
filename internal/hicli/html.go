@@ -559,6 +559,9 @@ Loop:
 				mxc := writeImg(&built, token.Attr)
 				if !mxc.IsEmpty() {
 					inlineImages = append(inlineImages, mxc)
+				} else {
+					// Don't close the img tag as we didn't write one
+					continue
 				}
 			case atom.Div:
 				math, ok := getAttribute(token.Attr, "data-mx-maths")
