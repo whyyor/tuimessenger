@@ -66,8 +66,8 @@ type SendStateEventParams struct {
 }
 
 type UpdateDelayedEventParams struct {
-	DelayID string `json:"delay_id"`
-	Action  string `json:"action"`
+	DelayID id.DelayID        `json:"delay_id"`
+	Action  event.DelayAction `json:"action"`
 }
 
 type SetMembershipParams struct {
