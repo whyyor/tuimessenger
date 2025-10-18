@@ -1166,10 +1166,8 @@ func intPtrEqual(a, b *int) bool {
 }
 
 type spaceDataCollector struct {
-	Children          []database.SpaceChildEntry
-	Parents           []database.SpaceParentEntry
-	RemovedChildren   []id.RoomID
-	RemovedParents    []id.RoomID
+	Children          map[id.RoomID]*database.SpaceChildEntry
+	Parents           map[id.RoomID]*database.SpaceParentEntry
 	PowerLevelChanged bool
 	IsFullState       bool
 }
@@ -1181,51 +1179,63 @@ func (sdc *spaceDataCollector) Collect(evt *event.Event, rowID database.EventRow
 	case event.StateCreate:
 		sdc.IsFullState = true
 	case event.StateSpaceChild:
+		roomID := id.RoomID(*evt.StateKey)
 		content := evt.Content.AsSpaceChild()
 		if len(content.Via) == 0 {
-			sdc.RemovedChildren = append(sdc.RemovedChildren, id.RoomID(*evt.StateKey))
+			sdc.Children[roomID] = nil
 		} else {
-			sdc.Children = append(sdc.Children, database.SpaceChildEntry{
-				ChildID:    id.RoomID(*evt.StateKey),
+			sdc.Children[roomID] = &database.SpaceChildEntry{
+				ChildID:    roomID,
 				EventRowID: rowID,
 				Order:      content.Order,
 				Suggested:  content.Suggested,
-			})
+			}
 		}
 	case event.StateSpaceParent:
+		roomID := id.RoomID(*evt.StateKey)
 		content := evt.Content.AsSpaceParent()
 		if len(content.Via) == 0 {
-			sdc.RemovedParents = append(sdc.RemovedParents, id.RoomID(*evt.StateKey))
+			sdc.Parents[roomID] = nil
 		} else {
-			sdc.Parents = append(sdc.Parents, database.SpaceParentEntry{
-				ParentID:   id.RoomID(*evt.StateKey),
+			sdc.Parents[roomID] = &database.SpaceParentEntry{
+				ParentID:   roomID,
 				EventRowID: rowID,
 				Canonical:  content.Canonical,
-			})
+			}
 		}
 	}
+}
+
+func splitMapValues[T any](m map[id.RoomID]*T) (added []T, removed []id.RoomID) {
+	for roomID, entry := range m {
+		if entry == nil {
+			removed = append(removed, roomID)
+		} else {
+			added = append(added, *entry)
+		}
+	}
+	return
 }
 
 func (sdc *spaceDataCollector) Apply(ctx context.Context, room *database.Room, seq *database.SpaceEdgeQuery) error {
 	if room.CreationContent == nil || room.CreationContent.Type != event.RoomTypeSpace {
 		sdc.Children = nil
-		sdc.RemovedChildren = nil
 		sdc.PowerLevelChanged = false
 	}
-	if len(sdc.Children) == 0 && len(sdc.RemovedChildren) == 0 &&
-		len(sdc.Parents) == 0 && len(sdc.RemovedParents) == 0 &&
-		!sdc.PowerLevelChanged {
+	if len(sdc.Children) == 0 && len(sdc.Parents) == 0 && !sdc.PowerLevelChanged {
 		return nil
 	}
 	return seq.GetDB().DoTxn(ctx, nil, func(ctx context.Context) error {
-		if len(sdc.Children) > 0 || len(sdc.RemovedChildren) > 0 {
-			err := seq.SetChildren(ctx, room.ID, sdc.Children, sdc.RemovedChildren, sdc.IsFullState)
+		if len(sdc.Children) > 0 {
+			children, removedChildren := splitMapValues(sdc.Children)
+			err := seq.SetChildren(ctx, room.ID, children, removedChildren, sdc.IsFullState)
 			if err != nil {
 				return fmt.Errorf("failed to set space children: %w", err)
 			}
 		}
-		if len(sdc.Parents) > 0 || len(sdc.RemovedParents) > 0 {
-			err := seq.SetParents(ctx, room.ID, sdc.Parents, sdc.RemovedParents, sdc.IsFullState)
+		if len(sdc.Parents) > 0 {
+			parents, removedParents := splitMapValues(sdc.Parents)
+			err := seq.SetParents(ctx, room.ID, parents, removedParents, sdc.IsFullState)
 			if err != nil {
 				return fmt.Errorf("failed to set space parents: %w", err)
 			}
