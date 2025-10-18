@@ -1179,6 +1179,9 @@ func (sdc *spaceDataCollector) Collect(evt *event.Event, rowID database.EventRow
 	case event.StateCreate:
 		sdc.IsFullState = true
 	case event.StateSpaceChild:
+		if sdc.Children == nil {
+			sdc.Children = make(map[id.RoomID]*database.SpaceChildEntry)
+		}
 		roomID := id.RoomID(*evt.StateKey)
 		content := evt.Content.AsSpaceChild()
 		if len(content.Via) == 0 {
@@ -1192,6 +1195,9 @@ func (sdc *spaceDataCollector) Collect(evt *event.Event, rowID database.EventRow
 			}
 		}
 	case event.StateSpaceParent:
+		if sdc.Parents == nil {
+			sdc.Parents = make(map[id.RoomID]*database.SpaceParentEntry)
+		}
 		roomID := id.RoomID(*evt.StateKey)
 		content := evt.Content.AsSpaceParent()
 		if len(content.Via) == 0 {
