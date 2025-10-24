@@ -37,6 +37,8 @@ type GomuksRPC struct {
 
 	pendingRequestsLock sync.RWMutex
 	reqIDCounter        int64
+	lastReqID           int64
+	runID               string
 	pendingRequests     map[int64]chan<- *jsoncmd.Container[json.RawMessage]
 }
 

@@ -13,7 +13,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +31,11 @@ var (
 	ErrWebsocketClosedBeforeResponseReceived = errors.New("websocket closed before response received")
 )
 
+type wrappedEvent struct {
+	Data  any
+	ReqID int64
+}
+
 func (gr *GomuksRPC) Connect(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	if stopFn := gr.stop.Swap(&cancel); stopFn != nil {
@@ -36,6 +43,12 @@ func (gr *GomuksRPC) Connect(ctx context.Context) error {
 	}
 	wsURL := gr.BuildRawURL(GomuksURLPath{"websocket"})
 	wsURL.Scheme = strings.Replace(wsURL.Scheme, "http", "ws", 1)
+	query := url.Values{}
+	if gr.runID != "" && gr.lastReqID != 0 {
+		query.Set("run_id", gr.runID)
+		query.Set("last_received_event", strconv.FormatInt(gr.lastReqID, 10))
+	}
+	wsURL.RawQuery = query.Encode()
 	ws, _, err := websocket.Dial(ctx, wsURL.String(), &websocket.DialOptions{
 		HTTPClient: gr.http,
 		HTTPHeader: http.Header{"User-Agent": {gr.UserAgent}},
@@ -45,7 +58,7 @@ func (gr *GomuksRPC) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to websocket: %w", err)
 	}
 	ws.SetReadLimit(50 * 1024 * 1024)
-	evtChan := make(chan any, 256)
+	evtChan := make(chan wrappedEvent, 256)
 	go gr.eventLoop(ctx, evtChan)
 	go gr.readLoop(ctx, ws, cancel, evtChan)
 	go gr.pingLoop(ctx, ws)
@@ -172,14 +185,15 @@ func (gr *GomuksRPC) Request(ctx context.Context, cmd jsoncmd.Name, data any) (j
 	}
 }
 
-func (gr *GomuksRPC) eventLoop(ctx context.Context, evtChan <-chan any) {
+func (gr *GomuksRPC) eventLoop(ctx context.Context, evtChan <-chan wrappedEvent) {
 	for {
 		select {
 		case evt := <-evtChan:
-			if evt == nil {
+			if evt.Data == nil {
 				return
 			}
-			gr.handleEvent(ctx, evt)
+			gr.handleEvent(ctx, evt.Data)
+			gr.lastReqID = evt.ReqID
 		case <-ctx.Done():
 			return
 		}
@@ -213,7 +227,9 @@ func (gr *GomuksRPC) pingLoop(ctx context.Context, ws *websocket.Conn) {
 			err := writeWebsocketJSON(ctx, ws, &jsoncmd.Container[jsoncmd.PingParams]{
 				Command:   jsoncmd.ReqPing,
 				RequestID: gr.getNextRequestIDNoWait(),
-				Data:      jsoncmd.PingParams{},
+				Data: jsoncmd.PingParams{
+					LastReceivedID: gr.lastReqID,
+				},
 			})
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).Msg("Failed to send ping over websocket")
@@ -224,7 +240,7 @@ func (gr *GomuksRPC) pingLoop(ctx context.Context, ws *websocket.Conn) {
 	}
 }
 
-func (gr *GomuksRPC) readLoop(ctx context.Context, ws *websocket.Conn, cancelFunc context.CancelFunc, evtChan chan<- any) {
+func (gr *GomuksRPC) readLoop(ctx context.Context, ws *websocket.Conn, cancelFunc context.CancelFunc, evtChan chan<- wrappedEvent) {
 	log := zerolog.Ctx(ctx)
 	defer cancelFunc()
 	defer close(evtChan)
@@ -270,7 +286,7 @@ func parseEvent(ctx context.Context, evt *jsoncmd.Container[json.RawMessage]) an
 	return data
 }
 
-func (gr *GomuksRPC) readLoopItem(ctx context.Context, log *zerolog.Logger, ws *websocket.Conn, evtHandler chan<- any) bool {
+func (gr *GomuksRPC) readLoopItem(ctx context.Context, log *zerolog.Logger, ws *websocket.Conn, evtHandler chan<- wrappedEvent) bool {
 	var cmd *jsoncmd.Container[json.RawMessage]
 	msgType, reader, err := ws.Reader(ctx)
 	defer func() {
@@ -313,16 +329,21 @@ func (gr *GomuksRPC) readLoopItem(ctx context.Context, log *zerolog.Logger, ws *
 		}
 	} else {
 		parsedCmd := parseEvent(ctx, cmd)
+		switch typedCmd := parsedCmd.(type) {
+		case *jsoncmd.RunData:
+			gr.runID = typedCmd.RunID
+		}
+		we := wrappedEvent{Data: parsedCmd, ReqID: cmd.RequestID}
 		select {
-		case evtHandler <- parsedCmd:
+		case evtHandler <- we:
 		default:
 			log.Warn().
 				Int64("req_id", cmd.RequestID).
 				Stringer("command", cmd.Command).
 				Msg("Event channel didn't accept event immediately, blocking websocket reads")
 			select {
-			case evtHandler <- parsedCmd:
-				log.Debug().
+			case evtHandler <- we:
+				log.Trace().
 					Int64("req_id", cmd.RequestID).
 					Stringer("command", cmd.Command).
 					Msg("Event channel accepted event")
