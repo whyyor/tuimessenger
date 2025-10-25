@@ -378,6 +378,9 @@ type Event struct {
 	Reactions     map[string]int `json:"reactions,omitempty"`
 	LastEditRowID *EventRowID    `json:"last_edit_rowid,omitempty"`
 	UnreadType    UnreadType     `json:"unread_type,omitempty"`
+
+	LastEditRef *Event `json:"-"`
+	Pending     bool   `json:"-"`
 }
 
 func MautrixToEvent(evt *event.Event) *Event {
@@ -405,6 +408,53 @@ func MautrixToEvent(evt *event.Event) *Event {
 	return dbEvt
 }
 
+func (e *Event) GetType() (evtType event.Type) {
+	evtType.Class = event.MessageEventType
+	if e.StateKey != nil {
+		evtType.Class = event.StateEventType
+	}
+	evtType.Type = e.Type
+	if e.Decrypted != nil {
+		evtType.Type = e.DecryptedType
+	}
+	return
+}
+
+var newContentPath = exgjson.Path("m.new_content")
+
+func (e *Event) getNewContent() json.RawMessage {
+	content := e.Content
+	if e.Decrypted != nil {
+		content = e.Decrypted
+	}
+	newContentRes := gjson.GetBytes(content, newContentPath)
+	if !newContentRes.IsObject() {
+		return content
+	}
+	if newContentRes.Index > 0 {
+		return content[newContentRes.Index : newContentRes.Index+len(newContentRes.Raw)]
+	} else {
+		return json.RawMessage(newContentRes.Raw)
+	}
+}
+
+func (e *Event) GetContent() json.RawMessage {
+	if e.LastEditRef != nil {
+		return e.LastEditRef.getNewContent()
+	}
+	if e.Decrypted != nil {
+		return e.Decrypted
+	}
+	return e.Content
+}
+
+func (e *Event) GetLocalContent() *LocalContent {
+	if e.LastEditRef != nil {
+		return e.LastEditRef.LocalContent
+	}
+	return e.LocalContent
+}
+
 func (e *Event) AsRawMautrix() *event.Event {
 	if e == nil {
 		return nil
@@ -413,18 +463,11 @@ func (e *Event) AsRawMautrix() *event.Event {
 		RoomID:    e.RoomID,
 		ID:        e.ID,
 		Sender:    e.Sender,
-		Type:      event.Type{Type: e.Type, Class: event.MessageEventType},
+		Type:      e.GetType(),
 		StateKey:  e.StateKey,
 		Timestamp: e.Timestamp.UnixMilli(),
-		Content:   event.Content{VeryRaw: e.Content},
-	}
-	if e.Decrypted != nil {
-		evt.Content.VeryRaw = e.Decrypted
-		evt.Type.Type = e.DecryptedType
-		evt.Mautrix.WasEncrypted = true
-	}
-	if e.StateKey != nil {
-		evt.Type.Class = event.StateEventType
+		Content:   event.Content{VeryRaw: e.GetContent()},
+		Mautrix:   event.MautrixInfo{WasEncrypted: e.Decrypted != nil},
 	}
 	_ = json.Unmarshal(e.Unsigned, &evt.Unsigned)
 	return evt

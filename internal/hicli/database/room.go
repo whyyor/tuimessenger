@@ -14,6 +14,7 @@ import (
 
 	"go.mau.fi/util/dbutil"
 	"go.mau.fi/util/jsontime"
+	"go.mau.fi/util/ptr"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
@@ -173,6 +174,35 @@ type Room struct {
 	MarkedUnread *bool `json:"marked_unread,omitempty"`
 
 	PrevBatch string `json:"prev_batch"`
+}
+
+func (r *Room) EnsureNotNil() {
+	if r.CreationContent == nil {
+		r.CreationContent = &event.CreateEventContent{}
+	}
+	if r.Name == nil {
+		r.Name = ptr.Ptr("")
+	}
+	if r.Avatar == nil {
+		r.Avatar = ptr.Ptr(id.ContentURI{})
+	}
+	if r.Topic == nil {
+		r.Topic = ptr.Ptr("")
+	}
+	if r.CanonicalAlias == nil {
+		r.CanonicalAlias = ptr.Ptr(id.RoomAlias(""))
+	}
+}
+
+func (r *Room) VisibleMetaIsEqual(other *Room) bool {
+	return ptr.Val(r.Name) == ptr.Val(other.Name) &&
+		ptr.Val(r.Avatar) == ptr.Val(other.Avatar) &&
+		ptr.Val(r.Topic) == ptr.Val(other.Topic) &&
+		ptr.Val(r.CanonicalAlias) == ptr.Val(other.CanonicalAlias) &&
+		ptr.Val(r.DMUserID) == ptr.Val(other.DMUserID) &&
+		r.LazyLoadSummary.Equal(other.LazyLoadSummary) &&
+		ptr.Val(r.EncryptionEvent).Algorithm == ptr.Val(other.EncryptionEvent).Algorithm &&
+		r.HasMemberList == other.HasMemberList
 }
 
 func (r *Room) CheckChangesAndCopyInto(other *Room) (hasChanges bool) {
