@@ -31,7 +31,7 @@ import (
 )
 
 type RoomList struct {
-	sync.RWMutex
+	lock sync.RWMutex
 
 	parent *MainView
 
@@ -53,8 +53,6 @@ type RoomList struct {
 func NewRoomList(parent *MainView) *RoomList {
 	list := &RoomList{
 		parent: parent,
-
-		//rooms: parent.matrix.RoomList.Current(),
 
 		scrollOffset: 0,
 
@@ -87,8 +85,8 @@ func (list *RoomList) SelectedRoom() id.RoomID {
 }
 
 func (list *RoomList) Previous() id.RoomID {
-	list.RLock()
-	defer list.RUnlock()
+	list.lock.RLock()
+	defer list.lock.RUnlock()
 	idx := list.index(list.selected)
 	if idx > 0 && idx < len(list.rooms) {
 		return list.rooms[idx-1].RoomID
@@ -97,8 +95,14 @@ func (list *RoomList) Previous() id.RoomID {
 }
 
 func (list *RoomList) Next() id.RoomID {
-	list.RLock()
-	defer list.RUnlock()
+	list.lock.RLock()
+	defer list.lock.RUnlock()
+	if len(list.rooms) == 0 {
+		return ""
+	}
+	if list.selected == "" {
+		return list.rooms[0].RoomID
+	}
 	idx := list.index(list.selected)
 	if idx >= 0 && idx < len(list.rooms)-1 {
 		return list.rooms[idx+1].RoomID
@@ -107,10 +111,10 @@ func (list *RoomList) Next() id.RoomID {
 }
 
 func (list *RoomList) NextWithActivity() id.RoomID {
-	list.RLock()
-	defer list.RUnlock()
+	list.lock.RLock()
+	defer list.lock.RUnlock()
 	for _, room := range list.rooms {
-		if room.UnreadMessages > 0 {
+		if room.UnreadHighlights > 0 || room.UnreadMessages > 0 || room.MarkedUnread {
 			return room.RoomID
 		}
 	}
@@ -144,8 +148,8 @@ func (list *RoomList) OnMouseEvent(event mauview.MouseEvent) bool {
 		return true
 	case tcell.Button1:
 		_, y := event.Position()
-		list.RLock()
-		defer list.RUnlock()
+		list.lock.RLock()
+		defer list.lock.RUnlock()
 		y += list.scrollOffset
 		if y < 0 || y > len(list.rooms) {
 			return false
@@ -170,14 +174,13 @@ func (list *RoomList) Focus() {}
 func (list *RoomList) Blur()  {}
 
 func (list *RoomList) Draw(screen mauview.Screen) {
-	list.Lock()
-	list.rooms = slices.Clone(list.parent.matrix.RoomList.Current())
-	list.Unlock()
-	slices.Reverse(list.rooms)
+	list.lock.Lock()
+	list.rooms = *list.parent.matrix.ReversedRoomList.Load()
+	list.lock.Unlock()
 	list.width, list.height = screen.Size()
 
-	list.RLock()
-	defer list.RUnlock()
+	list.lock.RLock()
+	defer list.lock.RUnlock()
 	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
 	for y, room := range roomSlice {
 		style := tcell.StyleDefault.
@@ -193,7 +196,7 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 
 		if room.UnreadMessages > 0 {
 			unreadMessageCount := "99+"
-			if room.UnreadMessages < 100 {
+			if room.UnreadMessages < 1000 {
 				unreadMessageCount = strconv.Itoa(room.UnreadMessages)
 			}
 			if room.UnreadHighlights > 0 {

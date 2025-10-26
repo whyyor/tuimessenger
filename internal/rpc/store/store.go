@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.mau.fi/util/ptr"
@@ -38,21 +39,24 @@ type GomuksStore struct {
 	jsoncmd.ClientState
 	ImageAuthToken string
 
-	lock            sync.RWMutex
-	invitedRooms    map[id.RoomID]*InvitedRoom
-	rooms           map[id.RoomID]*RoomStore
-	RoomList        EventDispatcher[[]*RoomListEntry]
-	accountData     map[event.Type]*database.AccountData
-	AccountDataSubs MultiNotifier[event.Type]
-	PreferenceCache EventDispatcher[*Preferences]
+	lock             sync.RWMutex
+	invitedRooms     map[id.RoomID]*InvitedRoom
+	rooms            map[id.RoomID]*RoomStore
+	roomList         []*RoomListEntry
+	ReversedRoomList atomic.Pointer[[]*RoomListEntry]
+	accountData      map[event.Type]*database.AccountData
+	AccountDataSubs  MultiNotifier[event.Type]
+	PreferenceCache  EventDispatcher[*Preferences]
 }
 
 func NewStore() *GomuksStore {
-	return &GomuksStore{
+	gs := &GomuksStore{
 		rooms:        make(map[id.RoomID]*RoomStore),
 		invitedRooms: make(map[id.RoomID]*InvitedRoom),
 		accountData:  make(map[event.Type]*database.AccountData),
 	}
+	gs.ReversedRoomList.Store(&[]*RoomListEntry{})
+	return gs
 }
 
 func roomListEntryChanged(entry *jsoncmd.SyncRoom, oldMeta *database.Room) bool {
@@ -117,7 +121,7 @@ func (gs *GomuksStore) makeRoomListEntry(roomStore *RoomStore) *RoomListEntry {
 func (gs *GomuksStore) ApplySync(sync *jsoncmd.SyncComplete) {
 	gs.lock.Lock()
 	defer gs.lock.Unlock()
-	resyncRoomList := len(gs.RoomList.Current()) == 0
+	resyncRoomList := len(gs.roomList) == 0
 	changedRoomListEntries := make(map[id.RoomID]*RoomListEntry)
 	for evtType, ad := range sync.AccountData {
 		evtType.Class = event.AccountDataEventType
@@ -172,7 +176,7 @@ func (gs *GomuksStore) ApplySync(sync *jsoncmd.SyncComplete) {
 			return a.SortingTimestamp.Compare(b.SortingTimestamp)
 		})
 	} else if len(changedRoomListEntries) > 0 {
-		updatedRoomList = slices.DeleteFunc(slices.Clone(gs.RoomList.Current()), func(entry *RoomListEntry) bool {
+		updatedRoomList = slices.DeleteFunc(gs.roomList, func(entry *RoomListEntry) bool {
 			_, didChange := changedRoomListEntries[entry.RoomID]
 			return didChange
 		})
@@ -197,7 +201,10 @@ func (gs *GomuksStore) ApplySync(sync *jsoncmd.SyncComplete) {
 		}
 	}
 	if updatedRoomList != nil {
-		gs.RoomList.Emit(updatedRoomList)
+		gs.roomList = updatedRoomList
+		reversed := slices.Clone(updatedRoomList)
+		slices.Reverse(reversed)
+		gs.ReversedRoomList.Store(&reversed)
 	}
 }
 
@@ -220,5 +227,6 @@ func (gs *GomuksStore) Clear() {
 	clear(gs.invitedRooms)
 	clear(gs.accountData)
 	gs.PreferenceCache.Emit(nil)
-	gs.RoomList.Emit([]*RoomListEntry{})
+	gs.roomList = nil
+	gs.ReversedRoomList.Store(&[]*RoomListEntry{})
 }
