@@ -18,6 +18,8 @@ package messages
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -240,7 +242,12 @@ func (msg *UIMessage) DrawReactions(screen mauview.Screen) {
 	screen = mauview.NewProxyScreen(screen, 0, height-1, width, 1)
 
 	x := 0
-	for reaction, count := range msg.Event.Reactions {
+	reactionKeys := slices.Sorted(maps.Keys(msg.Event.Reactions))
+	for _, reaction := range reactionKeys {
+		count := msg.Event.Reactions[reaction]
+		if count == 0 {
+			continue
+		}
 		_, drawn := mauview.PrintWithStyle(screen, fmt.Sprintf("%d×%s", count, reaction), x, 0, width-x, mauview.AlignLeft, tcell.StyleDefault.Foreground(mauview.Styles.PrimaryTextColor).Background(tcell.ColorDarkGreen))
 		x += drawn + 1
 		if x >= width {

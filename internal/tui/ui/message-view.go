@@ -368,7 +368,7 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 			screen.SetCell(usernameX+view.SenderWidth, line, tcell.StyleDefault.Foreground(tcell.ColorDarkRed), '*')
 		}
 
-		msg.IsSelected = msg.RowID == view.selected
+		msg.IsSelected = view.selected != 0 && msg.RowID == view.selected
 		msg.Draw(mauview.NewProxyScreen(screen, messageX, line, width-messageX, msg.Height()))
 		line += msg.Height()
 	}
