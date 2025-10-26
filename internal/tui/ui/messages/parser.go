@@ -42,8 +42,12 @@ func ParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences, room
 	if replyTo := evt.GetReplyTo(); len(replyTo) > 0 {
 		if replyToEvt := room.GetEventByID(replyTo); replyToEvt != nil {
 			if replyToMsg, ok := replyToEvt.RenderMeta.(*UIMessage); ok {
-				msg.ReplyTo = replyToMsg.Clone()
-				msg.ReplyTo.IsReplyBubble = true
+				if replyToMsg != nil {
+					msg.ReplyTo = replyToMsg.Clone()
+					msg.ReplyTo.IsReplyBubble = true
+				} else {
+					// TODO something
+				}
 			} else if replyToMsg = directParseEvent(matrix, prefs, room, replyToEvt); replyToMsg != nil {
 				msg.ReplyTo = replyToMsg
 				msg.ReplyTo.IsReplyBubble = true
@@ -59,22 +63,17 @@ func ParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences, room
 }
 
 func directParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
-	displayname := string(evt.Sender)
-	member := room.GetMember(evt.Sender)
-	if member != nil {
-		displayname = member.Displayname
-	}
 	if evt.DecryptionError != "" {
-		return NewExpandedTextMessage(evt, displayname, tstring.NewStyleTString(evt.DecryptionError, tcell.StyleDefault.Italic(true)))
+		return NewExpandedTextMessage(evt, room, tstring.NewStyleTString(evt.DecryptionError, tcell.StyleDefault.Italic(true)))
 	}
 	switch evt.GetType() {
 	case event.EventMessage, event.EventSticker:
-		if evt.RedactedBy == "" {
-			return NewRedactedMessage(evt, displayname)
+		if evt.RedactedBy != "" {
+			return NewRedactedMessage(evt, room)
 		}
-		return ParseMessage(matrix, prefs, room, evt, displayname)
+		return ParseMessage(matrix, prefs, room, evt)
 	case event.StateTopic, event.StateRoomName, event.StateCanonicalAlias:
-		return ParseStateEvent(evt, displayname)
+		return ParseStateEvent(room, evt)
 	case event.StateMember:
 		return ParseMembershipEvent(room, evt)
 	default:
@@ -121,9 +120,11 @@ NewLoop:
 	return
 }
 
-func ParseStateEvent(evt *database.Event, displayname string) *UIMessage {
+func ParseStateEvent(room *store.RoomStore, evt *database.Event) *UIMessage {
 	mEvt := evt.AsMautrix()
 
+	// TODO make this update
+	displayname := room.GetDisplayname(evt.Sender)
 	text := tstring.NewColorTString(displayname, widget.GetHashColor(evt.Sender)).Append(" ")
 	switch content := mEvt.Content.Parsed.(type) {
 	case *event.TopicEventContent:
@@ -174,15 +175,17 @@ func ParseStateEvent(evt *database.Event, displayname string) *UIMessage {
 			text = text.AppendColor(" for this room", tcell.ColorGreen)
 		}
 	}
-	return NewExpandedTextMessage(evt, displayname, text)
+	return NewExpandedTextMessage(evt, room, text)
 }
 
-func ParseMessage(matrix *client.GomuksClient, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event, displayname string) *UIMessage {
+func ParseMessage(matrix *client.GomuksClient, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
 	content := evt.GetMautrixContent().AsMessage()
 	switch content.MsgType {
 	case event.MsgText, event.MsgNotice, event.MsgEmote:
 		var htmlEntity html.Entity
 		if content.Format == event.FormatHTML && len(content.FormattedBody) > 0 {
+			// TODO make this update
+			displayname := room.GetDisplayname(evt.Sender)
 			htmlEntity = html.Parse(prefs, room, content, evt, displayname)
 			if htmlEntity == nil {
 				htmlEntity = html.NewTextEntity("Malformed message")
@@ -195,9 +198,9 @@ func ParseMessage(matrix *client.GomuksClient, prefs *config.UserPreferences, ro
 			htmlEntity = html.NewTextEntity("Blank message")
 			htmlEntity.AdjustStyle(html.AdjustStyleTextColor(tcell.ColorRed), html.AdjustStyleReasonNormal)
 		}
-		return NewHTMLMessage(evt, content, displayname, htmlEntity)
+		return NewHTMLMessage(room, evt, content, htmlEntity)
 	case event.MsgImage, event.MsgVideo, event.MsgAudio, event.MsgFile:
-		msg := NewFileMessage(matrix, evt, content, displayname)
+		msg := NewFileMessage(room, matrix, evt, content)
 		if !prefs.DisableDownloads {
 			renderer := msg.Renderer.(*FileMessage)
 			renderer.DownloadPreview()
@@ -298,5 +301,7 @@ func ParseMembershipEvent(room *store.RoomStore, evt *database.Event) *UIMessage
 		return nil
 	}
 
-	return NewExpandedTextMessage(evt, displayname, text)
+	ui := NewExpandedTextMessage(evt, room, text)
+	ui.OverrideSenderName = displayname
+	return ui
 }

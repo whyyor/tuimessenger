@@ -365,14 +365,9 @@ func (rs *RoomStore) GetPowerLevels() *event.PowerLevelsEventContent {
 	if createEvt == nil {
 		return &event.PowerLevelsEventContent{}
 	}
-	var content event.PowerLevelsEventContent
-	err := json.Unmarshal(evt.Content, &content)
-	if err != nil {
-		return &event.PowerLevelsEventContent{}
-	}
-	content.CreateEvent = createEvt.AsRawMautrix()
-	_ = content.CreateEvent.Content.ParseRaw(content.CreateEvent.Type)
-	return &content
+	pls := evt.GetMautrixContent().AsPowerLevels()
+	pls.CreateEvent = createEvt.AsMautrix()
+	return pls
 }
 
 func (rs *RoomStore) GetMembers() []*AutocompleteMemberEntry {
@@ -428,10 +423,13 @@ func (rs *RoomStore) GetMember(userID id.UserID) *event.MemberEventContent {
 	if evt == nil {
 		return nil
 	}
-	var content event.MemberEventContent
-	err := json.Unmarshal(evt.Content, &content)
-	if err != nil {
-		return nil
+	return evt.GetMautrixContent().AsMember()
+}
+
+func (rs *RoomStore) GetDisplayname(userID id.UserID) string {
+	memberEvt := rs.GetMember(userID)
+	if memberEvt == nil || memberEvt.Displayname == "" {
+		return userID.Localpart()
 	}
-	return &content
+	return memberEvt.Displayname
 }

@@ -245,11 +245,25 @@ func (view *MainView) SwitchRoom(roomID id.RoomID) {
 	debug.Print("Selecting room", roomID)
 	view.roomList.SetSelected(roomID)
 	view.flex.SetFocused(view.roomView)
-	view.currentRoom = NewRoomView(view, roomData)
-	view.roomView.SetInnerComponent(view.currentRoom)
+	currentRoom := NewRoomView(view, roomData)
+	view.currentRoom = currentRoom
+	view.roomView.SetInnerComponent(currentRoom)
 	view.roomView.Focus()
 	if len(ptr.Val(roomData.TimelineCache.Current())) < 50 {
 		go view.LoadHistory(roomID)
+	}
+	if !roomData.FullMembersLoaded.Load() {
+		// TODO only load necessary members rather than all?
+		go func() {
+			defer debug.Recover()
+			err := view.matrix.LoadRoomState(context.TODO(), roomID, true, false)
+			if err != nil {
+				debug.Print("Failed to load room state for", roomID, err)
+			} else {
+				currentRoom.UpdateUserList()
+				view.parent.Render()
+			}
+		}()
 	}
 	debug.Print("Finished setting selected")
 	view.parent.Render()

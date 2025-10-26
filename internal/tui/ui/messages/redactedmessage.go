@@ -22,13 +22,14 @@ import (
 	"maunium.net/go/mautrix/event"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
+	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 )
 
 type RedactedMessage struct{}
 
-func NewRedactedMessage(evt *database.Event, displayname string) *UIMessage {
-	return newUIMessage(evt, &event.MessageEventContent{}, displayname, &RedactedMessage{})
+func NewRedactedMessage(evt *database.Event, room *store.RoomStore) *UIMessage {
+	return newUIMessage(room, evt, &event.MessageEventContent{}, "", &RedactedMessage{})
 }
 
 func (msg *RedactedMessage) Clone() MessageRenderer {

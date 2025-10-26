@@ -106,11 +106,12 @@ func (view *MessageView) handleUsernameClick(message *messages.UIMessage, prevMe
 	//	return false
 	//}
 
-	if message.SenderName == "---" || message.SenderName == "-->" || message.SenderName == "<--" || message.MsgType == event.MsgEmote {
+	senderName := message.GetRawSenderName()
+	if senderName == "---" || senderName == "-->" || senderName == "<--" || message.MsgType == event.MsgEmote {
 		return false
 	}
 
-	sender := format.MarkdownMentionWithName(message.SenderName, message.Sender)
+	sender := format.MarkdownMentionWithName(senderName, message.Sender)
 
 	cursorPos := view.parent.input.GetCursorOffset()
 	text := view.parent.input.GetText()
@@ -287,7 +288,7 @@ func (view *MessageView) CapturePlaintext(height int) string {
 			if len(message.GetSenderName()) > 0 {
 				sender = fmt.Sprintf(" <%s>", message.GetSenderName())
 			} else if message.MsgType == event.MsgEmote {
-				sender = fmt.Sprintf(" * %s", message.SenderName)
+				sender = fmt.Sprintf(" * %s", message.GetRawSenderName())
 			}
 			fmt.Fprintf(&buf, "%s%s %s\n", message.FormatTime(), sender, message.PlainText())
 			prevMessage = message
@@ -422,17 +423,14 @@ func (view *MessageView) update(width int) {
 			prevLastEventNotFound = true
 		}
 		if evt.RenderMeta == nil {
-			// TODO fix displaynames
-			evt.RenderMeta = messages.ParseMessage(
-				view.matrix, &view.config.Preferences, view.parent.Room, evt, evt.Sender.Localpart(),
-			)
+			evt.RenderMeta = messages.ParseEvent(view.matrix, &view.config.Preferences, view.parent.Room, evt)
 		}
 		uiMsg := evt.RenderMeta.(*messages.UIMessage)
 		if uiMsg == nil {
 			continue
 		}
 		if !uiMsg.SameDate(prev) {
-			dateChange := messages.NewDateChangeMessage(fmt.Sprintf("Date changed to %s", uiMsg.FormatDate()))
+			dateChange := messages.NewDateChangeMessage(view.parent.Room, fmt.Sprintf("Date changed to %s", uiMsg.FormatDate()))
 			appendBuffer(dateChange)
 		}
 		appendBuffer(uiMsg)

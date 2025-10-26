@@ -27,6 +27,7 @@ import (
 	"maunium.net/go/mautrix/event"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
+	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/ui/widget"
 )
@@ -66,8 +67,9 @@ func (rs ReactionSlice) Swap(i, j int) {
 
 type UIMessage struct {
 	*database.Event
+	Room               *store.RoomStore
 	MsgType            event.MessageType
-	SenderName         string
+	OverrideSenderName string
 	DefaultSenderColor tcell.Color
 	IsService          bool
 	IsSelected         bool
@@ -87,14 +89,21 @@ func (msg *UIMessage) GetEvent() *database.Event {
 const DateFormat = "January _2, 2006"
 const TimeFormat = "15:04:05"
 
-func newUIMessage(evt *database.Event, msgContent *event.MessageEventContent, displayname string, renderer MessageRenderer) *UIMessage {
+func newUIMessage(
+	room *store.RoomStore,
+	evt *database.Event,
+	msgContent *event.MessageEventContent,
+	displayname string,
+	renderer MessageRenderer,
+) *UIMessage {
 	msgtype := msgContent.MsgType
 	if len(msgtype) == 0 {
 		msgtype = event.MessageType(evt.Type)
 	}
 
 	return &UIMessage{
-		SenderName:         displayname,
+		Room:               room,
+		OverrideSenderName: displayname,
 		DefaultSenderColor: widget.GetHashColor(evt.Sender),
 		MsgType:            msgtype,
 		IsService:          false,
@@ -120,12 +129,17 @@ func (msg *UIMessage) GetSenderName() string {
 		// Emotes don't show a separate sender, it's included in the buffer.
 		return ""
 	default:
-		return msg.SenderName
+		return msg.GetRawSenderName()
 	}
 }
 
-func (msg *UIMessage) NotificationSenderName() string {
-	return msg.SenderName
+func (msg *UIMessage) GetRawSenderName() string {
+	if msg.OverrideSenderName != "" {
+		return msg.OverrideSenderName
+	} else if msgContent, ok := msg.GetMautrixContent().Parsed.(*event.MessageEventContent); ok && msgContent.BeeperPerMessageProfile != nil && msgContent.BeeperPerMessageProfile.Displayname != "" {
+		return msgContent.BeeperPerMessageProfile.Displayname
+	}
+	return msg.Room.GetDisplayname(msg.Sender)
 }
 
 func (msg *UIMessage) NotificationContent() string {
@@ -153,8 +167,8 @@ func (msg *UIMessage) SenderColor() tcell.Color {
 	switch {
 	case stateColor != tcell.ColorDefault:
 		return stateColor
-	case msg.Type == event.StateMember.Type:
-		return widget.GetHashColor(msg.SenderName)
+	//case msg.Type == event.StateMember.Type:
+	//	return widget.GetHashColor(msg.SenderName)
 	case msg.IsService:
 		return tcell.ColorGray
 	default:
@@ -305,7 +319,7 @@ func (msg *UIMessage) DrawReply(screen mauview.Screen) mauview.Screen {
 	width, height := screen.Size()
 	replyHeight := msg.ReplyTo.Height()
 	widget.WriteLineSimpleColor(screen, "In reply to", 1, 0, tcell.ColorGreen)
-	widget.WriteLineSimpleColor(screen, msg.ReplyTo.SenderName, 13, 0, msg.ReplyTo.SenderColor())
+	widget.WriteLineSimpleColor(screen, msg.ReplyTo.GetRawSenderName(), 13, 0, msg.ReplyTo.SenderColor())
 	for y := 0; y < 1+replyHeight; y++ {
 		screen.SetCell(0, y, tcell.StyleDefault, '▊')
 	}
@@ -318,13 +332,13 @@ func (msg *UIMessage) String() string {
 	return fmt.Sprintf(`&messages.UIMessage{
     ID="%s", TxnID="%s",
     MsgType="%s", Timestamp=%s,
-    Sender={ID="%s", Name="%s", Color=#%X},
+    Sender={ID="%s", OverrideName="%s", Color=#%X},
     IsService=%t,
     Renderer=%s,
 }`,
 		msg.ID, msg.TransactionID,
 		msg.MsgType, msg.Timestamp.String(),
-		msg.Sender, msg.SenderName, msg.DefaultSenderColor.Hex(),
+		msg.Sender, msg.OverrideSenderName, msg.DefaultSenderColor.Hex(),
 		msg.IsService, msg.Renderer.String())
 }
 

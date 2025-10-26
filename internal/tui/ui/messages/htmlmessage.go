@@ -22,6 +22,7 @@ import (
 	"maunium.net/go/mautrix/event"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
+	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/ui/messages/html"
 )
@@ -31,8 +32,8 @@ type HTMLMessage struct {
 	TextColor tcell.Color
 }
 
-func NewHTMLMessage(evt *database.Event, content *event.MessageEventContent, displayname string, root html.Entity) *UIMessage {
-	return newUIMessage(evt, content, displayname, &HTMLMessage{
+func NewHTMLMessage(room *store.RoomStore, evt *database.Event, content *event.MessageEventContent, root html.Entity) *UIMessage {
+	return newUIMessage(room, evt, content, "", &HTMLMessage{
 		Root: root,
 	})
 }

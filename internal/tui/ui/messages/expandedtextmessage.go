@@ -26,6 +26,7 @@ import (
 	"maunium.net/go/mautrix/event"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
+	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/ui/messages/tstring"
 )
@@ -36,8 +37,8 @@ type ExpandedTextMessage struct {
 }
 
 // NewExpandedTextMessage creates a new ExpandedTextMessage object with the provided values and the default state.
-func NewExpandedTextMessage(evt *database.Event, displayname string, text tstring.TString) *UIMessage {
-	return newUIMessage(evt, &event.MessageEventContent{}, displayname, &ExpandedTextMessage{
+func NewExpandedTextMessage(evt *database.Event, room *store.RoomStore, text tstring.TString) *UIMessage {
+	return newUIMessage(room, evt, &event.MessageEventContent{}, "", &ExpandedTextMessage{
 		Text: text,
 	})
 }
@@ -48,26 +49,27 @@ func NewServiceMessage(text string) *UIMessage {
 			Sender:    "*",
 			Timestamp: jsontime.UnixMilliNow(),
 		},
-		SenderName: "*",
-		IsService:  true,
+		OverrideSenderName: "*",
+		IsService:          true,
 		Renderer: &ExpandedTextMessage{
 			Text: tstring.NewTString(text),
 		},
 	}
 }
 
-func NewDateChangeMessage(text string) *UIMessage {
+func NewDateChangeMessage(room *store.RoomStore, text string) *UIMessage {
 	midnight := time.Now()
 	midnight = time.Date(midnight.Year(), midnight.Month(), midnight.Day(),
 		0, 0, 0, 0,
 		midnight.Location())
 	return &UIMessage{
+		Room: room,
 		Event: &database.Event{
 			Sender:    "*",
 			Timestamp: jsontime.UM(midnight),
 		},
-		SenderName: "*",
-		IsService:  true,
+		OverrideSenderName: "*",
+		IsService:          true,
 		Renderer: &ExpandedTextMessage{
 			Text: tstring.NewColorTString(text, tcell.ColorGreen),
 		},

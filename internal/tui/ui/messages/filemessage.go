@@ -29,6 +29,7 @@ import (
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/client"
+	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
 	"go.mau.fi/gomuks/tui/lib/ansimage"
@@ -51,7 +52,7 @@ type FileMessage struct {
 }
 
 // NewFileMessage creates a new FileMessage object with the provided values and the default state.
-func NewFileMessage(matrix *client.GomuksClient, evt *database.Event, content *event.MessageEventContent, displayname string) *UIMessage {
+func NewFileMessage(room *store.RoomStore, matrix *client.GomuksClient, evt *database.Event, content *event.MessageEventContent) *UIMessage {
 	var url id.ContentURI
 	var isEncrypted bool
 	if content.File != nil {
@@ -60,7 +61,7 @@ func NewFileMessage(matrix *client.GomuksClient, evt *database.Event, content *e
 	} else {
 		url = content.URL.ParseOrIgnore()
 	}
-	return newUIMessage(evt, content, displayname, &FileMessage{
+	return newUIMessage(room, evt, content, "", &FileMessage{
 		Type:        content.MsgType,
 		Body:        content.Body,
 		URL:         url,
