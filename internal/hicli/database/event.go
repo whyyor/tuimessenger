@@ -381,6 +381,7 @@ type Event struct {
 
 	LastEditRef *Event `json:"-"`
 	Pending     bool   `json:"-"`
+	RenderMeta  any    `json:"-"`
 }
 
 func MautrixToEvent(evt *event.Event) *Event {
