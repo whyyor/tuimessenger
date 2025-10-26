@@ -445,7 +445,7 @@ func (parser *htmlParser) singleNodeToEntity(node *html.Node) Entity {
 	switch node.Type {
 	case html.TextNode:
 		if !parser.preserveWhitespace {
-			node.Data = strings.ReplaceAll(node.Data, "\n", "")
+			node.Data = strings.ReplaceAll(node.Data, "\n", " ")
 			node.Data = spaces.ReplaceAllLiteralString(node.Data, " ")
 		}
 		return TextToEntity(node.Data, parser.evt.ID, parser.prefs.EnableInlineURLs())
