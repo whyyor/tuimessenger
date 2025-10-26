@@ -24,7 +24,6 @@ import (
 	"syscall"
 
 	"github.com/gdamore/tcell/v2"
-	sync "github.com/sasha-s/go-deadlock"
 	"github.com/zyedidia/clipboard"
 	"go.mau.fi/mauview"
 	"go.mau.fi/util/exerrors"
@@ -74,11 +73,6 @@ func NewGomuksTUI() *GomuksTUI {
 		Config: config.NewConfig(),
 	}
 	debug.OnRecover = ui.app.ForceStop
-	sync.Opts.LogBuf, _ = os.OpenFile("/tmp/gomuks-deadlock.log", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	sync.Opts.OnPotentialDeadlock = func() {
-		ui.app.ForceStop()
-		os.Exit(2)
-	}
 	return ui
 }
 

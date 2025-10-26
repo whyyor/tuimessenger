@@ -20,9 +20,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"sync/atomic"
-
-	sync "github.com/sasha-s/go-deadlock"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"

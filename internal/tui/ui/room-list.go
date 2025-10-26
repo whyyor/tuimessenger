@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"sync"
 
 	"github.com/gdamore/tcell/v2"
-	sync "github.com/sasha-s/go-deadlock"
 	"go.mau.fi/mauview"
 	"maunium.net/go/mautrix/id"
 
