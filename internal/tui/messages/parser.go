@@ -29,9 +29,9 @@ import (
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
-	"go.mau.fi/gomuks/tui/ui/messages/html"
-	"go.mau.fi/gomuks/tui/ui/messages/tstring"
-	"go.mau.fi/gomuks/tui/ui/widget"
+	"go.mau.fi/gomuks/tui/messages/html"
+	"go.mau.fi/gomuks/tui/messages/tstring"
+	"go.mau.fi/gomuks/tui/widget"
 )
 
 func ParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {

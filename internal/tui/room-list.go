@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package ui
+package tui
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 	"maunium.net/go/mautrix/id"
 
 	"go.mau.fi/gomuks/pkg/rpc/store"
-	"go.mau.fi/gomuks/tui/ui/widget"
+	"go.mau.fi/gomuks/tui/widget"
 )
 
 type RoomList struct {

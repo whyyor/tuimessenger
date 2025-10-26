@@ -28,7 +28,7 @@ import (
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/ui/messages/tstring"
+	"go.mau.fi/gomuks/tui/messages/tstring"
 )
 
 type ExpandedTextMessage struct {

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package ui
+package tui
 
 import (
 	"fmt"
@@ -32,8 +32,8 @@ import (
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/client"
 	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/ui/messages"
-	"go.mau.fi/gomuks/tui/ui/widget"
+	"go.mau.fi/gomuks/tui/messages"
+	"go.mau.fi/gomuks/tui/widget"
 )
 
 type MessageView struct {

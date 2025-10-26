@@ -21,7 +21,7 @@ import (
 	"regexp"
 
 	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/ui/messages/tstring"
+	"go.mau.fi/gomuks/tui/messages/tstring"
 )
 
 // Regular expressions used to split lines when calculating the buffer.

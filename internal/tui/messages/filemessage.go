@@ -33,7 +33,7 @@ import (
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
 	"go.mau.fi/gomuks/tui/lib/ansimage"
-	"go.mau.fi/gomuks/tui/ui/messages/tstring"
+	"go.mau.fi/gomuks/tui/messages/tstring"
 )
 
 type FileMessage struct {

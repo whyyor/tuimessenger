@@ -24,7 +24,7 @@ import (
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/ui/messages/html"
+	"go.mau.fi/gomuks/tui/messages/html"
 )
 
 type HTMLMessage struct {

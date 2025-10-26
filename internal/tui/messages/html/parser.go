@@ -35,7 +35,7 @@ import (
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/ui/widget"
+	"go.mau.fi/gomuks/tui/widget"
 )
 
 type htmlParser struct {

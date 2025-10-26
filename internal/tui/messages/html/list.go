@@ -24,7 +24,7 @@ import (
 
 	"maunium.net/go/mautrix/format"
 
-	"go.mau.fi/gomuks/tui/ui/widget"
+	"go.mau.fi/gomuks/tui/widget"
 )
 
 type ListEntity struct {
