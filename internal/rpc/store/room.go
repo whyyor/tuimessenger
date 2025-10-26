@@ -66,6 +66,7 @@ type RoomStore struct {
 	membersCache      []*AutocompleteMemberEntry
 	Typing            EventDispatcher[[]id.UserID]
 	PreferenceCache   EventDispatcher[*Preferences]
+	lastMarkedRead    database.EventRowID
 }
 
 func NewRoomStore(parent *GomuksStore, meta *database.Room) *RoomStore {
@@ -430,4 +431,28 @@ func (rs *RoomStore) GetDisplayname(userID id.UserID) string {
 		return userID.Localpart()
 	}
 	return memberEvt.Displayname
+}
+
+func (rs *RoomStore) GetMarkAsReadParams() *jsoncmd.MarkReadParams {
+	rs.lock.RLock()
+	defer rs.lock.RUnlock()
+	if len(rs.timeline) == 0 {
+		return nil
+	}
+	lastRowID := rs.timeline[len(rs.timeline)-1].Event
+	if lastRowID == rs.lastMarkedRead {
+		return nil
+	}
+	evt, ok := rs.eventsByRowID[lastRowID]
+	if !ok {
+		return nil
+	}
+	rs.lastMarkedRead = lastRowID
+	receiptType := event.ReceiptTypeReadPrivate
+	// TODO get receipt type from preferences
+	return &jsoncmd.MarkReadParams{
+		RoomID:      rs.ID,
+		EventID:     evt.ID,
+		ReceiptType: receiptType,
+	}
 }

@@ -114,15 +114,18 @@ func (view *MainView) BumpFocus(roomView *RoomView) {
 }
 
 func (view *MainView) MarkRead(roomView *RoomView) {
-	//if roomView != nil && roomView.Room.HasNewMessages() && roomView.MessageView().GetScrollOffset() == 0 {
-	//	msgList := roomView.MessageView().messages
-	//	if len(msgList) > 0 {
-	//		msg := msgList[len(msgList)-1]
-	//		if roomView.Room.MarkRead(msg.EventID) {
-	//			view.matrix.MarkRead(roomView.Room.ID, msg.EventID)
-	//		}
-	//	}
-	//}
+	if roomView != nil && roomView == view.currentRoom && roomView.MessageView().GetScrollOffset() == 0 {
+		req := roomView.Room.GetMarkAsReadParams()
+		if req != nil {
+			go func() {
+				defer debug.Recover()
+				_, err := view.matrix.MarkRead(context.TODO(), req)
+				if err != nil {
+					debug.Print("Failed to mark read for", roomView.Room.ID, err)
+				}
+			}()
+		}
+	}
 }
 
 func (view *MainView) InputChanged(roomView *RoomView, text string) {
@@ -204,6 +207,7 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 const WheelScrollOffsetDiff = 3
 
 func (view *MainView) OnMouseEvent(event mauview.MouseEvent) bool {
+	view.BumpFocus(view.currentRoom)
 	if view.modal != nil {
 		return view.modal.OnMouseEvent(event)
 	}
@@ -250,6 +254,7 @@ func (view *MainView) SwitchRoom(roomID id.RoomID) {
 	view.currentRoom = currentRoom
 	view.roomView.SetInnerComponent(currentRoom)
 	view.roomView.Focus()
+	view.MarkRead(currentRoom)
 	if len(ptr.Val(roomData.TimelineCache.Current())) < 50 {
 		go view.LoadHistory(roomID)
 	}
@@ -312,4 +317,7 @@ func (view *MainView) LoadHistory(roomID id.RoomID) {
 		return
 	}
 	view.parent.Render()
+	if room := view.currentRoom; room != nil && room.Room.ID == roomID {
+		view.MarkRead(room)
+	}
 }
