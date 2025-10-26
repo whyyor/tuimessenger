@@ -27,6 +27,8 @@ type GomuksClient struct {
 
 	InitComplete *exsync.Event
 	EventHandler rpc.EventHandler
+
+	SendNotification func(room *store.RoomStore, notif jsoncmd.SyncNotification)
 }
 
 func NewGomuksClient(baseURL string) (*GomuksClient, error) {
@@ -53,6 +55,20 @@ func (gc *GomuksClient) handleEvent(ctx context.Context, rawEvt any) {
 		gc.InitComplete.Set()
 	case *jsoncmd.SyncComplete:
 		gc.GomuksStore.ApplySync(evt)
+		for _, room := range evt.Rooms {
+			if len(room.Notifications) == 0 {
+				continue
+			}
+			roomStore := gc.GomuksStore.GetRoom(room.Meta.ID)
+			for _, notif := range room.Notifications {
+				notif.Room = roomStore.Meta.Current()
+				notif.Event = roomStore.GetEventByRowID(notif.RowID)
+				if notif.Event == nil {
+					continue
+				}
+				gc.SendNotification(roomStore, notif)
+			}
+		}
 	case *jsoncmd.EventsDecrypted:
 		callRoomMethod(gc, evt.RoomID, (*store.RoomStore).ApplyDecrypted, evt)
 	case *jsoncmd.SendComplete:

@@ -25,9 +25,12 @@ import (
 
 var notifySendPath string
 var audioCommand string
-var tryAudioCommands = []string{"ogg123", "paplay"}
+var tryAudioCommands = []string{"ogg123", "paplay", "cvlc"}
 var soundNormal = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
 var soundCritical = "/usr/share/sounds/freedesktop/stereo/complete.oga"
+var audioCommandArgs = map[string]string{
+	"cvlc": "--play-and-exit",
+}
 
 func getSoundPath(env, defaultPath string) string {
 	if path, ok := os.LookupEnv(env); ok {
@@ -76,8 +79,15 @@ func Send(title, text string, critical, sound bool) error {
 		if critical && len(soundCritical) > 0 {
 			audioFile = soundCritical
 		}
+		extraArg := audioCommandArgs[audioCommand]
+		var audioArgs []string
+		if extraArg != "" {
+			audioArgs = []string{extraArg, audioFile}
+		} else {
+			audioArgs = []string{audioFile}
+		}
 		go func() {
-			_ = exec.Command(audioCommand, audioFile).Run()
+			_ = exec.Command(audioCommand, audioArgs...).Run()
 		}()
 	}
 	return exec.Command(notifySendPath, args...).Run()

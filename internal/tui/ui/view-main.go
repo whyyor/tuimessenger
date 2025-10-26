@@ -28,9 +28,12 @@ import (
 	"go.mau.fi/util/ptr"
 	"maunium.net/go/mautrix/id"
 
+	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
 	"go.mau.fi/gomuks/pkg/rpc/client"
+	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
+	"go.mau.fi/gomuks/tui/lib/notification"
 	"go.mau.fi/gomuks/tui/ui/widget"
 )
 
@@ -261,37 +264,40 @@ func (view *MainView) SetTyping(roomID id.RoomID, users []id.UserID) {
 	//}
 }
 
-//func (view *MainView) NotifyMessage(room *rooms.Room, message ifc2.Message, should pushrules.PushActionArrayShould) {
-//	view.Bump(room)
-//	uiMsg, ok := message.(*messages.UIMessage)
-//	if ok && uiMsg.SenderID == view.config.UserID {
-//		return
-//	}
-//	// Whether or not the room where the message came is the currently shown room.
-//	isCurrent := room == view.roomList.SelectedRoom()
-//	// Whether or not the terminal window is focused.
-//	recentlyFocused := time.Now().Add(-30 * time.Second).Before(view.lastFocusTime)
-//	isFocused := time.Now().Add(-5 * time.Second).Before(view.lastFocusTime)
-//
-//	if !isCurrent || !isFocused {
-//		// The message is not in the current room, show new message status in room list.
-//		room.AddUnread(message.ID(), should.Notify, should.Highlight)
-//	} else {
-//		view.matrix.MarkRead(room.ID, message.ID())
-//	}
-//
-//	if should.Notify && !recentlyFocused && !view.config.Preferences.DisableNotifications {
-//		// Push rules say notify and the terminal is not focused, send desktop notification.
-//		shouldPlaySound := should.PlaySound &&
-//			should.SoundName == "default" &&
-//			view.config.NotifySound
-//		sendNotification(room, message.NotificationSenderName(), message.NotificationContent(), should.Highlight, shouldPlaySound)
-//	}
-//
-//	// TODO this should probably happen somewhere else
-//	//      (actually it's probably completely broken now)
-//	message.SetIsHighlight(should.Highlight)
-//}
+func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNotification) {
+	if view.config.Preferences.DisableNotifications {
+		return
+	}
+	currentRoom := view.currentRoom
+	isCurrent := currentRoom != nil && currentRoom.Room.ID == room.ID
+	recentlyFocused := time.Now().Add(-30 * time.Second).Before(view.lastFocusTime)
+	if recentlyFocused && isCurrent {
+		debug.Print("Not sending notification: room is focused")
+		return
+	}
+	body := notif.Event.GetMautrixContent().AsMessage().Body
+	if len(body) == 0 {
+		debug.Print("Not sending notification with empty body")
+		return
+	}
+	if len(body) > 400 {
+		body = body[:350] + " […]"
+	}
+	memberEvt := room.GetMember(notif.Event.Sender)
+	notifTitle := notif.Event.Sender.Localpart()
+	if memberEvt != nil && memberEvt.Displayname != "" {
+		notifTitle = memberEvt.Displayname
+	}
+	if roomName := room.Meta.Current().Name; roomName != nil && *roomName != "" && notifTitle != *roomName {
+		notifTitle = fmt.Sprintf("%s (%s)", notifTitle, *roomName)
+	}
+	err := notification.Send(notifTitle, body, notif.Highlight, notif.Sound)
+	if err != nil {
+		debug.Print("Failed to send notification:", err)
+	} else {
+		debug.Print("Sent notification:", notifTitle, body)
+	}
+}
 
 func (view *MainView) LoadHistory(roomID id.RoomID) {
 	defer debug.Recover()
@@ -312,7 +318,6 @@ func (view *MainView) LoadHistory(roomID id.RoomID) {
 	err := view.matrix.LoadMoreHistory(context.TODO(), roomID)
 	if err != nil {
 		debug.Print("Failed to fetch history for", roomID, err)
-		//view.parent.Render()
 		return
 	}
 	view.parent.Render()

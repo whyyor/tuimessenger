@@ -122,6 +122,7 @@ func (ui *GomuksTUI) Run() {
 }
 
 func (ui *GomuksTUI) Connect() {
+	ui.gmx.SendNotification = ui.MainView.NotifyMessage
 	ui.gmx.EventHandler = func(ctx context.Context, rawEvt any) {
 		switch rawEvt.(type) {
 		case *jsoncmd.SyncComplete:
