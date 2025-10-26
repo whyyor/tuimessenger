@@ -143,7 +143,7 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 		url := msg.matrix.GetDownloadURL(msg.URL, msg.IsEncrypted, true)
 		var urlTString tstring.TString
 		if prefs.EnableInlineURLs() {
-			urlTString = tstring.NewStyleTString(url, tcell.StyleDefault.Url(url).UrlId(msg.eventID.String()))
+			urlTString = tstring.NewStyleTString("Download media", tcell.StyleDefault.Url(url).UrlId(msg.eventID.String()))
 		} else {
 			urlTString = tstring.NewTString(url)
 		}
