@@ -31,6 +31,7 @@ import (
 
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
 	"go.mau.fi/gomuks/pkg/rpc/client"
+	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
 )
@@ -51,6 +52,8 @@ type GomuksTUI struct {
 
 	MainView  *MainView
 	LoginView *LoginView
+
+	NeedsRender bool
 
 	views map[View]mauview.Component
 }
@@ -116,17 +119,23 @@ func (ui *GomuksTUI) Run() {
 }
 
 func (ui *GomuksTUI) Connect() {
+	ui.gmx.ReversedRoomList.Listen(func(_ []*store.RoomListEntry) {
+		ui.NeedsRender = true
+	})
 	ui.gmx.SendNotification = ui.MainView.NotifyMessage
-	ui.gmx.EventHandler = func(ctx context.Context, rawEvt any) {
-		switch rawEvt.(type) {
-		case *jsoncmd.SyncComplete:
-			// TODO make this smarter
+	ui.gmx.EventHandler = ui.gomuksEventHandler
+	ui.MainView.matrix = ui.gmx
+	exerrors.PanicIfNotNil(ui.gmx.Connect(context.TODO()))
+}
+
+func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
+	switch rawEvt.(type) {
+	case *jsoncmd.SyncComplete:
+		if ui.NeedsRender {
 			debug.Print("Rendering...")
 			ui.Render()
 		}
 	}
-	ui.MainView.matrix = ui.gmx
-	exerrors.PanicIfNotNil(ui.gmx.Connect(context.TODO()))
 }
 
 func (ui *GomuksTUI) Stop() {
@@ -145,6 +154,7 @@ func (ui *GomuksTUI) Finish() {
 
 func (ui *GomuksTUI) Render() {
 	ui.app.Redraw()
+	ui.NeedsRender = false
 }
 
 func (ui *GomuksTUI) OnLogin() {

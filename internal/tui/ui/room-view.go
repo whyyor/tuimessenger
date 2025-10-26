@@ -76,6 +76,9 @@ type RoomView struct {
 		textCache string
 		time      time.Time
 	}
+
+	unlistenMeta     func()
+	unlistenTimeline func()
 }
 
 func NewRoomView(parent *MainView, room *store.RoomStore) *RoomView {
@@ -116,7 +119,17 @@ func NewRoomView(parent *MainView, room *store.RoomStore) *RoomView {
 
 	view.Update(room.Meta.Current())
 
+	view.unlistenMeta = room.Meta.Listen(view.Update)
+	view.unlistenTimeline = room.TimelineCache.Listen(func(_ *[]*database.Event) {
+		view.parent.parent.NeedsRender = true
+	})
+
 	return view
+}
+
+func (view *RoomView) Unload() {
+	view.unlistenTimeline()
+	view.unlistenMeta()
 }
 
 func (view *RoomView) SetInputChangedFunc(fn func(room *RoomView, text string)) *RoomView {
@@ -795,6 +808,7 @@ func (view *RoomView) Update(meta *database.Room) {
 	if !view.userListLoaded && view.Room.FullMembersLoaded.Load() {
 		view.UpdateUserList()
 	}
+	view.parent.parent.NeedsRender = true
 }
 
 func (view *RoomView) UpdateUserList() {

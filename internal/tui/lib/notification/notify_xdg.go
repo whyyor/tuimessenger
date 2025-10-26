@@ -25,11 +25,11 @@ import (
 
 var notifySendPath string
 var audioCommand string
-var tryAudioCommands = []string{"ogg123", "paplay", "cvlc"}
+var tryAudioCommands = []string{"ogg123", "paplay", "pw-cat"}
 var soundNormal = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
 var soundCritical = "/usr/share/sounds/freedesktop/stereo/complete.oga"
 var audioCommandArgs = map[string]string{
-	"cvlc": "--play-and-exit",
+	"pw-cat": "--playback",
 }
 
 func getSoundPath(env, defaultPath string) string {

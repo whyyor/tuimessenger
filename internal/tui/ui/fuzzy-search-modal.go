@@ -50,7 +50,7 @@ type FuzzySearchModal struct {
 func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearchModal {
 	fs := &FuzzySearchModal{
 		parent:   mainView,
-		roomList: *mainView.matrix.ReversedRoomList.Load(),
+		roomList: mainView.matrix.ReversedRoomList.Current(),
 	}
 	fs.roomTitles = make([]string, len(fs.roomList))
 	for i, room := range fs.roomList {

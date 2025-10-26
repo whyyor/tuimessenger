@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"slices"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.mau.fi/util/ptr"
@@ -43,7 +42,7 @@ type GomuksStore struct {
 	invitedRooms     map[id.RoomID]*InvitedRoom
 	rooms            map[id.RoomID]*RoomStore
 	roomList         []*RoomListEntry
-	ReversedRoomList atomic.Pointer[[]*RoomListEntry]
+	ReversedRoomList EventDispatcher[[]*RoomListEntry]
 	accountData      map[event.Type]*database.AccountData
 	AccountDataSubs  MultiNotifier[event.Type]
 	PreferenceCache  EventDispatcher[*Preferences]
@@ -55,7 +54,6 @@ func NewStore() *GomuksStore {
 		invitedRooms: make(map[id.RoomID]*InvitedRoom),
 		accountData:  make(map[event.Type]*database.AccountData),
 	}
-	gs.ReversedRoomList.Store(&[]*RoomListEntry{})
 	return gs
 }
 
@@ -204,7 +202,7 @@ func (gs *GomuksStore) ApplySync(sync *jsoncmd.SyncComplete) {
 		gs.roomList = updatedRoomList
 		reversed := slices.Clone(updatedRoomList)
 		slices.Reverse(reversed)
-		gs.ReversedRoomList.Store(&reversed)
+		gs.ReversedRoomList.Emit(reversed)
 	}
 }
 
@@ -228,5 +226,5 @@ func (gs *GomuksStore) Clear() {
 	clear(gs.accountData)
 	gs.PreferenceCache.Emit(nil)
 	gs.roomList = nil
-	gs.ReversedRoomList.Store(&[]*RoomListEntry{})
+	gs.ReversedRoomList.Emit([]*RoomListEntry{})
 }

@@ -175,17 +175,15 @@ func (list *RoomList) Blur()  {}
 
 func (list *RoomList) Draw(screen mauview.Screen) {
 	list.lock.Lock()
-	list.rooms = *list.parent.matrix.ReversedRoomList.Load()
-	list.lock.Unlock()
+	list.rooms = list.parent.matrix.ReversedRoomList.Current()
 	list.width, list.height = screen.Size()
-
-	list.lock.RLock()
-	defer list.lock.RUnlock()
 	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
+	list.lock.Unlock()
+
 	for y, room := range roomSlice {
 		style := tcell.StyleDefault.
 			Foreground(list.mainTextColor).
-			Bold(room.MarkedUnread || room.UnreadMessages > 0)
+			Bold(room.MarkedUnread || room.UnreadNotifications > 0 || room.UnreadHighlights > 0)
 		if room.RoomID == list.selected {
 			style = style.
 				Foreground(list.selectedTextColor).

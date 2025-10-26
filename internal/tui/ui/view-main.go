@@ -193,14 +193,12 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		view.parent.Stop()
 		return false
 	default:
-		goto defaultHandler
+		if view.config.Preferences.HideRoomList {
+			return view.roomView.OnKeyEvent(event)
+		}
+		return view.flex.OnKeyEvent(event)
 	}
 	return true
-defaultHandler:
-	if view.config.Preferences.HideRoomList {
-		return view.roomView.OnKeyEvent(event)
-	}
-	return view.flex.OnKeyEvent(event)
 }
 
 const WheelScrollOffsetDiff = 3
@@ -245,6 +243,9 @@ func (view *MainView) SwitchRoom(roomID id.RoomID) {
 	debug.Print("Selecting room", roomID)
 	view.roomList.SetSelected(roomID)
 	view.flex.SetFocused(view.roomView)
+	if view.currentRoom != nil {
+		view.currentRoom.Unload()
+	}
 	currentRoom := NewRoomView(view, roomData)
 	view.currentRoom = currentRoom
 	view.roomView.SetInnerComponent(currentRoom)
@@ -265,17 +266,7 @@ func (view *MainView) SwitchRoom(roomID id.RoomID) {
 			}
 		}()
 	}
-	debug.Print("Finished setting selected")
 	view.parent.Render()
-	debug.Print("Finished rendering after selecting")
-}
-
-func (view *MainView) SetTyping(roomID id.RoomID, users []id.UserID) {
-	//roomView, ok := view.getRoomView(roomID, true)
-	//if ok {
-	//	roomView.SetTyping(users)
-	//	view.parent.Render()
-	//}
 }
 
 func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNotification) {
@@ -315,20 +306,6 @@ func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNot
 
 func (view *MainView) LoadHistory(roomID id.RoomID) {
 	defer debug.Recover()
-	//roomView, ok := view.getRoomView(roomID, true)
-	//if !ok {
-	//	return
-	//}
-	//msgView := roomView.MessageView()
-
-	//if !atomic.CompareAndSwapInt32(&msgView.loadingMessages, 0, 1) {
-	//	// Locked
-	//	return
-	//}
-	//defer atomic.StoreInt32(&msgView.loadingMessages, 0)
-	//Update the "Loading more messages..." text
-	//view.parent.Render()
-
 	err := view.matrix.LoadMoreHistory(context.TODO(), roomID)
 	if err != nil {
 		debug.Print("Failed to fetch history for", roomID, err)

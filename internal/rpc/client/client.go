@@ -11,11 +11,14 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"slices"
 	"strconv"
+	"sync"
 
 	"go.mau.fi/util/exsync"
 	"maunium.net/go/mautrix/id"
 
+	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
 	"go.mau.fi/gomuks/pkg/rpc"
 	"go.mau.fi/gomuks/pkg/rpc/store"
@@ -29,6 +32,9 @@ type GomuksClient struct {
 	EventHandler rpc.EventHandler
 
 	SendNotification func(room *store.RoomStore, notif jsoncmd.SyncNotification)
+
+	stateRequestQueue     []database.RoomStateGUID
+	stateRequestQueueLock sync.Mutex
 }
 
 func NewGomuksClient(baseURL string) (*GomuksClient, error) {
@@ -105,6 +111,45 @@ func (gc *GomuksClient) SendMessage(ctx context.Context, params *jsoncmd.SendMes
 		return err
 	} else if dbEvt != nil {
 		room.ApplyPending(dbEvt)
+	}
+	return nil
+}
+
+func (gc *GomuksClient) QueueRoomStateRequest(key database.RoomStateGUID) {
+	gc.stateRequestQueueLock.Lock()
+	defer gc.stateRequestQueueLock.Unlock()
+	gc.stateRequestQueue = append(gc.stateRequestQueue, key)
+}
+
+func (gc *GomuksClient) FlushRoomStateRequests(ctx context.Context) error {
+	gc.stateRequestQueueLock.Lock()
+	keys := gc.stateRequestQueue
+	gc.stateRequestQueue = nil
+	gc.stateRequestQueueLock.Unlock()
+	if len(keys) == 0 {
+		return nil
+	}
+	return gc.LoadSpecificRoomState(ctx, keys)
+}
+
+func (gc *GomuksClient) LoadSpecificRoomState(ctx context.Context, keys []database.RoomStateGUID) error {
+	keys = slices.DeleteFunc(keys, func(guid database.RoomStateGUID) bool {
+		room := gc.GomuksStore.GetRoom(guid.RoomID)
+		return room == nil || room.GetStateEvent(guid.Type, guid.StateKey) != nil
+	})
+	if len(keys) == 0 {
+		return nil
+	}
+	resp, err := gc.GomuksRPC.GetSpecificRoomState(ctx, &jsoncmd.GetSpecificRoomStateParams{Keys: keys})
+	if err != nil {
+		return err
+	}
+	for _, evt := range resp {
+		room := gc.GomuksStore.GetRoom(evt.RoomID)
+		if room == nil {
+			continue
+		}
+		room.ApplyState(evt)
 	}
 	return nil
 }

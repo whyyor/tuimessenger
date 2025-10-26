@@ -235,20 +235,18 @@ func (rs *RoomStore) ApplyDecrypted(resp *jsoncmd.EventsDecrypted) {
 	}
 }
 
-func (rs *RoomStore) ApplyState(events []*database.Event) {
-	for _, evt := range events {
-		evtType := event.Type{Type: evt.Type, Class: event.StateEventType}
-		rs.applyEvent(evt, false)
-		stateMap, ok := rs.state[evtType]
-		if !ok {
-			stateMap = make(map[string]database.EventRowID)
-			rs.state[evtType] = stateMap
-		}
-		stateMap[*evt.StateKey] = evt.RowID
-		rs.invalidateStateCaches(evtType, *evt.StateKey)
-		rs.StateSubs.Notify(evtType.Type)
-		rs.StateSubs.Notify(StateKeySub(evtType, *evt.StateKey))
+func (rs *RoomStore) ApplyState(evt *database.Event) {
+	evtType := event.Type{Type: evt.Type, Class: event.StateEventType}
+	rs.applyEvent(evt, false)
+	stateMap, ok := rs.state[evtType]
+	if !ok {
+		stateMap = make(map[string]database.EventRowID)
+		rs.state[evtType] = stateMap
 	}
+	stateMap[*evt.StateKey] = evt.RowID
+	rs.invalidateStateCaches(evtType, *evt.StateKey)
+	rs.StateSubs.Notify(evtType.Type)
+	rs.StateSubs.Notify(StateKeySub(evtType, *evt.StateKey))
 }
 
 func (rs *RoomStore) invalidateStateCaches(evtType event.Type, stateKeys ...string) {

@@ -445,6 +445,8 @@ func (parser *htmlParser) singleNodeToEntity(node *html.Node) Entity {
 	switch node.Type {
 	case html.TextNode:
 		if !parser.preserveWhitespace {
+			// Ignore leading and trailing whitespace, but treat internal ones as newlines
+			node.Data = strings.Trim(node.Data, "\n")
 			node.Data = strings.ReplaceAll(node.Data, "\n", " ")
 			node.Data = spaces.ReplaceAllLiteralString(node.Data, " ")
 		}
@@ -511,9 +513,9 @@ func Parse(prefs *config.UserPreferences, room *store.RoomStore, content *event.
 	htmlData := content.FormattedBody
 
 	if content.Format != event.FormatHTML {
-		htmlData = strings.Replace(html.EscapeString(content.Body), "\n", "<br/>", -1)
+		htmlData = event.TextToHTML(content.Body)
 	}
-	htmlData = strings.Replace(htmlData, "\t", strings.Repeat(" ", TabLength), -1)
+	htmlData = strings.ReplaceAll(htmlData, "\t", strings.Repeat(" ", TabLength))
 
 	parser := htmlParser{room: room, prefs: prefs, evt: evt}
 	root := parser.Parse(htmlData)

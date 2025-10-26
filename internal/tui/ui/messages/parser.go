@@ -68,7 +68,9 @@ func directParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences
 	}
 	switch evt.GetType() {
 	case event.EventMessage, event.EventSticker:
-		if evt.RedactedBy != "" {
+		if evt.RelationType == event.RelReplace {
+			return nil
+		} else if evt.RedactedBy != "" {
 			return NewRedactedMessage(evt, room)
 		}
 		return ParseMessage(matrix, prefs, room, evt)
