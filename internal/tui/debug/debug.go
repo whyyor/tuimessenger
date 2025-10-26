@@ -31,16 +31,16 @@ var RecoverPrettyPanic = true
 var OnRecover func()
 
 func Printf(text string, args ...any) {
-	badGlobalLog.Debug().Msgf(text, args...) // zerolog-allow-msgf
+	badGlobalLog.Debug().CallerSkipFrame(1).Msgf(text, args...) // zerolog-allow-msgf
 }
 
 func Print(text ...any) {
 	msg := fmt.Sprintln(text...)
-	badGlobalLog.Debug().Msg(msg[:len(msg)-1])
+	badGlobalLog.Debug().CallerSkipFrame(1).Msg(msg[:len(msg)-1])
 }
 
 func PrintStack() {
-	badGlobalLog.Error().Bytes("stack", debug.Stack()).Msg("Stack trace")
+	badGlobalLog.Error().CallerSkipFrame(1).Bytes("stack", debug.Stack()).Msg("Stack trace")
 }
 
 // Recover recovers a panic, runs the OnRecover handler and either re-panics or
