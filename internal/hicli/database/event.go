@@ -379,9 +379,10 @@ type Event struct {
 	LastEditRowID *EventRowID    `json:"last_edit_rowid,omitempty"`
 	UnreadType    UnreadType     `json:"unread_type,omitempty"`
 
-	LastEditRef *Event `json:"-"`
-	Pending     bool   `json:"-"`
-	RenderMeta  any    `json:"-"`
+	parsedContent *event.Content
+	LastEditRef   *Event `json:"-"`
+	Pending       bool   `json:"-"`
+	RenderMeta    any    `json:"-"`
 }
 
 func MautrixToEvent(evt *event.Event) *Event {
@@ -472,6 +473,21 @@ func (e *Event) AsRawMautrix() *event.Event {
 	}
 	_ = json.Unmarshal(e.Unsigned, &evt.Unsigned)
 	return evt
+}
+
+func (e *Event) AsMautrix() *event.Event {
+	evt := e.AsRawMautrix()
+	evt.Content = *e.GetMautrixContent()
+	return evt
+}
+
+func (e *Event) GetMautrixContent() *event.Content {
+	if e.parsedContent == nil {
+		e.parsedContent = &event.Content{VeryRaw: e.GetContent()}
+		_ = json.Unmarshal(e.parsedContent.VeryRaw, &e.parsedContent.Raw)
+		_ = e.parsedContent.ParseRaw(e.GetType())
+	}
+	return e.parsedContent
 }
 
 func (e *Event) Scan(row dbutil.Scannable) (*Event, error) {

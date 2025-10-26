@@ -122,8 +122,7 @@ NewLoop:
 }
 
 func ParseStateEvent(evt *database.Event, displayname string) *UIMessage {
-	mEvt := evt.AsRawMautrix()
-	_ = mEvt.Content.ParseRaw(mEvt.Type)
+	mEvt := evt.AsMautrix()
 
 	text := tstring.NewColorTString(displayname, widget.GetHashColor(evt.Sender)).Append(" ")
 	switch content := mEvt.Content.Parsed.(type) {
@@ -179,9 +178,7 @@ func ParseStateEvent(evt *database.Event, displayname string) *UIMessage {
 }
 
 func ParseMessage(matrix *client.GomuksClient, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event, displayname string) *UIMessage {
-	mEvt := evt.AsRawMautrix()
-	_ = mEvt.Content.ParseRaw(mEvt.Type)
-	content := mEvt.Content.AsMessage()
+	content := evt.GetMautrixContent().AsMessage()
 	switch content.MsgType {
 	case event.MsgText, event.MsgNotice, event.MsgEmote:
 		var htmlEntity html.Entity
@@ -262,8 +259,7 @@ func getMembershipEventContent(room *store.RoomStore, evt *database.Event) (send
 		senderDisplayname = member.Displayname
 	}
 
-	mEvt := evt.AsRawMautrix()
-	_ = mEvt.Content.ParseRaw(mEvt.Type)
+	mEvt := evt.AsMautrix()
 	content := mEvt.Content.AsMember()
 	displayname := content.Displayname
 	if len(displayname) == 0 {
