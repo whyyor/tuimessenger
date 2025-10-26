@@ -409,16 +409,18 @@ func (view *MessageView) update(width int) {
 		for i := 0; i < height; i++ {
 			newBuffer = append(newBuffer, msg)
 		}
-		if scrollOffset > 0 {
-			if msg.RowID != 0 && msg.RowID == lastRowIDInPrevTimeline {
-				increaseScrollOffset = true
-			} else if increaseScrollOffset {
-				newScrollOffset += height
-			}
+		if scrollOffset > 0 && increaseScrollOffset {
+			newScrollOffset += height
 		}
 	}
 	var prev *messages.UIMessage
+	prevLastEventNotFound := lastRowIDInPrevTimeline != 0
 	for _, evt := range timeline {
+		startIncreasingScrollOffset := false
+		if !increaseScrollOffset && scrollOffset > 0 && evt.RowID != 0 && evt.RowID == lastRowIDInPrevTimeline {
+			startIncreasingScrollOffset = true
+			prevLastEventNotFound = true
+		}
 		if evt.RenderMeta == nil {
 			// TODO fix displaynames
 			evt.RenderMeta = messages.ParseMessage(
@@ -435,8 +437,11 @@ func (view *MessageView) update(width int) {
 		}
 		appendBuffer(uiMsg)
 		prev = uiMsg
+		if startIncreasingScrollOffset {
+			increaseScrollOffset = true
+		}
 	}
-	if scrollOffset > 0 && !increaseScrollOffset {
+	if scrollOffset > 0 && !increaseScrollOffset && !prevLastEventNotFound {
 		// Previous last message wasn't found, so reset scroll position
 		newScrollOffset = 0
 	}
