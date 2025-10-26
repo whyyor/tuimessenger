@@ -25,8 +25,10 @@ import (
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
 )
 
+type EventHandler = func(ctx context.Context, event any)
+
 type GomuksRPC struct {
-	EventHandler func(ctx context.Context, evt any)
+	EventHandler EventHandler
 	UserAgent    string
 
 	BaseURL *url.URL

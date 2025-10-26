@@ -49,6 +49,7 @@ func (gr *GomuksRPC) Connect(ctx context.Context) error {
 		query.Set("last_received_event", strconv.FormatInt(gr.lastReqID, 10))
 	}
 	wsURL.RawQuery = query.Encode()
+	zerolog.Ctx(ctx).Info().Stringer("url", wsURL).Msg("Connecting to websocket")
 	ws, _, err := websocket.Dial(ctx, wsURL.String(), &websocket.DialOptions{
 		HTTPClient: gr.http,
 		HTTPHeader: http.Header{"User-Agent": {gr.UserAgent}},
