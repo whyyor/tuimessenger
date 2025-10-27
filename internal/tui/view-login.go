@@ -140,6 +140,7 @@ func (view *LoginView) actuallyLogin(server, username, password string) {
 		view.parent.Config.Username = username
 		view.parent.Config.Password = password
 		view.parent.Config.Save()
+		view.parent.Connect()
 		view.parent.SetView(ViewMain)
 	}
 }
