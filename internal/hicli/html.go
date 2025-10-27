@@ -172,6 +172,13 @@ func getNextItem(items [][]int, minIndex int) (index, start, end int, ok bool) {
 }
 
 func writeMention(w *strings.Builder, mention []byte) {
+	var suffix []byte
+	// The plaintext mention regex allows trailing dots, but we don't want them in the link
+	if mention[len(mention)-1] == '.' {
+		mentionWithoutDots := bytes.TrimRight(mention, ".")
+		suffix = mention[len(mentionWithoutDots):]
+		mention = mentionWithoutDots
+	}
 	uri := &id.MatrixURI{
 		Sigil1: rune(mention[0]),
 		MXID1:  string(mention[1:]),
@@ -182,6 +189,9 @@ func writeMention(w *strings.Builder, mention []byte) {
 	w.WriteByte('>')
 	writeEscapedBytes(w, mention)
 	w.WriteString("</a>")
+	if suffix != nil {
+		writeEscapedBytes(w, suffix)
+	}
 }
 
 func writeURL(w *strings.Builder, addr []byte) {
