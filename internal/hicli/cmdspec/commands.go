@@ -17,6 +17,7 @@ const (
 	Kick           = "kick {user_id} {reason}"
 	Ban            = "ban {user_id} {reason}"
 	MyRoomNick     = "myroomnick {name}"
+	GlobalNick     = "globalnick {name}"
 	Redact         = "redact {event_id} {reason}"
 	Raw            = "raw {event_type} {json}"
 	UnencryptedRaw = "unencryptedraw {event_type} {json}"
@@ -80,6 +81,14 @@ var CommandDefinitions = []*event.BotCommand{{
 	Syntax:      MyRoomNick,
 	Aliases:     []string{"roomnick {name}"},
 	Description: event.MakeExtensibleText("Set your display name in the current room"),
+	Arguments: []*event.BotCommandArgument{{
+		Type:        event.BotArgumentTypeString,
+		Description: event.MakeExtensibleText("New display name"),
+	}},
+}, {
+	Syntax:      GlobalNick,
+	Aliases:     []string{"globalnick {name}"},
+	Description: event.MakeExtensibleText("Set your global display name"),
 	Arguments: []*event.BotCommandArgument{{
 		Type:        event.BotArgumentTypeString,
 		Description: event.MakeExtensibleText("New display name"),
