@@ -50,6 +50,7 @@ func (h *HiClient) ProcessCommand(
 	ctx context.Context,
 	roomID id.RoomID,
 	cmd *event.BotCommandInput,
+	content *event.MessageEventContent,
 	relatesTo *event.RelatesTo,
 ) (*database.Event, error) {
 	ctx = mautrix.WithMaxRetries(ctx, 0)
@@ -72,8 +73,16 @@ func (h *HiClient) ProcessCommand(
 		responseText = h.handleCmdLeave(ctx, roomID)
 	case cmdspec.MyRoomNick:
 		responseText, retErr = callWithParsedArgs(ctx, roomID, cmd.Arguments, relatesTo, h.handleCmdMyRoomNick)
+	case cmdspec.MyRoomAvatar:
+		responseText = h.handleCmdMyRoomAvatar(ctx, roomID, content)
 	case cmdspec.GlobalNick:
 		responseText, retErr = callWithParsedArgs(ctx, roomID, cmd.Arguments, relatesTo, h.handleCmdGlobalNick)
+	case cmdspec.GlobalAvatar:
+		responseText = h.handleCmdGlobalAvatar(ctx, content)
+	case cmdspec.RoomName:
+		responseText, retErr = callWithParsedArgs(ctx, roomID, cmd.Arguments, relatesTo, h.handleCmdRoomName)
+	case cmdspec.RoomAvatar:
+		responseText = h.handleCmdRoomAvatar(ctx, roomID, content)
 	case cmdspec.Redact:
 		responseText, retErr = callWithParsedArgs(ctx, roomID, cmd.Arguments, relatesTo, h.handleCmdRedact)
 	case cmdspec.Raw:
@@ -208,8 +217,61 @@ func (h *HiClient) handleCmdMyRoomNick(ctx context.Context, roomID id.RoomID, pa
 }
 
 func (h *HiClient) handleCmdGlobalNick(ctx context.Context, _ id.RoomID, params myRoomNickParams, _ *event.RelatesTo) string {
-	if err := h.Client.SetProfileField(ctx, "displayname", params.Name); err != nil {
+	if err := h.Client.SetDisplayName(ctx, params.Name); err != nil {
 		return fmt.Sprintf("Failed to set display name: %v", err)
+	}
+	return ""
+}
+
+func (h *HiClient) handleCmdRoomName(ctx context.Context, roomID id.RoomID, params myRoomNickParams, _ *event.RelatesTo) string {
+	_, err := h.Client.SendStateEvent(ctx, roomID, event.StateRoomName, "", &event.RoomNameEventContent{Name: params.Name})
+	if err != nil {
+		return fmt.Sprintf("Failed to set room name: %v", err)
+	}
+	return ""
+}
+
+func getAvatarURLFromContent(content *event.MessageEventContent) (id.ContentURI, string) {
+	if content.File != nil {
+		return id.ContentURI{}, "The attached image must be unencrypted"
+	} else if content.URL == "" || content.MsgType != event.MsgImage {
+		return id.ContentURI{}, "An image must be attached"
+	} else if avatarURL, err := content.URL.Parse(); err != nil {
+		return id.ContentURI{}, fmt.Sprintf("Failed to parse content URL: %v", err)
+	} else {
+		return avatarURL, ""
+	}
+}
+
+func (h *HiClient) handleCmdMyRoomAvatar(ctx context.Context, roomID id.RoomID, content *event.MessageEventContent) string {
+	if avatarURL, errStr := getAvatarURLFromContent(content); errStr != "" {
+		return errStr
+	} else if evt, err := h.DB.CurrentState.Get(ctx, roomID, event.StateMember, h.Account.UserID.String()); err != nil {
+		return fmt.Sprintf("Failed to get current member event: %v", err)
+	} else if evt == nil {
+		return "No member event found for self in this room"
+	} else if content, err := sjson.SetBytes(evt.Content, "avatar_url", avatarURL.String()); err != nil {
+		return fmt.Sprintf("Failed to mutate member event content: %v", err)
+	} else if _, err = h.Client.SendStateEvent(ctx, roomID, event.StateMember, h.Account.UserID.String(), json.RawMessage(content)); err != nil {
+		return fmt.Sprintf("Failed to update member event: %v", err)
+	}
+	return ""
+}
+
+func (h *HiClient) handleCmdGlobalAvatar(ctx context.Context, content *event.MessageEventContent) string {
+	if avatarURL, errStr := getAvatarURLFromContent(content); errStr != "" {
+		return errStr
+	} else if err := h.Client.SetAvatarURL(ctx, avatarURL); err != nil {
+		return fmt.Sprintf("Failed to set avatar URL: %v", err)
+	}
+	return ""
+}
+
+func (h *HiClient) handleCmdRoomAvatar(ctx context.Context, roomID id.RoomID, content *event.MessageEventContent) string {
+	if avatarURL, errStr := getAvatarURLFromContent(content); errStr != "" {
+		return errStr
+	} else if _, err := h.Client.SendStateEvent(ctx, roomID, event.StateRoomAvatar, "", &event.RoomAvatarEventContent{URL: avatarURL.CUString()}); err != nil {
+		return fmt.Sprintf("Failed to set room avatar: %v", err)
 	}
 	return ""
 }

@@ -17,7 +17,11 @@ const (
 	Kick           = "kick {user_id} {reason}"
 	Ban            = "ban {user_id} {reason}"
 	MyRoomNick     = "myroomnick {name}"
+	MyRoomAvatar   = "myroomavatar"
 	GlobalNick     = "globalnick {name}"
+	GlobalAvatar   = "globalavatar"
+	RoomName       = "roomname"
+	RoomAvatar     = "roomavatar"
 	Redact         = "redact {event_id} {reason}"
 	Raw            = "raw {event_type} {json}"
 	UnencryptedRaw = "unencryptedraw {event_type} {json}"
@@ -86,13 +90,29 @@ var CommandDefinitions = []*event.BotCommand{{
 		Description: event.MakeExtensibleText("New display name"),
 	}},
 }, {
+	Syntax:      MyRoomAvatar,
+	Description: event.MakeExtensibleText("Set your avatar in the current room"),
+}, {
 	Syntax:      GlobalNick,
-	Aliases:     []string{"globalnick {name}"},
+	Aliases:     []string{"globalname {name}"},
 	Description: event.MakeExtensibleText("Set your global display name"),
 	Arguments: []*event.BotCommandArgument{{
 		Type:        event.BotArgumentTypeString,
 		Description: event.MakeExtensibleText("New display name"),
 	}},
+}, {
+	Syntax:      GlobalAvatar,
+	Description: event.MakeExtensibleText("Set your global avatar"),
+}, {
+	Syntax:      RoomName,
+	Description: event.MakeExtensibleText("Set the current room name"),
+	Arguments: []*event.BotCommandArgument{{
+		Type:        event.BotArgumentTypeString,
+		Description: event.MakeExtensibleText("New display name"),
+	}},
+}, {
+	Syntax:      RoomAvatar,
+	Description: event.MakeExtensibleText("Set the current room avatar"),
 }, {
 	Syntax:      Redact,
 	Description: event.MakeExtensibleText("Redact an event"),
