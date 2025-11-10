@@ -117,6 +117,13 @@ func (h *HiClient) evaluatePushRules(ctx context.Context, llSummary *mautrix.Laz
 		h:      h,
 		ll:     llSummary,
 	}, evt).GetActions().Should()
+	if should.Highlight {
+		msg, ok := evt.Content.Parsed.(*event.MessageEventContent)
+		// TODO make the number configurable and/or consider room settings?
+		if ok && msg.Mentions != nil && len(msg.Mentions.UserIDs) > 15 {
+			return baseType
+		}
+	}
 	if should.Notify {
 		baseType |= database.UnreadTypeNotify
 	}
