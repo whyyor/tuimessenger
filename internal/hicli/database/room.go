@@ -83,6 +83,7 @@ const (
 					AND decrypted_type IN ('m.room.message', 'm.sticker')))
 			AND (relation_type IS NULL OR relation_type <> 'm.replace')
 			AND redacted_by IS NULL
+			AND timestamp <= $2
 		ORDER BY timestamp DESC
 		LIMIT 1
 	`
@@ -132,7 +133,7 @@ func (rq *RoomQuery) UpdatePreviewIfLaterOnTimeline(ctx context.Context, roomID 
 }
 
 func (rq *RoomQuery) RecalculatePreview(ctx context.Context, roomID id.RoomID) (rowID EventRowID, err error) {
-	err = rq.GetDB().QueryRow(ctx, recalculateRoomPreviewEventQuery, roomID).Scan(&rowID)
+	err = rq.GetDB().QueryRow(ctx, recalculateRoomPreviewEventQuery, roomID, time.Now().UnixMilli()).Scan(&rowID)
 	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
