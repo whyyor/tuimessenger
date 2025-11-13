@@ -156,6 +156,8 @@ func (h *HiClient) tempClient(homeserverURL string) (*mautrix.Client, error) {
 	parsedURL, err := url.Parse(homeserverURL)
 	if err != nil {
 		return nil, err
+	} else if parsedURL == nil || parsedURL.Scheme == "" {
+		return nil, fmt.Errorf("invalid homeserver URL")
 	}
 	return &mautrix.Client{
 		HomeserverURL: parsedURL,
