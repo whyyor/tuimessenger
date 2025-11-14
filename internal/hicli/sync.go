@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -38,6 +39,8 @@ type syncContext struct {
 	shouldWakeupRequestQueue bool
 
 	evt *jsoncmd.SyncComplete
+
+	changedSpaces []id.RoomID
 }
 
 func (h *HiClient) markSyncErrored(err error, permanent bool) {
@@ -172,6 +175,17 @@ func (h *HiClient) postProcessSyncResponse(ctx context.Context, resp *mautrix.Re
 			tp.ResponseHeaderTimeout = 60 * time.Second
 		}
 		h.Client.Client.Timeout = 180 * time.Second
+	}
+	for _, space := range syncCtx.changedSpaces {
+		edges, err := h.DB.SpaceEdge.GetAll(ctx, space)
+		if err != nil {
+			zerolog.Ctx(ctx).Err(err).Stringer("space_id", space).Msg("Failed to get space edges for sync")
+		} else {
+			if syncCtx.evt.SpaceEdges == nil {
+				syncCtx.evt.SpaceEdges = make(map[id.RoomID][]*database.SpaceEdge)
+			}
+			maps.Copy(syncCtx.evt.SpaceEdges, edges)
+		}
 	}
 	if !syncCtx.evt.IsEmpty() {
 		h.EventHandler(syncCtx.evt)
@@ -1231,12 +1245,16 @@ func (sdc *spaceDataCollector) Apply(ctx context.Context, room *database.Room, s
 	if len(sdc.Children) == 0 && len(sdc.Parents) == 0 && !sdc.PowerLevelChanged {
 		return nil
 	}
+	syncCtx, _ := ctx.Value(syncContextKey).(*syncContext)
 	return seq.GetDB().DoTxn(ctx, nil, func(ctx context.Context) error {
 		if len(sdc.Children) > 0 {
 			children, removedChildren := splitMapValues(sdc.Children)
 			err := seq.SetChildren(ctx, room.ID, children, removedChildren, sdc.IsFullState)
 			if err != nil {
 				return fmt.Errorf("failed to set space children: %w", err)
+			}
+			if syncCtx != nil {
+				syncCtx.changedSpaces = append(syncCtx.changedSpaces, room.ID)
 			}
 		}
 		if len(sdc.Parents) > 0 {
@@ -1249,6 +1267,11 @@ func (sdc *spaceDataCollector) Apply(ctx context.Context, room *database.Room, s
 				err = seq.RevalidateAllParentsOfRoomValidity(ctx, room.ID)
 				if err != nil {
 					return fmt.Errorf("failed to revalidate own parent references: %w", err)
+				}
+			}
+			if syncCtx != nil {
+				for parentID := range sdc.Parents {
+					syncCtx.changedSpaces = append(syncCtx.changedSpaces, parentID)
 				}
 			}
 		}
