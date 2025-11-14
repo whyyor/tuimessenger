@@ -46,6 +46,7 @@ const (
 	ReqGetReceipts              Name = "get_receipts"
 	ReqPaginate                 Name = "paginate"
 	ReqGetRoomSummary           Name = "get_room_summary"
+	ReqGetSpaceHierarchy        Name = "get_space_hierarchy"
 	ReqJoinRoom                 Name = "join_room"
 	ReqKnockRoom                Name = "knock_room"
 	ReqLeaveRoom                Name = "leave_room"

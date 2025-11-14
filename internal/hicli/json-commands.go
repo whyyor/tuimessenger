@@ -34,7 +34,7 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 			h.jsonRequestsLock.Lock()
 			cancelTarget, ok := h.jsonRequests[params.RequestID]
 			h.jsonRequestsLock.Unlock()
-			if ok {
+			if !ok {
 				return false, nil
 			}
 			if params.Reason == "" {
@@ -172,6 +172,15 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 	case jsoncmd.ReqGetRoomSummary:
 		return unmarshalAndCall(req.Data, func(params *jsoncmd.JoinRoomParams) (*mautrix.RespRoomSummary, error) {
 			return h.Client.GetRoomSummary(mautrix.WithMaxRetries(ctx, 2), params.RoomIDOrAlias, params.Via...)
+		})
+	case jsoncmd.ReqGetSpaceHierarchy:
+		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetHierarchyParams) (*mautrix.RespHierarchy, error) {
+			return h.Client.Hierarchy(mautrix.WithMaxRetries(ctx, 0), params.RoomID, &mautrix.ReqHierarchy{
+				From:          params.From,
+				Limit:         params.Limit,
+				MaxDepth:      params.MaxDepth,
+				SuggestedOnly: params.SuggestedOnly,
+			})
 		})
 	case jsoncmd.ReqJoinRoom:
 		return unmarshalAndCall(req.Data, func(params *jsoncmd.JoinRoomParams) (*mautrix.RespJoinRoom, error) {

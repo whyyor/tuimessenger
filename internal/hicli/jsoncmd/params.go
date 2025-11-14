@@ -192,6 +192,14 @@ type JoinRoomParams struct {
 	Reason        string   `json:"reason"`
 }
 
+type GetHierarchyParams struct {
+	RoomID        id.RoomID `json:"room_id"`
+	From          string    `json:"from"`
+	Limit         int       `json:"limit"`
+	MaxDepth      *int      `json:"max_depth"`
+	SuggestedOnly bool      `json:"suggested_only"`
+}
+
 type LeaveRoomParams struct {
 	RoomID id.RoomID `json:"room_id"`
 	Reason string    `json:"reason"`

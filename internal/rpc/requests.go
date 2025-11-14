@@ -126,6 +126,10 @@ func (gr *GomuksRPC) GetRoomSummary(ctx context.Context, params *jsoncmd.JoinRoo
 	return ParseResponse[*mautrix.RespRoomSummary](gr.Request(ctx, jsoncmd.ReqGetRoomSummary, params))
 }
 
+func (gr *GomuksRPC) GetSpaceHierarchy(ctx context.Context, params *jsoncmd.GetHierarchyParams) (*mautrix.RespHierarchy, error) {
+	return ParseResponse[*mautrix.RespHierarchy](gr.Request(ctx, jsoncmd.ReqGetSpaceHierarchy, params))
+}
+
 func (gr *GomuksRPC) JoinRoom(ctx context.Context, params *jsoncmd.JoinRoomParams) (*mautrix.RespJoinRoom, error) {
 	return ParseResponse[*mautrix.RespJoinRoom](gr.Request(ctx, jsoncmd.ReqJoinRoom, params))
 }
