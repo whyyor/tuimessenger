@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/alecthomas/chroma"
-	"github.com/alecthomas/chroma/lexers"
-	"github.com/alecthomas/chroma/styles"
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/gdamore/tcell/v2"
 	"github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/net/html"
@@ -297,7 +297,7 @@ func (parser *htmlParser) syntaxHighlight(text, language string) Entity {
 		return nil
 	}
 	// TODO allow changing theme
-	style := styles.SolarizedDark
+	style := styles.Get("solarized-dark")
 
 	tokens := iter.Tokens()
 
