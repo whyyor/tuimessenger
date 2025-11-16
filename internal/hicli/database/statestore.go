@@ -14,6 +14,7 @@ import (
 	"slices"
 
 	"go.mau.fi/util/dbutil"
+	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 )
@@ -54,6 +55,11 @@ const (
 type ClientStateStore struct {
 	*Database
 }
+
+var (
+	_ mautrix.StateStore        = (*ClientStateStore)(nil)
+	_ mautrix.StateStoreUpdater = (*ClientStateStore)(nil)
+)
 
 func (c *ClientStateStore) IsInRoom(ctx context.Context, roomID id.RoomID, userID id.UserID) bool {
 	return c.IsMembership(ctx, roomID, userID, event.MembershipJoin)
@@ -159,6 +165,10 @@ func (c *ClientStateStore) GetEncryptionEvent(ctx context.Context, roomID id.Roo
 	return
 }
 
+func (c *ClientStateStore) GetJoinRules(ctx context.Context, roomID id.RoomID) (*event.JoinRulesEventContent, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (c *ClientStateStore) FindSharedRooms(ctx context.Context, userID id.UserID) ([]id.RoomID, error) {
 	// TODO for multiuser support, this might need to filter by the local user's membership
 	rows, err := c.Query(ctx, findSharedRoomsQuery, userID)
@@ -194,5 +204,9 @@ func (c *ClientStateStore) SetEncryptionEvent(ctx context.Context, roomID id.Roo
 func (c *ClientStateStore) UpdateState(ctx context.Context, evt *event.Event) {}
 
 func (c *ClientStateStore) ReplaceCachedMembers(ctx context.Context, roomID id.RoomID, evts []*event.Event, onlyMemberships ...event.Membership) error {
+	return nil
+}
+
+func (c *ClientStateStore) SetJoinRules(ctx context.Context, roomID id.RoomID, content *event.JoinRulesEventContent) error {
 	return nil
 }
