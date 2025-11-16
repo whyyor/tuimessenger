@@ -516,9 +516,12 @@ func (ts *tagStack) pop(tag atom.Atom) bool {
 func getCodeBlockLanguage(token html.Token) string {
 	for _, attr := range token.Attr {
 		if attr.Key == "class" {
-			match := languageRegex.FindStringSubmatch(attr.Val)
-			if len(match) == 2 {
-				return match[1]
+			parts := strings.Fields(attr.Val)
+			for _, part := range parts {
+				match := languageRegex.FindStringSubmatch(part)
+				if len(match) == 2 {
+					return match[1]
+				}
 			}
 		}
 	}
