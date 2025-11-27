@@ -210,6 +210,8 @@ func (h *HiClient) handleCmdMyRoomNick(ctx context.Context, roomID id.RoomID, pa
 		return "No member event found for self in this room"
 	} else if content, err := sjson.SetBytes(evt.Content, "displayname", params.Name); err != nil {
 		return fmt.Sprintf("Failed to mutate member event content: %v", err)
+	} else if content, err = sjson.DeleteBytes(content, "join_authorised_via_users_server"); err != nil {
+		return fmt.Sprintf("Failed to mutate member event content: %v", err)
 	} else if _, err = h.Client.SendStateEvent(ctx, roomID, event.StateMember, h.Account.UserID.String(), json.RawMessage(content)); err != nil {
 		return fmt.Sprintf("Failed to update member event: %v", err)
 	}
@@ -251,6 +253,8 @@ func (h *HiClient) handleCmdMyRoomAvatar(ctx context.Context, roomID id.RoomID, 
 	} else if evt == nil {
 		return "No member event found for self in this room"
 	} else if content, err := sjson.SetBytes(evt.Content, "avatar_url", avatarURL.String()); err != nil {
+		return fmt.Sprintf("Failed to mutate member event content: %v", err)
+	} else if content, err = sjson.DeleteBytes(content, "join_authorised_via_users_server"); err != nil {
 		return fmt.Sprintf("Failed to mutate member event content: %v", err)
 	} else if _, err = h.Client.SendStateEvent(ctx, roomID, event.StateMember, h.Account.UserID.String(), json.RawMessage(content)); err != nil {
 		return fmt.Sprintf("Failed to update member event: %v", err)
