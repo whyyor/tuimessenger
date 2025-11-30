@@ -43,7 +43,8 @@ type HiClient struct {
 	ClientStore *database.ClientStateStore
 	Log         zerolog.Logger
 
-	Verified bool
+	Initialized bool
+	Verified    bool
 
 	KeyBackupVersion id.KeyBackupVersion
 	KeyBackupKey     *backup.MegolmBackupKey
@@ -229,6 +230,8 @@ func (h *HiClient) Start(ctx context.Context, userID id.UserID, expectedAccount 
 			go h.Sync()
 		}
 	}
+	h.Initialized = true
+	h.dispatchCurrentState()
 	return nil
 }
 

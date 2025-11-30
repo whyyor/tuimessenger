@@ -124,6 +124,7 @@ type SendComplete struct {
 }
 
 type ClientState struct {
+	Initialized   bool        `json:"is_initialized"`
 	IsLoggedIn    bool        `json:"is_logged_in"`
 	IsVerified    bool        `json:"is_verified"`
 	UserID        id.UserID   `json:"user_id,omitempty"`
