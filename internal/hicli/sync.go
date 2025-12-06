@@ -75,12 +75,12 @@ func (h *HiClient) preProcessSyncResponse(ctx context.Context, resp *mautrix.Res
 
 	postponedToDevices := resp.ToDevice.Events[:0]
 	for _, evt := range resp.ToDevice.Events {
+		log := log.With().Stringer("sender", evt.Sender).Stringer("event_type", evt.Type).Logger()
+		ctx := log.WithContext(ctx)
 		evt.Type.Class = event.ToDeviceEventType
 		err := evt.Content.ParseRaw(evt.Type)
 		if err != nil && !errors.Is(err, event.ErrContentAlreadyParsed) {
 			log.Warn().Err(err).
-				Stringer("event_type", &evt.Type).
-				Stringer("sender", evt.Sender).
 				Msg("Failed to parse to-device event, skipping")
 			continue
 		}
