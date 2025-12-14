@@ -397,7 +397,7 @@ func (h *HiClient) processSyncLeftRoom(ctx context.Context, roomID id.RoomID, ro
 }
 
 func isDecryptionErrorRetryable(err error) bool {
-	return errors.Is(err, crypto.NoSessionFound) || errors.Is(err, olm.UnknownMessageIndex) || errors.Is(err, crypto.ErrGroupSessionWithheld)
+	return errors.Is(err, crypto.ErrNoSessionFound) || errors.Is(err, olm.ErrUnknownMessageIndex) || errors.Is(err, crypto.ErrGroupSessionWithheld)
 }
 
 func removeReplyFallback(evt *event.Event) []byte {

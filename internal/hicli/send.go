@@ -468,7 +468,7 @@ func (h *HiClient) Encrypt(ctx context.Context, room *database.Room, evtType eve
 	h.encryptLock.Lock()
 	defer h.encryptLock.Unlock()
 	encrypted, err = h.Crypto.EncryptMegolmEvent(ctx, room.ID, evtType, content)
-	if errors.Is(err, crypto.SessionExpired) || errors.Is(err, crypto.NoGroupSession) || errors.Is(err, crypto.SessionNotShared) {
+	if errors.Is(err, crypto.ErrSessionExpired) || errors.Is(err, crypto.ErrNoGroupSession) || errors.Is(err, crypto.ErrSessionNotShared) {
 		if err = h.shareGroupSession(ctx, room); err != nil {
 			err = fmt.Errorf("failed to share group session: %w", err)
 		} else if encrypted, err = h.Crypto.EncryptMegolmEvent(ctx, room.ID, evtType, content); err != nil {
