@@ -20,7 +20,7 @@ const (
 	MyRoomAvatar   = "myroomavatar"
 	GlobalNick     = "globalnick {name}"
 	GlobalAvatar   = "globalavatar"
-	RoomName       = "roomname"
+	RoomName       = "roomname {name}"
 	RoomAvatar     = "roomavatar"
 	Redact         = "redact {event_id} {reason}"
 	Raw            = "raw {event_type} {json}"
