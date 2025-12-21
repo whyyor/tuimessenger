@@ -237,16 +237,25 @@ func (seq *SpaceEdgeQuery) GetTopLevelIDs(ctx context.Context, userID id.UserID)
 }
 
 type SpaceEdge struct {
+	// The room ID of the space (the parent).
 	SpaceID id.RoomID `json:"space_id,omitempty"`
+	// The room ID of the child room.
 	ChildID id.RoomID `json:"child_id"`
 
+	// The event row ID of the `m.space.child` event. Always inside the parent room.
 	ChildEventRowID EventRowID `json:"child_event_rowid,omitempty"`
-	Order           string     `json:"order,omitempty"`
-	Suggested       bool       `json:"suggested,omitempty"`
+	// The order string contained in the child event used for sorting within the space.
+	Order string `json:"order,omitempty"`
+	// Whether the space suggests this child room.
+	Suggested bool `json:"suggested,omitempty"`
 
+	// The event row ID of the `m.space.parent` event. Always inside the child room.
 	ParentEventRowID EventRowID `json:"parent_event_rowid,omitempty"`
-	Canonical        bool       `json:"canonical,omitempty"`
-	ParentValidated  bool       `json:"-"`
+	// Whether the room considers the space as canonical.
+	Canonical bool `json:"canonical,omitempty"`
+	// Whether the parent relationship has been validated (i.e. the sender has sufficient power level in the space).
+	// This is not exposed to the frontend, instead the ParentEventRowID and Canonical fields are cleared.
+	ParentValidated bool `json:"-"`
 }
 
 func (se *SpaceEdge) Scan(row dbutil.Scannable) (*SpaceEdge, error) {

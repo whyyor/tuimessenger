@@ -45,8 +45,20 @@ const (
 	`
 )
 
+// A TimelineRowID is a sorting identifier for events in a room. All events shown in the timeline
+// must have a timeline row ID and must be strictly sorted by that ID.
+//
+// When new timeline events are received, they get a higher row ID than previous ones.
+// When prepending older events, they receive negative IDs lower than any existing ones.
+//
+// If the timeline cache for a room is cleared for any reason (either manually or due to a limited
+// sync), the identifiers will be reset for that room and start from higher values than before.
+//
+// Zero is not a valid value, as it's used to indicate an absent value in some contexts.
 type TimelineRowID int64
 
+// A TimelineRowTuple combines a timeline row ID with an event row ID.
+// It is used in the `timeline` field of sync payloads.
 type TimelineRowTuple struct {
 	Timeline TimelineRowID `json:"timeline_rowid"`
 	Event    EventRowID    `json:"event_rowid"`

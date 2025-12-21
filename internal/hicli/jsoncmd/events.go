@@ -37,13 +37,24 @@ func EventTypeName(evt any) Name {
 }
 
 type SyncRoom struct {
-	Meta        *database.Room                                `json:"meta"`
-	Timeline    []database.TimelineRowTuple                   `json:"timeline"`
-	State       map[event.Type]map[string]database.EventRowID `json:"state"`
-	AccountData map[event.Type]*database.AccountData          `json:"account_data"`
-	Events      []*database.Event                             `json:"events"`
-	Reset       bool                                          `json:"reset"`
-	Receipts    map[id.EventID][]*database.Receipt            `json:"receipts"`
+	// Metadata about the room. The frontend should replace the entire cached object rather than merging.
+	Meta *database.Room `json:"meta"`
+	// New timeline events to append to the existing list
+	// (except if `reset` is set, in which case this replaces the existing list).
+	Timeline []database.TimelineRowTuple `json:"timeline"`
+	// If true, the frontend should discard the existing timeline cache for this room.
+	Reset bool `json:"reset"`
+	// New state events. This nested map should be deeply merged into the existing state map.
+	State map[event.Type]map[string]database.EventRowID `json:"state"`
+	// New room account data events. Like global account data, only changes are listed,
+	// but the entire content of changed events should be replaced.
+	AccountData map[event.Type]*database.AccountData `json:"account_data"`
+	// Events that the frontend needs to handle this sync. This may include old events, as well as
+	// events the frontend already has. The `timeline` and `state` fields are the ones that decide
+	// where the events are actually used.
+	Events []*database.Event `json:"events"`
+	// New read receipts. The frontend should only keep the latest receipt per user.
+	Receipts map[id.EventID][]*database.Receipt `json:"receipts"`
 
 	DismissNotifications bool               `json:"dismiss_notifications"`
 	Notifications        []SyncNotification `json:"notifications"`
@@ -65,15 +76,30 @@ type SyncToDevice struct {
 }
 
 type SyncComplete struct {
-	Since          *string                              `json:"since,omitempty"`
-	ClearState     bool                                 `json:"clear_state,omitempty"`
-	AccountData    map[event.Type]*database.AccountData `json:"account_data"`
-	Rooms          map[id.RoomID]*SyncRoom              `json:"rooms"`
-	LeftRooms      []id.RoomID                          `json:"left_rooms"`
-	InvitedRooms   []*database.InvitedRoom              `json:"invited_rooms"`
-	SpaceEdges     map[id.RoomID][]*database.SpaceEdge  `json:"space_edges"`
-	TopLevelSpaces []id.RoomID                          `json:"top_level_spaces"`
+	// The `since` token sent to the server in the /sync request.
+	// This is only for debugging, the frontend doesn't need to care about it.
+	Since *string `json:"since,omitempty"`
+	// If true, the frontend should throw away all state it has before applying this sync.
+	// This is used on the first payload after connecting if resuming wasn't used or didn't succeed.
+	ClearState bool `json:"clear_state,omitempty"`
+	// New global account data events. Only changed events are listed here, but the entire content
+	// of each changed event should be replaced.
+	AccountData map[event.Type]*database.AccountData `json:"account_data"`
+	// List of rooms that the user is participating in that have new data available.
+	Rooms map[id.RoomID]*SyncRoom `json:"rooms"`
+	// List of rooms that the user has left. The frontend should delete all state associated with these rooms.
+	LeftRooms []id.RoomID `json:"left_rooms"`
+	// List of new rooms that the user has been invited to.
+	InvitedRooms []*database.InvitedRoom `json:"invited_rooms"`
+	// List of spaces and their edges. When an edge in a space changes, all edges in that space are resent,
+	// so the frontend should replace the entire list for that space.
+	SpaceEdges map[id.RoomID][]*database.SpaceEdge `json:"space_edges"`
+	// List of room IDs that should be considered as top-level spaces.
+	// The frontend should replace the entire list if this field is set.
+	TopLevelSpaces []id.RoomID `json:"top_level_spaces"`
 
+	// New to-device events. This is only used for widgets and only emitted
+	// if opted in with the send_to_device command.
 	ToDevice []*SyncToDevice `json:"to_device,omitempty"`
 }
 

@@ -49,9 +49,12 @@ func (irq *InvitedRoomQuery) Delete(ctx context.Context, roomID id.RoomID) error
 }
 
 type InvitedRoom struct {
-	ID          id.RoomID          `json:"room_id"`
-	CreatedAt   jsontime.UnixMilli `json:"created_at"`
-	InviteState []*event.Event     `json:"invite_state"`
+	// The ID of the invited room.
+	ID id.RoomID `json:"room_id"`
+	// Either the timestamp of the invite event, or the time when the invite was received.
+	CreatedAt jsontime.UnixMilli `json:"created_at"`
+	// The (untrusted) room metadata state events for the room.
+	InviteState []*event.Event `json:"invite_state"`
 }
 
 func (r *InvitedRoom) sqlVariables() []any {

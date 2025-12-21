@@ -74,8 +74,11 @@ func (adq *AccountDataQuery) GetAllRoom(ctx context.Context, userID id.UserID, r
 }
 
 type AccountData struct {
-	UserID  id.UserID       `json:"user_id"`
-	RoomID  id.RoomID       `json:"room_id,omitempty"`
+	// The user ID who owns this account data (i.e. always the currently logged-in user).
+	UserID id.UserID `json:"user_id"`
+	// If this is a room account data event, the room ID it is associated with. Omitted for global account data.
+	RoomID id.RoomID `json:"room_id,omitempty"`
+
 	Type    string          `json:"type"`
 	Content json.RawMessage `json:"content"`
 }

@@ -328,6 +328,11 @@ func (eq *EventQuery) GetReactions(ctx context.Context, roomID id.RoomID, eventI
 	})
 }
 
+// An EventRowID uniquely identifies a single Matrix room event in the gomuks database.
+//
+// Event row IDs are always positive integers. They are not ordered in any useful way, the counter
+// is simply incremented whenever a new event is persisted. Paginating up in history will cause old
+// events to be added after new ones for example.
 type EventRowID int64
 
 func (m EventRowID) GetMassInsertValues() [1]any {
@@ -335,21 +340,38 @@ func (m EventRowID) GetMassInsertValues() [1]any {
 }
 
 type LocalContent struct {
-	SanitizedHTML        string `json:"sanitized_html,omitempty"`
-	HTMLVersion          int    `json:"html_version,omitempty"`
-	WasPlaintext         bool   `json:"was_plaintext,omitempty"`
-	BigEmoji             bool   `json:"big_emoji,omitempty"`
-	HasMath              bool   `json:"has_math,omitempty"`
-	EditSource           string `json:"edit_source,omitempty"`
-	ReplyFallbackRemoved bool   `json:"reply_fallback_removed,omitempty"`
+	// Sanitized HTML that is safe to render directly. This is optimized for web browsers,
+	// non-web frontends may want to parse the original HTML from `formatted_body` locally.
+	SanitizedHTML string `json:"sanitized_html,omitempty"`
+	// A version identifier for the sanitized HTML. This is only used to reparse the source
+	// in case there are changes to the sanitizer. Not relevant for frontends.
+	HTMLVersion int `json:"html_version,omitempty"`
+	// Whether the event was plaintext, i.e. did not have a `formatted_body` field.
+	// `sanitized_html` may be present anyway in case `body` contained characters that need HTML escaping.
+	WasPlaintext bool `json:"was_plaintext,omitempty"`
+	// Whether the event contains emoji only and should be rendered with a big font size.
+	BigEmoji bool `json:"big_emoji,omitempty"`
+	// Whether the event contains LaTeX math.
+	HasMath bool `json:"has_math,omitempty"`
+	// The message content that should be used as the initial composer state when editing this message.
+	// For messages sent from this gomuks instance, this will be the raw user input. For messages sent
+	// from other clients, this is parsed from the HTML and therefore may have slight changes to the
+	// original markdown (but the resulting HTML is the same anyway).
+	EditSource string `json:"edit_source,omitempty"`
+	// Whether the reply fallback was removed from the `body` and `formatted_body`.
+	// There is no way to get it back, as the content isn't stored.
+	ReplyFallbackRemoved bool `json:"reply_fallback_removed,omitempty"`
 }
 
 func (c *LocalContent) GetReplyFallbackRemoved() bool {
 	return c != nil && c.ReplyFallbackRemoved
 }
 
+// Event represents a single Matrix room event.
 type Event struct {
-	RowID         EventRowID    `json:"rowid"`
+	RowID EventRowID `json:"rowid"`
+	// The timeline row ID is only filled when paginating messages.
+	// In normal syncs, timeline row IDs can be found in the separate `timeline` field rather than inside events.
 	TimelineRowID TimelineRowID `json:"timeline_rowid"`
 
 	RoomID    id.RoomID          `json:"room_id"`
