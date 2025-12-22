@@ -52,15 +52,27 @@ const (
 )
 
 type EncryptionKey struct {
+	// 32 random bytes used as the static AES-GCM key.
 	Key []byte `json:"key,omitempty"`
 }
 
 type PushRegistration struct {
-	DeviceID   string          `json:"device_id"`
-	Type       PushType        `json:"type"`
-	Data       json.RawMessage `json:"data"`
-	Encryption EncryptionKey   `json:"encryption"`
-	Expiration jsontime.Unix   `json:"expiration"`
+	// An arbitrary (but stable) device identifier. Only one push registration can be active per device ID.
+	DeviceID string `json:"device_id"`
+	// The type of pusher.
+	Type PushType `json:"type"`
+	// The type-specific data.
+	//
+	// For FCM, this is the FCM token as a string.
+	// For web push, this is the subscription info as a JSON object
+	// (`endpoint` string and `keys` object with `p256dh` and `auth` strings).
+	Data json.RawMessage `json:"data"`
+	// An optional gomuks-specific encryption configuration. Mostly relevant for FCM (and APNs in
+	// the future), as web push has built-in encryption.
+	Encryption EncryptionKey `json:"encryption"`
+	// Unix timestamp (seconds) when the registration should be considered stale.
+	// The frontend should re-register well before this time.
+	Expiration jsontime.Unix `json:"expiration"`
 }
 
 func (pe *PushRegistration) Scan(row dbutil.Scannable) (*PushRegistration, error) {

@@ -20,25 +20,34 @@ type CommandName string
 
 type CancelRequestParams struct {
 	RequestID int64  `json:"request_id"`
-	Reason    string `json:"reason"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 type SendMessageParams struct {
-	RoomID      id.RoomID                  `json:"room_id"`
-	BaseContent *event.MessageEventContent `json:"base_content"`
-	Extra       map[string]any             `json:"extra"`
-	Text        string                     `json:"text"`
-	RelatesTo   *event.RelatesTo           `json:"relates_to"`
-	Mentions    *event.Mentions            `json:"mentions"`
-	URLPreviews []*event.BeeperLinkPreview `json:"url_previews"`
+	RoomID id.RoomID `json:"room_id"`
+	// Non-text event content
+	BaseContent *event.MessageEventContent `json:"base_content,omitempty"`
+	// Non-text event content that isn't supported by the MessageEventContent struct
+	Extra map[string]any `json:"extra,omitempty"`
+	// The text to send. If set, this will be used to fill the message `body`, `formatted_body`,
+	// `format` and `msgtype` fields. Media captions should be put here even when using
+	// `base_content` for the rest of the media. Some special-cased commands are also parsed from
+	// this field (but most commands use the MSC4332 fields in base_content).
+	Text string `json:"text"`
+	// Standard Matrix `m.relates_to` data (replies, threading, edits).
+	RelatesTo *event.RelatesTo `json:"relates_to,omitempty"`
+	// Standard Matrix `m.mentions` data.
+	Mentions *event.Mentions `json:"mentions,omitempty"`
+	// Beeper URL previews to attach to the message.
+	URLPreviews []*event.BeeperLinkPreview `json:"url_previews,omitempty"`
 }
 
 type SendEventParams struct {
 	RoomID            id.RoomID       `json:"room_id"`
 	EventType         event.Type      `json:"type"`
 	Content           json.RawMessage `json:"content"`
-	DisableEncryption bool            `json:"disable_encryption"`
-	Synchronous       bool            `json:"synchronous"`
+	DisableEncryption bool            `json:"disable_encryption,omitempty"`
+	Synchronous       bool            `json:"synchronous,omitempty"`
 }
 
 type ResendEventParams struct {
@@ -48,13 +57,13 @@ type ResendEventParams struct {
 type ReportEventParams struct {
 	RoomID  id.RoomID  `json:"room_id"`
 	EventID id.EventID `json:"event_id"`
-	Reason  string     `json:"reason"`
+	Reason  string     `json:"reason,omitempty"`
 }
 
 type RedactEventParams struct {
 	RoomID  id.RoomID  `json:"room_id"`
 	EventID id.EventID `json:"event_id"`
-	Reason  string     `json:"reason"`
+	Reason  string     `json:"reason,omitempty"`
 }
 
 type SendStateEventParams struct {
@@ -62,7 +71,7 @@ type SendStateEventParams struct {
 	EventType event.Type      `json:"type"`
 	StateKey  string          `json:"state_key"`
 	Content   json.RawMessage `json:"content"`
-	DelayMS   int             `json:"delay_ms"`
+	DelayMS   int             `json:"delay_ms,omitempty"`
 }
 
 type UpdateDelayedEventParams struct {
@@ -71,14 +80,16 @@ type UpdateDelayedEventParams struct {
 }
 
 type SetMembershipParams struct {
-	Action              string    `json:"action"`
-	RoomID              id.RoomID `json:"room_id"`
-	UserID              id.UserID `json:"user_id"`
-	Reason              string    `json:"reason"`
-	MSC4293RedactEvents bool      `json:"msc4293_redact_events"`
+	Action string    `json:"action"`
+	RoomID id.RoomID `json:"room_id"`
+	UserID id.UserID `json:"user_id"`
+	Reason string    `json:"reason,omitempty"`
+	// If true, the ban event will set a flag to suggest that clients hide all the user's messages.
+	MSC4293RedactEvents bool `json:"msc4293_redact_events,omitempty"`
 }
 
 type SetAccountDataParams struct {
+	// If set, the request will set room account data rather than global.
 	RoomID  id.RoomID       `json:"room_id,omitempty"`
 	Type    string          `json:"type"`
 	Content json.RawMessage `json:"content"`
@@ -124,10 +135,15 @@ type GetRelatedEventsParams struct {
 }
 
 type GetRoomStateParams struct {
-	RoomID         id.RoomID `json:"room_id"`
-	Refetch        bool      `json:"refetch"`
-	FetchMembers   bool      `json:"fetch_members"`
-	IncludeMembers bool      `json:"include_members"`
+	RoomID id.RoomID `json:"room_id"`
+	// Force refetch the entire state from the homeserver.
+	Refetch bool `json:"refetch,omitempty"`
+	// Fetch membership events from homeserver. The client should always set this when opening a
+	// room if `has_member_list` is false in the room metadata.
+	FetchMembers bool `json:"fetch_members,omitempty"`
+	// Whether to include the member list in the response. This can be used with `fetch_members` to
+	// tell the backend to fetch the list in the background rather than waiting for it.
+	IncludeMembers bool `json:"include_members,omitempty"`
 }
 
 type GetSpecificRoomStateParams struct {
@@ -172,37 +188,48 @@ type GetLoginFlowsParams struct {
 }
 
 type PaginateParams struct {
-	RoomID        id.RoomID              `json:"room_id"`
-	MaxTimelineID database.TimelineRowID `json:"max_timeline_id"`
-	Limit         int                    `json:"limit"`
-	Reset         bool                   `json:"reset"`
+	RoomID id.RoomID `json:"room_id"`
+	// The oldest known timeline row ID. All returned messages will have a lower ID than this (hence max ID).
+	// This should be omitted or set to zero when resetting.
+	MaxTimelineID database.TimelineRowID `json:"max_timeline_id,omitempty"`
+	// Maximum number of messages to return.
+	Limit int `json:"limit"`
+	// If true, the backend will throw away any locally cached timeline state and reload it from the server.
+	Reset bool `json:"reset,omitempty"`
 }
 
 type PaginateManualParams struct {
-	RoomID     id.RoomID         `json:"room_id"`
-	ThreadRoot id.EventID        `json:"thread_root"`
-	Since      string            `json:"since"`
-	Direction  mautrix.Direction `json:"direction"`
-	Limit      int               `json:"limit"`
+	RoomID id.RoomID `json:"room_id"`
+	// Root event ID for thread pagination. Omit for non-thread pagination.
+	ThreadRoot id.EventID `json:"thread_root,omitempty"`
+	// `next_batch` token from previous request or the `start`/`end` fields of `get_event_context`.
+	// Can be empty for starting thread pagination.
+	Since     string            `json:"since,omitempty"`
+	Direction mautrix.Direction `json:"direction"`
+	Limit     int               `json:"limit"`
 }
 
 type JoinRoomParams struct {
-	RoomIDOrAlias string   `json:"room_id_or_alias"`
-	Via           []string `json:"via"`
-	Reason        string   `json:"reason"`
+	RoomIDOrAlias string `json:"room_id_or_alias"`
+	// Via servers to attempt to join through.
+	// This is required when using a room ID to join a server that the homeserver isn't participating in.
+	Via    []string `json:"via,omitempty"`
+	Reason string   `json:"reason,omitempty"`
 }
 
 type GetRoomSummaryParams struct {
-	RoomIDOrAlias string   `json:"room_id_or_alias"`
-	Via           []string `json:"via"`
+	RoomIDOrAlias string `json:"room_id_or_alias"`
+	// Via servers to attempt to join through.
+	// This is required when using a room ID to join a server that the homeserver isn't participating in.
+	Via []string `json:"via,omitempty"`
 }
 
 type GetHierarchyParams struct {
 	RoomID        id.RoomID `json:"room_id"`
-	From          string    `json:"from"`
+	From          string    `json:"from,omitempty"`
 	Limit         int       `json:"limit"`
-	MaxDepth      *int      `json:"max_depth"`
-	SuggestedOnly bool      `json:"suggested_only"`
+	MaxDepth      *int      `json:"max_depth,omitempty"`
+	SuggestedOnly bool      `json:"suggested_only,omitempty"`
 }
 
 type LeaveRoomParams struct {
