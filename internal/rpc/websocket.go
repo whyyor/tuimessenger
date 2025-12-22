@@ -99,13 +99,10 @@ func (gr *GomuksRPC) cancelRequest(reqID int64, reason string) {
 	if err != nil {
 		return
 	}
-	_ = json.NewEncoder(wr).Encode(&jsoncmd.Container[*jsoncmd.CancelRequestParams]{
-		Command: jsoncmd.ReqCancel,
-		Data: &jsoncmd.CancelRequestParams{
-			RequestID: reqID,
-			Reason:    reason,
-		},
-	})
+	_ = json.NewEncoder(wr).Encode(jsoncmd.Cancel.Format(&jsoncmd.CancelRequestParams{
+		RequestID: reqID,
+		Reason:    reason,
+	}, 0))
 }
 
 func writeWebsocketJSON(ctx context.Context, conn *websocket.Conn, data any) error {
@@ -149,21 +146,37 @@ func (gr *GomuksRPC) getNextRequestID(wait bool) (reqID int64, ch chan *jsoncmd.
 	return
 }
 
-func (gr *GomuksRPC) Request(ctx context.Context, cmd jsoncmd.Name, data any) (json.RawMessage, error) {
+func executeRequest[Req, Resp any](gr *GomuksRPC, ctx context.Context, spec jsoncmd.ClientCommandSpec[Req, Resp], data Req) (Resp, error) {
+	reqID, ch, remove := gr.getNextRequestID(true)
+	defer remove()
+
+	formatted := spec.Format(data, reqID)
+	rawData, err := gr.rawRequest(ctx, formatted, reqID, formatted.Command, ch)
+	if err != nil {
+		return *new(Resp), err
+	}
+	return spec.Parse(rawData)
+}
+
+func executeRequestNoResponse[Req any](gr *GomuksRPC, ctx context.Context, spec jsoncmd.ClientCommandSpec[Req, *jsoncmd.Empty], data Req) error {
+	_, err := executeRequest(gr, ctx, spec, data)
+	return err
+}
+
+func (gr *GomuksRPC) rawRequest(
+	ctx context.Context,
+	payload any,
+	reqID int64,
+	cmd jsoncmd.Name,
+	ch chan *jsoncmd.Container[json.RawMessage],
+) (json.RawMessage, error) {
 	conn := gr.conn.Load()
 	if conn == nil {
 		return nil, ErrNotConnectedToWebsocket
 	}
 
-	reqID, ch, remove := gr.getNextRequestID(true)
-	defer remove()
-
 	zerolog.Ctx(ctx).Trace().Int64("req_id", reqID).Stringer("command", cmd).Msg("Sending websocket request")
-	err := writeWebsocketJSON(ctx, conn, &jsoncmd.Container[any]{
-		Command:   cmd,
-		RequestID: reqID,
-		Data:      data,
-	})
+	err := writeWebsocketJSON(ctx, conn, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +194,8 @@ func (gr *GomuksRPC) Request(ctx context.Context, cmd jsoncmd.Name, data any) (j
 		}
 		return resp.Data, nil
 	case <-ctx.Done():
-		go gr.cancelRequest(reqID, ctx.Err().Error())
-		return nil, fmt.Errorf("context finished while waiting for response: %w", ctx.Err())
+		go gr.cancelRequest(reqID, context.Cause(ctx).Error())
+		return nil, fmt.Errorf("context finished while waiting for response: %w", context.Cause(ctx))
 	}
 }
 

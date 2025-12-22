@@ -8,7 +8,6 @@ package hicli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -28,9 +27,11 @@ import (
 func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any, error) {
 	switch req.Command {
 	case jsoncmd.ReqGetState:
-		return h.State(), nil
+		return jsoncmd.GetState.Run(req.Data, func() (*jsoncmd.ClientState, error) {
+			return h.State(), nil
+		})
 	case jsoncmd.ReqCancel:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.CancelRequestParams) (bool, error) {
+		return jsoncmd.Cancel.Run(req.Data, func(params *jsoncmd.CancelRequestParams) (bool, error) {
 			h.jsonRequestsLock.Lock()
 			cancelTarget, ok := h.jsonRequests[params.RequestID]
 			h.jsonRequestsLock.Unlock()
@@ -45,85 +46,85 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 			return true, nil
 		})
 	case jsoncmd.ReqSendMessage:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.SendMessageParams) (*database.Event, error) {
+		return jsoncmd.SendMessage.Run(req.Data, func(params *jsoncmd.SendMessageParams) (*database.Event, error) {
 			return h.SendMessage(ctx, params.RoomID, params.BaseContent, params.Extra, params.Text, params.RelatesTo, params.Mentions, params.URLPreviews)
 		})
 	case jsoncmd.ReqSendEvent:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.SendEventParams) (*database.Event, error) {
+		return jsoncmd.SendEvent.Run(req.Data, func(params *jsoncmd.SendEventParams) (*database.Event, error) {
 			return h.Send(ctx, params.RoomID, params.EventType, params.Content, params.DisableEncryption, params.Synchronous)
 		})
 	case jsoncmd.ReqResendEvent:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.ResendEventParams) (*database.Event, error) {
+		return jsoncmd.ResendEvent.Run(req.Data, func(params *jsoncmd.ResendEventParams) (*database.Event, error) {
 			return h.Resend(ctx, params.TransactionID)
 		})
 	case jsoncmd.ReqReportEvent:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.ReportEventParams) (bool, error) {
-			return true, h.Client.ReportEvent(ctx, params.RoomID, params.EventID, params.Reason)
+		return jsoncmd.ReportEvent.Run(req.Data, func(params *jsoncmd.ReportEventParams) error {
+			return h.Client.ReportEvent(ctx, params.RoomID, params.EventID, params.Reason)
 		})
 	case jsoncmd.ReqRedactEvent:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.RedactEventParams) (*mautrix.RespSendEvent, error) {
+		return jsoncmd.RedactEvent.Run(req.Data, func(params *jsoncmd.RedactEventParams) (*mautrix.RespSendEvent, error) {
 			return h.Client.RedactEvent(ctx, params.RoomID, params.EventID, mautrix.ReqRedact{
 				Reason: params.Reason,
 			})
 		})
 	case jsoncmd.ReqSetState:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.SendStateEventParams) (id.EventID, error) {
+		return jsoncmd.SetState.Run(req.Data, func(params *jsoncmd.SendStateEventParams) (id.EventID, error) {
 			return h.SetState(ctx, params.RoomID, params.EventType, params.StateKey, params.Content, mautrix.ReqSendEvent{
 				UnstableDelay: time.Duration(params.DelayMS) * time.Millisecond,
 			})
 		})
 	case jsoncmd.ReqUpdateDelayedEvent:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.UpdateDelayedEventParams) (*mautrix.RespUpdateDelayedEvent, error) {
+		return jsoncmd.UpdateDelayedEvent.Run(req.Data, func(params *jsoncmd.UpdateDelayedEventParams) (*mautrix.RespUpdateDelayedEvent, error) {
 			return h.Client.UpdateDelayedEvent(ctx, &mautrix.ReqUpdateDelayedEvent{
 				DelayID: params.DelayID,
 				Action:  params.Action,
 			})
 		})
 	case jsoncmd.ReqSetMembership:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.SetMembershipParams) (any, error) {
+		return jsoncmd.SetMembership.Run(req.Data, func(params *jsoncmd.SetMembershipParams) (err error) {
 			switch params.Action {
 			case "invite":
-				return h.Client.InviteUser(ctx, params.RoomID, &mautrix.ReqInviteUser{UserID: params.UserID, Reason: params.Reason})
+				_, err = h.Client.InviteUser(ctx, params.RoomID, &mautrix.ReqInviteUser{UserID: params.UserID, Reason: params.Reason})
 			case "kick":
-				return h.Client.KickUser(ctx, params.RoomID, &mautrix.ReqKickUser{UserID: params.UserID, Reason: params.Reason})
+				_, err = h.Client.KickUser(ctx, params.RoomID, &mautrix.ReqKickUser{UserID: params.UserID, Reason: params.Reason})
 			case "ban":
-				return h.Client.BanUser(ctx, params.RoomID, &mautrix.ReqBanUser{UserID: params.UserID, Reason: params.Reason, MSC4293RedactEvents: params.MSC4293RedactEvents})
+				_, err = h.Client.BanUser(ctx, params.RoomID, &mautrix.ReqBanUser{UserID: params.UserID, Reason: params.Reason, MSC4293RedactEvents: params.MSC4293RedactEvents})
 			case "unban":
-				return h.Client.UnbanUser(ctx, params.RoomID, &mautrix.ReqUnbanUser{UserID: params.UserID, Reason: params.Reason})
+				_, err = h.Client.UnbanUser(ctx, params.RoomID, &mautrix.ReqUnbanUser{UserID: params.UserID, Reason: params.Reason})
 			default:
-				return nil, fmt.Errorf("unknown action %q", params.Action)
+				err = fmt.Errorf("unknown action %q", params.Action)
 			}
+			return
 		})
 	case jsoncmd.ReqSetAccountData:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.SetAccountDataParams) (bool, error) {
+		return jsoncmd.SetAccountData.Run(req.Data, func(params *jsoncmd.SetAccountDataParams) error {
 			if params.RoomID != "" {
-				return true, h.Client.SetRoomAccountData(ctx, params.RoomID, params.Type, params.Content)
-			} else {
-				return true, h.Client.SetAccountData(ctx, params.Type, params.Content)
+				return h.Client.SetRoomAccountData(ctx, params.RoomID, params.Type, params.Content)
 			}
+			return h.Client.SetAccountData(ctx, params.Type, params.Content)
 		})
 	case jsoncmd.ReqMarkRead:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.MarkReadParams) (bool, error) {
-			return true, h.MarkRead(ctx, params.RoomID, params.EventID, params.ReceiptType)
+		return jsoncmd.MarkRead.Run(req.Data, func(params *jsoncmd.MarkReadParams) error {
+			return h.MarkRead(ctx, params.RoomID, params.EventID, params.ReceiptType)
 		})
 	case jsoncmd.ReqSetTyping:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.SetTypingParams) (bool, error) {
-			return true, h.SetTyping(ctx, params.RoomID, time.Duration(params.Timeout)*time.Millisecond)
+		return jsoncmd.SetTyping.Run(req.Data, func(params *jsoncmd.SetTypingParams) error {
+			return h.SetTyping(ctx, params.RoomID, time.Duration(params.Timeout)*time.Millisecond)
 		})
 	case jsoncmd.ReqGetProfile:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetProfileParams) (*mautrix.RespUserProfile, error) {
+		return jsoncmd.GetProfile.Run(req.Data, func(params *jsoncmd.GetProfileParams) (*mautrix.RespUserProfile, error) {
 			return h.Client.GetProfile(mautrix.WithMaxRetries(ctx, 0), params.UserID)
 		})
 	case jsoncmd.ReqSetProfileField:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.SetProfileFieldParams) (bool, error) {
-			return true, h.Client.SetProfileField(ctx, params.Field, params.Value)
+		return jsoncmd.SetProfileField.Run(req.Data, func(params *jsoncmd.SetProfileFieldParams) error {
+			return h.Client.SetProfileField(ctx, params.Field, params.Value)
 		})
 	case jsoncmd.ReqGetMutualRooms:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetProfileParams) ([]id.RoomID, error) {
+		return jsoncmd.GetMutualRooms.Run(req.Data, func(params *jsoncmd.GetProfileParams) ([]id.RoomID, error) {
 			return h.GetMutualRooms(mautrix.WithMaxRetries(ctx, 0), params.UserID)
 		})
 	case jsoncmd.ReqTrackUserDevices:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetProfileParams) (*jsoncmd.ProfileEncryptionInfo, error) {
+		return jsoncmd.TrackUserDevices.Run(req.Data, func(params *jsoncmd.GetProfileParams) (*jsoncmd.ProfileEncryptionInfo, error) {
 			err := h.TrackUserDevices(ctx, params.UserID)
 			if err != nil {
 				return nil, err
@@ -131,50 +132,50 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 			return h.GetProfileEncryptionInfo(ctx, params.UserID)
 		})
 	case jsoncmd.ReqGetProfileEncryptionInfo:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetProfileParams) (*jsoncmd.ProfileEncryptionInfo, error) {
+		return jsoncmd.GetProfileEncryptionInfo.Run(req.Data, func(params *jsoncmd.GetProfileParams) (*jsoncmd.ProfileEncryptionInfo, error) {
 			return h.GetProfileEncryptionInfo(ctx, params.UserID)
 		})
 	case jsoncmd.ReqGetEvent:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetEventParams) (*database.Event, error) {
+		return jsoncmd.GetEvent.Run(req.Data, func(params *jsoncmd.GetEventParams) (*database.Event, error) {
 			if params.Unredact {
 				return h.GetUnredactedEvent(mautrix.WithMaxRetries(ctx, 2), params.RoomID, params.EventID)
 			}
 			return h.GetEvent(mautrix.WithMaxRetries(ctx, 2), params.RoomID, params.EventID)
 		})
 	case jsoncmd.ReqGetRelatedEvents:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetRelatedEventsParams) ([]*database.Event, error) {
+		return jsoncmd.GetRelatedEvents.Run(req.Data, func(params *jsoncmd.GetRelatedEventsParams) ([]*database.Event, error) {
 			return nonNilArray(h.DB.Event.GetRelatedEvents(ctx, params.RoomID, params.EventID, params.RelationType))
 		})
 	case jsoncmd.ReqGetEventContext:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetEventContextParams) (*jsoncmd.EventContextResponse, error) {
+		return jsoncmd.GetEventContext.Run(req.Data, func(params *jsoncmd.GetEventContextParams) (*jsoncmd.EventContextResponse, error) {
 			return h.GetEventContext(mautrix.WithMaxRetries(ctx, 0), params.RoomID, params.EventID, params.Limit)
 		})
 	case jsoncmd.ReqPaginateManual:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.PaginateManualParams) (*jsoncmd.ManualPaginationResponse, error) {
+		return jsoncmd.PaginateManual.Run(req.Data, func(params *jsoncmd.PaginateManualParams) (*jsoncmd.ManualPaginationResponse, error) {
 			return h.PaginateManual(mautrix.WithMaxRetries(ctx, 0), params.RoomID, params.ThreadRoot, params.Since, params.Direction, params.Limit)
 		})
 	case jsoncmd.ReqGetRoomState:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetRoomStateParams) ([]*database.Event, error) {
+		return jsoncmd.GetRoomState.Run(req.Data, func(params *jsoncmd.GetRoomStateParams) ([]*database.Event, error) {
 			return h.GetRoomState(ctx, params.RoomID, params.IncludeMembers, params.FetchMembers, params.Refetch)
 		})
 	case jsoncmd.ReqGetSpecificRoomState:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetSpecificRoomStateParams) ([]*database.Event, error) {
+		return jsoncmd.GetSpecificRoomState.Run(req.Data, func(params *jsoncmd.GetSpecificRoomStateParams) ([]*database.Event, error) {
 			return nonNilArray(h.DB.CurrentState.GetMany(ctx, params.Keys))
 		})
 	case jsoncmd.ReqGetReceipts:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetReceiptsParams) (map[id.EventID][]*database.Receipt, error) {
+		return jsoncmd.GetReceipts.Run(req.Data, func(params *jsoncmd.GetReceiptsParams) (map[id.EventID][]*database.Receipt, error) {
 			return h.GetReceipts(ctx, params.RoomID, params.EventIDs)
 		})
 	case jsoncmd.ReqPaginate:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.PaginateParams) (*jsoncmd.PaginationResponse, error) {
+		return jsoncmd.Paginate.Run(req.Data, func(params *jsoncmd.PaginateParams) (*jsoncmd.PaginationResponse, error) {
 			return h.Paginate(ctx, params.RoomID, params.MaxTimelineID, params.Limit, params.Reset)
 		})
 	case jsoncmd.ReqGetRoomSummary:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.JoinRoomParams) (*mautrix.RespRoomSummary, error) {
+		return jsoncmd.GetRoomSummary.Run(req.Data, func(params *jsoncmd.GetRoomSummaryParams) (*mautrix.RespRoomSummary, error) {
 			return h.Client.GetRoomSummary(mautrix.WithMaxRetries(ctx, 2), params.RoomIDOrAlias, params.Via...)
 		})
 	case jsoncmd.ReqGetSpaceHierarchy:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetHierarchyParams) (*mautrix.RespHierarchy, error) {
+		return jsoncmd.GetSpaceHierarchy.Run(req.Data, func(params *jsoncmd.GetHierarchyParams) (*mautrix.RespHierarchy, error) {
 			return h.Client.Hierarchy(mautrix.WithMaxRetries(ctx, 0), params.RoomID, &mautrix.ReqHierarchy{
 				From:          params.From,
 				Limit:         params.Limit,
@@ -183,21 +184,21 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 			})
 		})
 	case jsoncmd.ReqJoinRoom:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.JoinRoomParams) (*mautrix.RespJoinRoom, error) {
+		return jsoncmd.JoinRoom.Run(req.Data, func(params *jsoncmd.JoinRoomParams) (*mautrix.RespJoinRoom, error) {
 			return h.Client.JoinRoom(mautrix.WithMaxRetries(ctx, 2), params.RoomIDOrAlias, &mautrix.ReqJoinRoom{
 				Via:    params.Via,
 				Reason: params.Reason,
 			})
 		})
 	case jsoncmd.ReqKnockRoom:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.JoinRoomParams) (*mautrix.RespKnockRoom, error) {
+		return jsoncmd.KnockRoom.Run(req.Data, func(params *jsoncmd.JoinRoomParams) (*mautrix.RespKnockRoom, error) {
 			return h.Client.KnockRoom(mautrix.WithMaxRetries(ctx, 2), params.RoomIDOrAlias, &mautrix.ReqKnockRoom{
 				Via:    params.Via,
 				Reason: params.Reason,
 			})
 		})
 	case jsoncmd.ReqLeaveRoom:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.LeaveRoomParams) (*mautrix.RespLeaveRoom, error) {
+		return jsoncmd.LeaveRoom.Run(req.Data, func(params *jsoncmd.LeaveRoomParams) (*mautrix.RespLeaveRoom, error) {
 			resp, err := h.Client.LeaveRoom(mautrix.WithMaxRetries(ctx, 2), params.RoomID, &mautrix.ReqLeave{Reason: params.Reason})
 			if err == nil ||
 				errors.Is(err, mautrix.MNotFound) ||
@@ -219,66 +220,65 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 			return resp, err
 		})
 	case jsoncmd.ReqCreateRoom:
-		return unmarshalAndCall(req.Data, func(params *mautrix.ReqCreateRoom) (*mautrix.RespCreateRoom, error) {
-			return h.Client.CreateRoom(mautrix.WithMaxRetries(ctx, 0), params)
-		})
+		return jsoncmd.CreateRoom.RunCtx(mautrix.WithMaxRetries(ctx, 0), req.Data, h.Client.CreateRoom)
 	case jsoncmd.ReqMuteRoom:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.MuteRoomParams) (bool, error) {
+		return jsoncmd.MuteRoom.Run(req.Data, func(params *jsoncmd.MuteRoomParams) (bool, error) {
 			if params.Muted {
 				return true, h.Client.PutPushRule(ctx, "global", pushrules.RoomRule, string(params.RoomID), &mautrix.ReqPutPushRule{
 					Actions: []pushrules.PushActionType{},
 				})
-			} else {
-				return false, h.Client.DeletePushRule(ctx, "global", pushrules.RoomRule, string(params.RoomID))
 			}
+			return false, h.Client.DeletePushRule(ctx, "global", pushrules.RoomRule, string(params.RoomID))
 		})
 	case jsoncmd.ReqEnsureGroupSessionShared:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.EnsureGroupSessionSharedParams) (bool, error) {
-			return true, h.EnsureGroupSessionShared(ctx, params.RoomID)
+		return jsoncmd.EnsureGroupSessionShared.Run(req.Data, func(params *jsoncmd.EnsureGroupSessionSharedParams) error {
+			return h.EnsureGroupSessionShared(ctx, params.RoomID)
 		})
 	case jsoncmd.ReqSendToDevice:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.SendToDeviceParams) (*mautrix.RespSendToDevice, error) {
+		return jsoncmd.SendToDevice.Run(req.Data, func(params *jsoncmd.SendToDeviceParams) (*mautrix.RespSendToDevice, error) {
 			params.EventType.Class = event.ToDeviceEventType
 			return h.SendToDevice(ctx, params.EventType, params.ReqSendToDevice, params.Encrypted)
 		})
 	case jsoncmd.ReqResolveAlias:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.ResolveAliasParams) (*mautrix.RespAliasResolve, error) {
+		return jsoncmd.ResolveAlias.Run(req.Data, func(params *jsoncmd.ResolveAliasParams) (*mautrix.RespAliasResolve, error) {
 			return h.Client.ResolveAlias(mautrix.WithMaxRetries(ctx, 0), params.Alias)
 		})
 	case jsoncmd.ReqRequestOpenIDToken:
-		return h.Client.RequestOpenIDToken(ctx)
+		return jsoncmd.RequestOpenIDToken.RunCtx(ctx, req.Data, h.Client.RequestOpenIDToken)
 	case jsoncmd.ReqLogout:
-		if h.LogoutFunc == nil {
-			return nil, errors.New("logout not supported")
-		}
-		return true, h.LogoutFunc(ctx)
+		return jsoncmd.Logout.Run(req.Data, func() error {
+			if h.LogoutFunc == nil {
+				return errors.New("logout not supported")
+			}
+			return h.LogoutFunc(ctx)
+		})
 	case jsoncmd.ReqLogin:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.LoginParams) (bool, error) {
+		return jsoncmd.Login.Run(req.Data, func(params *jsoncmd.LoginParams) error {
 			err := h.LoginPassword(ctx, params.HomeserverURL, params.Username, params.Password)
 			if err != nil {
 				h.Log.Err(err).Msg("Failed to login")
 			}
-			return true, err
+			return err
 		})
 	case jsoncmd.ReqLoginCustom:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.LoginCustomParams) (bool, error) {
+		return jsoncmd.LoginCustom.Run(req.Data, func(params *jsoncmd.LoginCustomParams) error {
 			var err error
 			h.Client.HomeserverURL, err = url.Parse(params.HomeserverURL)
 			if err != nil {
-				return false, err
+				return err
 			}
 			err = h.Login(ctx, params.Request)
 			if err != nil {
 				h.Log.Err(err).Msg("Failed to login")
 			}
-			return true, err
+			return err
 		})
 	case jsoncmd.ReqVerify:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.VerifyParams) (bool, error) {
-			return true, h.Verify(ctx, params.RecoveryKey)
+		return jsoncmd.Verify.Run(req.Data, func(params *jsoncmd.VerifyParams) error {
+			return h.Verify(ctx, params.RecoveryKey)
 		})
 	case jsoncmd.ReqDiscoverHomeserver:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.DiscoverHomeserverParams) (*mautrix.ClientWellKnown, error) {
+		return jsoncmd.DiscoverHomeserver.Run(req.Data, func(params *jsoncmd.DiscoverHomeserverParams) (*mautrix.ClientWellKnown, error) {
 			_, homeserver, err := params.UserID.Parse()
 			if err != nil {
 				return nil, err
@@ -286,7 +286,7 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 			return mautrix.DiscoverClientAPI(ctx, homeserver)
 		})
 	case jsoncmd.ReqGetLoginFlows:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.GetLoginFlowsParams) (*mautrix.RespLoginFlows, error) {
+		return jsoncmd.GetLoginFlows.Run(req.Data, func(params *jsoncmd.GetLoginFlowsParams) (*mautrix.RespLoginFlows, error) {
 			cli, err := h.tempClient(params.HomeserverURL)
 			if err != nil {
 				return nil, err
@@ -298,19 +298,19 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 			return cli.GetLoginFlows(ctx)
 		})
 	case jsoncmd.ReqRegisterPush:
-		return unmarshalAndCall(req.Data, func(params *database.PushRegistration) (bool, error) {
-			return true, h.DB.PushRegistration.Put(ctx, params)
+		return jsoncmd.RegisterPush.Run(req.Data, func(params *database.PushRegistration) error {
+			return h.DB.PushRegistration.Put(ctx, params)
 		})
 	case jsoncmd.ReqListenToDevice:
-		return unmarshalAndCall(req.Data, func(listen *bool) (bool, error) {
-			return h.ToDeviceInSync.Swap(*listen), nil
+		return jsoncmd.ListenToDevice.Run(req.Data, func(listen bool) (bool, error) {
+			return h.ToDeviceInSync.Swap(listen), nil
 		})
 	case jsoncmd.ReqGetTurnServers:
-		return h.Client.TurnServer(ctx)
+		return jsoncmd.GetTurnServers.RunCtx(ctx, req.Data, h.Client.TurnServer)
 	case jsoncmd.ReqGetMediaConfig:
-		return h.Client.GetMediaConfig(ctx)
+		return jsoncmd.GetMediaConfig.RunCtx(ctx, req.Data, h.Client.GetMediaConfig)
 	case jsoncmd.ReqCalculateRoomID:
-		return unmarshalAndCall(req.Data, func(params *jsoncmd.CalculateRoomIDParams) (id.RoomID, error) {
+		return jsoncmd.CalculateRoomID.Run(req.Data, func(params *jsoncmd.CalculateRoomIDParams) (id.RoomID, error) {
 			return h.CalculateRoomID(params.Timestamp, params.CreationContent)
 		})
 	default:
@@ -323,13 +323,4 @@ func nonNilArray[T any](arr []T, err error) ([]T, error) {
 		return []T{}, nil
 	}
 	return arr, err
-}
-
-func unmarshalAndCall[T, O any](data json.RawMessage, fn func(*T) (O, error)) (output O, err error) {
-	var input T
-	err = json.Unmarshal(data, &input)
-	if err != nil {
-		return
-	}
-	return fn(&input)
 }

@@ -6,6 +6,13 @@
 
 package jsoncmd
 
+import (
+	"maunium.net/go/mautrix"
+	"maunium.net/go/mautrix/id"
+
+	"go.mau.fi/gomuks/pkg/hicli/database"
+)
+
 type Container[T any] struct {
 	Command   Name  `json:"command"`
 	RequestID int64 `json:"request_id"`
@@ -83,4 +90,66 @@ const (
 	EventImageAuthToken  Name = "image_auth_token"
 	EventInitComplete    Name = "init_complete"
 	EventRunID           Name = "run_id"
+)
+
+var (
+	GetState                 = &CommandSpecWithoutRequest[*ClientState]{Name: ReqGetState}
+	Cancel                   = &CommandSpec[*CancelRequestParams, bool]{Name: ReqCancel}
+	SendMessage              = &CommandSpec[*SendMessageParams, *database.Event]{Name: ReqSendMessage}
+	SendEvent                = &CommandSpec[*SendEventParams, *database.Event]{Name: ReqSendEvent}
+	ResendEvent              = &CommandSpec[*ResendEventParams, *database.Event]{Name: ReqResendEvent}
+	ReportEvent              = &CommandSpecWithoutResponse[*ReportEventParams]{Name: ReqReportEvent}
+	RedactEvent              = &CommandSpec[*RedactEventParams, *mautrix.RespSendEvent]{Name: ReqRedactEvent}
+	SetState                 = &CommandSpec[*SendStateEventParams, id.EventID]{Name: ReqSetState}
+	UpdateDelayedEvent       = &CommandSpec[*UpdateDelayedEventParams, *mautrix.RespUpdateDelayedEvent]{Name: ReqUpdateDelayedEvent}
+	SetMembership            = &CommandSpecWithoutResponse[*SetMembershipParams]{Name: ReqSetMembership}
+	SetAccountData           = &CommandSpecWithoutResponse[*SetAccountDataParams]{Name: ReqSetAccountData}
+	MarkRead                 = &CommandSpecWithoutResponse[*MarkReadParams]{Name: ReqMarkRead}
+	SetTyping                = &CommandSpecWithoutResponse[*SetTypingParams]{Name: ReqSetTyping}
+	GetProfile               = &CommandSpec[*GetProfileParams, *mautrix.RespUserProfile]{Name: ReqGetProfile}
+	SetProfileField          = &CommandSpecWithoutResponse[*SetProfileFieldParams]{Name: ReqSetProfileField}
+	GetMutualRooms           = &CommandSpec[*GetProfileParams, []id.RoomID]{Name: ReqGetMutualRooms}
+	TrackUserDevices         = &CommandSpec[*GetProfileParams, *ProfileEncryptionInfo]{Name: ReqTrackUserDevices}
+	GetProfileEncryptionInfo = &CommandSpec[*GetProfileParams, *ProfileEncryptionInfo]{Name: ReqGetProfileEncryptionInfo}
+	GetEvent                 = &CommandSpec[*GetEventParams, *database.Event]{Name: ReqGetEvent}
+	GetEventContext          = &CommandSpec[*GetEventContextParams, *EventContextResponse]{Name: ReqGetEventContext}
+	PaginateManual           = &CommandSpec[*PaginateManualParams, *ManualPaginationResponse]{Name: ReqPaginateManual}
+	GetRelatedEvents         = &CommandSpec[*GetRelatedEventsParams, []*database.Event]{Name: ReqGetRelatedEvents}
+	GetRoomState             = &CommandSpec[*GetRoomStateParams, []*database.Event]{Name: ReqGetRoomState}
+	GetSpecificRoomState     = &CommandSpec[*GetSpecificRoomStateParams, []*database.Event]{Name: ReqGetSpecificRoomState}
+	GetReceipts              = &CommandSpec[*GetReceiptsParams, map[id.EventID][]*database.Receipt]{Name: ReqGetReceipts}
+	Paginate                 = &CommandSpec[*PaginateParams, *PaginationResponse]{Name: ReqPaginate}
+	GetRoomSummary           = &CommandSpec[*GetRoomSummaryParams, *mautrix.RespRoomSummary]{Name: ReqGetRoomSummary}
+	GetSpaceHierarchy        = &CommandSpec[*GetHierarchyParams, *mautrix.RespHierarchy]{Name: ReqGetSpaceHierarchy}
+	JoinRoom                 = &CommandSpec[*JoinRoomParams, *mautrix.RespJoinRoom]{Name: ReqJoinRoom}
+	KnockRoom                = &CommandSpec[*JoinRoomParams, *mautrix.RespKnockRoom]{Name: ReqKnockRoom}
+	LeaveRoom                = &CommandSpec[*LeaveRoomParams, *mautrix.RespLeaveRoom]{Name: ReqLeaveRoom}
+	CreateRoom               = &CommandSpec[*mautrix.ReqCreateRoom, *mautrix.RespCreateRoom]{Name: ReqCreateRoom}
+	MuteRoom                 = &CommandSpec[*MuteRoomParams, bool]{Name: ReqMuteRoom}
+	EnsureGroupSessionShared = &CommandSpecWithoutResponse[*EnsureGroupSessionSharedParams]{Name: ReqEnsureGroupSessionShared}
+	SendToDevice             = &CommandSpec[*SendToDeviceParams, *mautrix.RespSendToDevice]{Name: ReqSendToDevice}
+	ResolveAlias             = &CommandSpec[*ResolveAliasParams, *mautrix.RespAliasResolve]{Name: ReqResolveAlias}
+	RequestOpenIDToken       = &CommandSpecWithoutRequest[*mautrix.RespOpenIDToken]{Name: ReqRequestOpenIDToken}
+	Logout                   = &CommandSpecWithoutData{Name: ReqLogout}
+	Login                    = &CommandSpecWithoutResponse[*LoginParams]{Name: ReqLogin}
+	LoginCustom              = &CommandSpecWithoutResponse[*LoginCustomParams]{Name: ReqLoginCustom}
+	Verify                   = &CommandSpecWithoutResponse[*VerifyParams]{Name: ReqVerify}
+	DiscoverHomeserver       = &CommandSpec[*DiscoverHomeserverParams, *mautrix.ClientWellKnown]{Name: ReqDiscoverHomeserver}
+	GetLoginFlows            = &CommandSpec[*GetLoginFlowsParams, *mautrix.RespLoginFlows]{Name: ReqGetLoginFlows}
+	RegisterPush             = &CommandSpecWithoutResponse[*database.PushRegistration]{Name: ReqRegisterPush}
+	ListenToDevice           = &CommandSpec[bool, bool]{Name: ReqListenToDevice}
+	GetTurnServers           = &CommandSpecWithoutRequest[*mautrix.RespTurnServer]{Name: ReqGetTurnServers}
+	GetMediaConfig           = &CommandSpecWithoutRequest[*mautrix.RespMediaConfig]{Name: ReqGetMediaConfig}
+	CalculateRoomID          = &CommandSpec[*CalculateRoomIDParams, id.RoomID]{Name: ReqCalculateRoomID}
+
+	SpecSyncComplete    = &EventSpec[*SyncComplete]{Name: EventSyncComplete}
+	SpecSyncStatus      = &EventSpec[*SyncStatus]{Name: EventSyncStatus}
+	SpecEventsDecrypted = &EventSpec[*EventsDecrypted]{Name: EventEventsDecrypted}
+	SpecTyping          = &EventSpec[*Typing]{Name: EventTyping}
+	SpecSendComplete    = &EventSpec[*SendComplete]{Name: EventSendComplete}
+	SpecClientState     = &EventSpec[*ClientState]{Name: EventClientState}
+
+	SpecImageAuthToken = &EventSpec[ImageAuthToken]{Name: EventImageAuthToken}
+	SpecInitComplete   = &EventSpec[Empty]{Name: EventInitComplete}
+	SpecRunID          = &EventSpec[*RunData]{Name: EventRunID}
 )

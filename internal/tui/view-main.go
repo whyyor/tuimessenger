@@ -119,7 +119,7 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 		if req != nil {
 			go func() {
 				defer debug.Recover()
-				_, err := view.matrix.MarkRead(context.TODO(), req)
+				err := view.matrix.MarkRead(context.TODO(), req)
 				if err != nil {
 					debug.Print("Failed to mark read for", roomView.Room.ID, err)
 				}

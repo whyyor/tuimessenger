@@ -192,6 +192,11 @@ type JoinRoomParams struct {
 	Reason        string   `json:"reason"`
 }
 
+type GetRoomSummaryParams struct {
+	RoomIDOrAlias string   `json:"room_id_or_alias"`
+	Via           []string `json:"via"`
+}
+
 type GetHierarchyParams struct {
 	RoomID        id.RoomID `json:"room_id"`
 	From          string    `json:"from"`
