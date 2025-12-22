@@ -108,6 +108,14 @@ func (gr *GomuksRPC) Paginate(ctx context.Context, params *jsoncmd.PaginateParam
 	return executeRequest(gr, ctx, jsoncmd.Paginate, params)
 }
 
+func (gr *GomuksRPC) PaginateManual(ctx context.Context, params *jsoncmd.PaginateManualParams) (*jsoncmd.ManualPaginationResponse, error) {
+	return executeRequest(gr, ctx, jsoncmd.PaginateManual, params)
+}
+
+func (gr *GomuksRPC) GetMentions(ctx context.Context, params *jsoncmd.GetMentionsParams) ([]*database.Event, error) {
+	return executeRequest(gr, ctx, jsoncmd.GetMentions, params)
+}
+
 func (gr *GomuksRPC) GetRoomSummary(ctx context.Context, params *jsoncmd.GetRoomSummaryParams) (*mautrix.RespRoomSummary, error) {
 	return executeRequest(gr, ctx, jsoncmd.GetRoomSummary, params)
 }

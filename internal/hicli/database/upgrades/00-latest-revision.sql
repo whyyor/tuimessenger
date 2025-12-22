@@ -1,4 +1,4 @@
--- v0 -> v14 (compatible with v10+): Latest revision
+-- v0 -> v15 (compatible with v10+): Latest revision
 CREATE TABLE account (
 	user_id        TEXT NOT NULL PRIMARY KEY,
 	device_id      TEXT NOT NULL,
@@ -113,6 +113,7 @@ CREATE INDEX event_room_id_idx ON event (room_id);
 CREATE INDEX event_redacted_by_idx ON event (room_id, redacted_by);
 CREATE INDEX event_relates_to_idx ON event (room_id, relates_to);
 CREATE INDEX event_megolm_session_id_idx ON event (room_id, megolm_session_id);
+CREATE INDEX event_mention_idx ON event (timestamp DESC) WHERE unread_type > 0;
 
 CREATE TRIGGER event_update_redacted_by
 	AFTER INSERT

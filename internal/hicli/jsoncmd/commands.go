@@ -48,6 +48,7 @@ const (
 	ReqGetEvent                 Name = "get_event"
 	ReqGetEventContext          Name = "get_event_context"
 	ReqPaginateManual           Name = "paginate_manual"
+	ReqGetMentions              Name = "get_mentions"
 	ReqGetRelatedEvents         Name = "get_related_events"
 	ReqGetRoomState             Name = "get_room_state"
 	ReqGetSpecificRoomState     Name = "get_specific_room_state"
@@ -139,18 +140,23 @@ var (
 	TrackUserDevices = &CommandSpec[*GetProfileParams, *ProfileEncryptionInfo]{Name: ReqTrackUserDevices}
 	// GetProfileEncryptionInfo returns the device list and trust state information for a user.
 	GetProfileEncryptionInfo = &CommandSpec[*GetProfileParams, *ProfileEncryptionInfo]{Name: ReqGetProfileEncryptionInfo}
-	// GetEvent fetches a single event in a room.
+	// GetEvent returns a single event in a room. This uses the database if possible,
+	// but will fetch from the homeserver if the event isn't found locally.
 	GetEvent = &CommandSpec[*GetEventParams, *database.Event]{Name: ReqGetEvent}
 	// GetEventContext returns context around an event (before/after timeline slices) from the
 	// homeserver. This is used for jumping to a specific point on the timeline. Note that there is
 	// currently no safe way to merge back into the main timeline, so jumping has to be implemented
 	// as a separate view.
 	GetEventContext = &CommandSpec[*GetEventContextParams, *EventContextResponse]{Name: ReqGetEventContext}
-	// PaginateManual requests a page of messages from the homeserver using a pagination token.
+	// PaginateManual returns a page of messages from the homeserver using a pagination token.
 	// This is used to paginate after jumping to a specific event using `get_event_context` and
 	// for normal pagination in the thread view.
 	PaginateManual = &CommandSpec[*PaginateManualParams, *ManualPaginationResponse]{Name: ReqPaginateManual}
-	// GetRelatedEvents fetches events related to a given event from the database (e.g. reactions,
+	// GetMentions returns recent events that mention the current user. This will not call the homeserver.
+	// The result is sorted by timestamp in descending order. Sorting by timestamp means the sender could
+	// have faked it, but there's no other cross-room event ordering in Matrix.
+	GetMentions = &CommandSpec[*GetMentionsParams, []*database.Event]{Name: ReqGetMentions}
+	// GetRelatedEvents returns events related to a given event from the database (e.g. reactions,
 	// edits, replies depending on relation type). This will not call the homeserver.
 	GetRelatedEvents = &CommandSpec[*GetRelatedEventsParams, []*database.Event]{Name: ReqGetRelatedEvents}
 	// GetRoomState returns full room state, optionally after fetching it from the homeserver.

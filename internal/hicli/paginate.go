@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/rs/zerolog"
 	"maunium.net/go/mautrix"
@@ -505,4 +506,12 @@ func (h *HiClient) PaginateManual(
 		h.WakeupRequestQueue()
 	}
 	return &wrappedResp, nil
+}
+
+func (h *HiClient) GetMentions(ctx context.Context, maxTS time.Time, unreadType database.UnreadType, limit int, roomID id.RoomID) ([]*database.Event, error) {
+	evts, err := h.DB.Event.GetMentions(ctx, maxTS, unreadType, limit, roomID)
+	for _, evt := range evts {
+		h.ReprocessExistingEvent(ctx, evt)
+	}
+	return evts, err
 }

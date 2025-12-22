@@ -40,6 +40,16 @@ const (
 		WHERE room_id = $1 AND relates_to = $2 AND ($3 = '' OR relation_type = $3)
 		ORDER BY timestamp ASC
 	`
+	getMentionEventsQuery = getEventBaseQuery + `
+		WHERE timestamp <= $1 AND unread_type > 0 AND (unread_type & $2) != 0
+		ORDER BY timestamp DESC
+		LIMIT $3
+	`
+	getMentionEventsInRoomQuery = getEventBaseQuery + `
+		WHERE timestamp <= $1 AND unread_type > 0 AND (unread_type & $2) != 0 AND room_id = $4
+		ORDER BY timestamp DESC
+		LIMIT $3
+	`
 	insertEventBaseQuery = `
 		INSERT INTO event (
 			room_id, event_id, sender, type, state_key, timestamp, content, decrypted, decrypted_type,
@@ -118,6 +128,13 @@ func (eq *EventQuery) GetByRowID(ctx context.Context, rowID EventRowID) (*Event,
 
 func (eq *EventQuery) GetRelatedEvents(ctx context.Context, roomID id.RoomID, eventID id.EventID, relationType event.RelationType) ([]*Event, error) {
 	return eq.QueryMany(ctx, getRelatedEventsQuery, roomID, eventID, relationType)
+}
+
+func (eq *EventQuery) GetMentions(ctx context.Context, ts time.Time, unreadType UnreadType, limit int, roomID id.RoomID) ([]*Event, error) {
+	if roomID != "" {
+		return eq.QueryMany(ctx, getMentionEventsInRoomQuery, ts.UnixMilli(), unreadType, limit, roomID)
+	}
+	return eq.QueryMany(ctx, getMentionEventsQuery, ts.UnixMilli(), unreadType, limit)
 }
 
 func (eq *EventQuery) GetByRowIDs(ctx context.Context, rowIDs ...EventRowID) ([]*Event, error) {

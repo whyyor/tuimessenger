@@ -9,6 +9,7 @@ package jsoncmd
 import (
 	"encoding/json"
 
+	"go.mau.fi/util/jsontime"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
@@ -125,6 +126,17 @@ type GetEventContextParams struct {
 	RoomID  id.RoomID  `json:"room_id"`
 	EventID id.EventID `json:"event_id"`
 	Limit   int        `json:"limit"`
+}
+
+type GetMentionsParams struct {
+	// The maximum event timestamp to return. For the first query, this should be set to the current timestamp.
+	MaxTimestamp jsontime.UnixMilli `json:"max_timestamp"`
+	// The unread type to filter for. Usually you want [database.UnreadTypeHighlight].
+	Type database.UnreadType `json:"type"`
+	// Maximum number of events to return.
+	Limit int `json:"limit"`
+	// Optional room ID to filter mentions to a specific room.
+	RoomID id.RoomID `json:"room_id,omitempty"`
 }
 
 type GetRelatedEventsParams struct {
