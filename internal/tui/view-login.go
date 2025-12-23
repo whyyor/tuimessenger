@@ -54,7 +54,7 @@ func (ui *GomuksTUI) NewLoginView() mauview.Component {
 	view := &LoginView{
 		Form: mauview.NewForm(),
 
-		serverLabel:   mauview.NewTextField().SetText("Server"),
+		serverLabel:   mauview.NewTextField().SetText("Backend"),
 		usernameLabel: mauview.NewTextField().SetText("Username"),
 		passwordLabel: mauview.NewTextField().SetText("Password"),
 
@@ -69,7 +69,7 @@ func (ui *GomuksTUI) NewLoginView() mauview.Component {
 	}
 
 	view.server.SetPlaceholder("http://localhost:29325").SetText(view.parent.Config.Server).SetTextColor(tcell.ColorWhite)
-	view.username.SetPlaceholder("@user:example.com").SetText(view.parent.Config.Username).SetTextColor(tcell.ColorWhite)
+	view.username.SetPlaceholder("username").SetText(view.parent.Config.Username).SetTextColor(tcell.ColorWhite)
 	view.password.SetPlaceholder("correct horse battery staple").SetMaskCharacter('*').SetTextColor(tcell.ColorWhite)
 
 	view.quitButton.
