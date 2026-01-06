@@ -73,7 +73,7 @@ func (ui *GomuksTUI) NewLoginView() mauview.Component {
 	view.password.SetPlaceholder("correct horse battery staple").SetMaskCharacter('*').SetTextColor(tcell.ColorWhite)
 
 	view.quitButton.
-		SetOnClick(func() { ui.Stop() }).
+		SetOnClick(func() { ui.Finish() }).
 		SetBackgroundColor(tcell.ColorDarkCyan).
 		SetForegroundColor(tcell.ColorWhite).
 		SetFocusedForegroundColor(tcell.ColorWhite)
@@ -116,8 +116,8 @@ func (view *LoginView) Error(err string) {
 			view.error = mauview.NewTextView().SetTextColor(tcell.ColorRed)
 			view.AddComponent(view.error, 1, 11, 3, 1)
 		}
-		view.error.SetText(err)
-		errorHeight := int(math.Ceil(float64(runewidth.StringWidth(err)) / 41))
+		view.error.SetText(err + "\n\nMake sure you enter your gomuks backend\naddress, not a Matrix homeserver.")
+		errorHeight := int(math.Ceil(float64(runewidth.StringWidth(err))/41)) + 3
 		view.container.SetHeight(14 + errorHeight)
 		view.SetRow(11, errorHeight)
 	}
