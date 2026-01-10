@@ -9,11 +9,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"go.mau.fi/util/exbytes"
 	"go.mau.fi/util/exerrors"
+	"maunium.net/go/mautrix/event/cmdschema/testdata"
 
 	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
 )
@@ -43,8 +47,27 @@ func main() {
 			cmdNames := strings.Join(names, "\n\t| ")
 
 			exerrors.PanicIfNotNil(os.WriteFile(os.Args[2], []byte(fmt.Sprintf(typescriptTemplate, cmdNames)), 0644))
+
+			if len(os.Args) > 3 {
+				dumpFS(testdata.FS, os.Args[3])
+			}
 		}
 	} else {
 		fmt.Println(exbytes.UnsafeString(output))
+	}
+}
+
+func dumpFS(data fs.ReadDirFS, dir string) {
+	exerrors.PanicIfNotNil(os.MkdirAll(dir, 0755))
+	for _, file := range exerrors.Must(data.ReadDir(".")) {
+		if file.IsDir() {
+			dumpFS(exerrors.Must(fs.Sub(data, file.Name())).(fs.ReadDirFS), filepath.Join(dir, file.Name()))
+		} else if strings.HasSuffix(file.Name(), ".json") {
+			f := exerrors.Must(data.Open(file.Name()))
+			out := exerrors.Must(os.OpenFile(filepath.Join(dir, file.Name()), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644))
+			exerrors.Must(io.Copy(out, f))
+			_ = f.Close()
+			_ = out.Close()
+		}
 	}
 }
