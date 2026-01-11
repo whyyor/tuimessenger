@@ -58,6 +58,7 @@ var CommandDefinitions = []*cmdschema.EventContent{{
 		Description: event.MakeExtensibleText("Reason for joining"),
 		Optional:    true,
 	}},
+	TailParam: "reason",
 }, {
 	Command:     Leave,
 	Aliases:     []string{"part"},
@@ -75,6 +76,7 @@ var CommandDefinitions = []*cmdschema.EventContent{{
 		Description: event.MakeExtensibleText("Reason for invite"),
 		Optional:    true,
 	}},
+	TailParam: "reason",
 }, {
 	Command:     Kick,
 	Description: event.MakeExtensibleText("Kick a user from the current room"),
@@ -88,6 +90,7 @@ var CommandDefinitions = []*cmdschema.EventContent{{
 		Description: event.MakeExtensibleText("Reason for kick"),
 		Optional:    true,
 	}},
+	TailParam: "reason",
 }, {
 	Command:     Ban,
 	Description: event.MakeExtensibleText("Ban a user from the current room"),
@@ -101,6 +104,7 @@ var CommandDefinitions = []*cmdschema.EventContent{{
 		Description: event.MakeExtensibleText("Reason for ban"),
 		Optional:    true,
 	}},
+	TailParam: "reason",
 }, {
 	Command:     MyRoomNick,
 	Aliases:     []string{"roomnick"},
@@ -149,6 +153,7 @@ var CommandDefinitions = []*cmdschema.EventContent{{
 		Description: event.MakeExtensibleText("Reason for redaction"),
 		Optional:    true,
 	}},
+	TailParam: "reason",
 }, {
 	Command:     Raw,
 	Description: event.MakeExtensibleText("Send a raw timeline event to the current room"),
