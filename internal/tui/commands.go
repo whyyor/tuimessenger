@@ -46,7 +46,9 @@ var LocalCommands = []*cmdschema.EventContent{{
 		Key:         "text",
 		Schema:      cmdschema.PrimitiveTypeString.Schema(),
 		Description: event.MakeExtensibleText("The text to reply with"),
+		Optional:    true,
 	}},
+	TailParam: "text",
 }, {
 	Command:     CmdReact,
 	Description: event.MakeExtensibleText("React to an event"),
@@ -65,6 +67,7 @@ var LocalCommands = []*cmdschema.EventContent{{
 		Description: event.MakeExtensibleText("The reason for the redaction"),
 		Optional:    true,
 	}},
+	TailParam: "reason",
 }, {
 	Command:     CmdEdit,
 	Description: event.MakeExtensibleText("Start editing an event"),
@@ -77,6 +80,7 @@ var LocalCommands = []*cmdschema.EventContent{{
 		Optional:     true,
 		DefaultValue: "clipboard",
 	}},
+	TailParam: "clipboard",
 }, {
 	Command:     CmdQuit,
 	Description: event.MakeExtensibleText("Quit gomuks terminal"),

@@ -764,12 +764,17 @@ func (view *RoomView) SendReaction(eventID id.EventID, reaction string) {
 
 func (view *RoomView) SendMessage(msgtype event.MessageType, text string) {
 	defer debug.Recover()
+	var relatesTo *event.RelatesTo
+	if view.replying != nil {
+		relatesTo = (&event.RelatesTo{}).SetReplyTo(view.replying.ID)
+		view.replying = nil
+	}
 	err := view.parent.matrix.SendMessage(context.TODO(), &jsoncmd.SendMessageParams{
 		RoomID:      view.Room.ID,
 		BaseContent: nil,
 		Extra:       nil,
 		Text:        text,
-		RelatesTo:   nil,
+		RelatesTo:   relatesTo,
 		Mentions:    nil,
 		URLPreviews: nil,
 	})
