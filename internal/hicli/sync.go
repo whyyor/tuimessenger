@@ -426,7 +426,7 @@ func removeReplyFallback(evt *event.Event) []byte {
 func (h *HiClient) decryptEvent(ctx context.Context, evt *event.Event) (*event.Event, []byte, bool, string, error) {
 	err := evt.Content.ParseRaw(evt.Type)
 	if err != nil && !errors.Is(err, event.ErrContentAlreadyParsed) {
-		return nil, nil, false, "", err
+		return nil, nil, false, "", fmt.Errorf("failed to parse content: %w", err)
 	}
 	decrypted, err := h.Crypto.DecryptMegolmEvent(ctx, evt)
 	if err != nil {
@@ -733,11 +733,11 @@ func (h *HiClient) processEvent(
 				Sender:    evt.Sender,
 			}
 		}
-		minIndex, _ := crypto.ParseMegolmMessageIndex(evt.Content.AsEncrypted().MegolmCiphertext)
+		minIndex, err := crypto.ParseMegolmMessageIndex(evt.Content.AsEncrypted().MegolmCiphertext)
 		req.MinIndex = min(uint32(minIndex), req.MinIndex)
-		if decryptionQueue != nil {
+		if decryptionQueue != nil && err == nil {
 			decryptionQueue[dbEvt.MegolmSessionID] = req
-		} else {
+		} else if err == nil {
 			err = h.DB.SessionRequest.Put(ctx, req)
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).
