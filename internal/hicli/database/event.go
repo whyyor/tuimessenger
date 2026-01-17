@@ -381,10 +381,19 @@ type LocalContent struct {
 	// Whether the reply fallback was removed from the `body` and `formatted_body`.
 	// There is no way to get it back, as the content isn't stored.
 	ReplyFallbackRemoved bool `json:"reply_fallback_removed,omitempty"`
+	// The push rule ID that caused this event to notify or highlight.
+	PushRuleID string `json:"push_rule_id,omitempty"`
 }
 
 func (c *LocalContent) GetReplyFallbackRemoved() bool {
 	return c != nil && c.ReplyFallbackRemoved
+}
+
+func (c *LocalContent) GetPushRuleID() string {
+	if c == nil {
+		return ""
+	}
+	return c.PushRuleID
 }
 
 // Event represents a single Matrix room event.

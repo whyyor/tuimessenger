@@ -9,6 +9,7 @@ package hicli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/rs/zerolog"
 	"maunium.net/go/mautrix"
@@ -106,22 +107,27 @@ var (
 	_ pushrules.PowerLevelfulRoom = (*pushRoom)(nil)
 )
 
-func (h *HiClient) evaluatePushRules(ctx context.Context, llSummary *mautrix.LazyLoadSummary, baseType database.UnreadType, evt *event.Event) database.UnreadType {
+func (h *HiClient) evaluatePushRules(ctx context.Context, llSummary *mautrix.LazyLoadSummary, baseType database.UnreadType, evt *event.Event) (database.UnreadType, string) {
 	if !h.firstSyncReceived && baseType == database.UnreadTypeNone {
 		// Skip evaluating push rules that are unlikely to match for the initial sync
-		return baseType
+		return baseType, ""
 	}
-	should := h.PushRules.Load().GetMatchingRule(&pushRoom{
+	rule := h.PushRules.Load().GetMatchingRule(&pushRoom{
 		ctx:    ctx,
 		roomID: evt.RoomID,
 		h:      h,
 		ll:     llSummary,
-	}, evt).GetActions().Should()
+	}, evt)
+	if rule == nil {
+		return baseType, ""
+	}
+	combinedRuleID := fmt.Sprintf("%s:%s", rule.Type, rule.RuleID)
+	should := rule.GetActions().Should()
 	if should.Highlight {
 		msg, ok := evt.Content.Parsed.(*event.MessageEventContent)
 		// TODO make the number configurable and/or consider room settings?
 		if ok && msg.Mentions != nil && len(msg.Mentions.UserIDs) > 15 {
-			return baseType
+			return baseType, combinedRuleID
 		}
 	}
 	if should.Notify {
@@ -133,7 +139,7 @@ func (h *HiClient) evaluatePushRules(ctx context.Context, llSummary *mautrix.Laz
 	if should.PlaySound {
 		baseType |= database.UnreadTypeSound
 	}
-	return baseType
+	return baseType, combinedRuleID
 }
 
 func (h *HiClient) LoadPushRules(ctx context.Context) {

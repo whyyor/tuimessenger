@@ -622,6 +622,7 @@ func (h *HiClient) calculateLocalContent(ctx context.Context, dbEvt *database.Ev
 			HasMath:              hasMath,
 			EditSource:           editSource,
 			ReplyFallbackRemoved: dbEvt.LocalContent.GetReplyFallbackRemoved(),
+			PushRuleID:           dbEvt.LocalContent.PushRuleID,
 		}, inlineImages
 	}
 	return nil, nil
@@ -648,7 +649,14 @@ func (h *HiClient) postDecryptProcess(ctx context.Context, llSummary *mautrix.La
 		h.cacheMedia(ctx, evt, dbEvt.RowID)
 	}
 	if evt.Sender != h.Account.UserID && !evt.Unsigned.ElementSoftFailed {
-		dbEvt.UnreadType = h.evaluatePushRules(ctx, llSummary, dbEvt.GetNonPushUnreadType(), evt)
+		var pushRuleID string
+		dbEvt.UnreadType, pushRuleID = h.evaluatePushRules(ctx, llSummary, dbEvt.GetNonPushUnreadType(), evt)
+		if pushRuleID != "" {
+			if dbEvt.LocalContent == nil {
+				dbEvt.LocalContent = &database.LocalContent{}
+			}
+			dbEvt.LocalContent.PushRuleID = pushRuleID
+		}
 	}
 	dbEvt.LocalContent, inlineImages = h.calculateLocalContent(ctx, dbEvt, evt)
 	return
