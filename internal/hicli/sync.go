@@ -622,7 +622,7 @@ func (h *HiClient) calculateLocalContent(ctx context.Context, dbEvt *database.Ev
 			HasMath:              hasMath,
 			EditSource:           editSource,
 			ReplyFallbackRemoved: dbEvt.LocalContent.GetReplyFallbackRemoved(),
-			PushRuleID:           dbEvt.LocalContent.PushRuleID,
+			PushRuleID:           dbEvt.LocalContent.GetPushRuleID(),
 		}, inlineImages
 	}
 	return dbEvt.LocalContent, nil
