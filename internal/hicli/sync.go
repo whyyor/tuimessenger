@@ -625,7 +625,7 @@ func (h *HiClient) calculateLocalContent(ctx context.Context, dbEvt *database.Ev
 			PushRuleID:           dbEvt.LocalContent.PushRuleID,
 		}, inlineImages
 	}
-	return nil, nil
+	return dbEvt.LocalContent, nil
 }
 
 const CurrentHTMLSanitizerVersion = 12
