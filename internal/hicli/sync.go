@@ -1023,15 +1023,16 @@ func (h *HiClient) processStateAndTimeline(
 			}
 		}
 	}
-	// Calculate name from participants if participants changed and current name was generated from participants, or if the room name was unset
-	if (heroesChanged && updatedRoom.NameQuality <= database.NameQualityParticipants) || updatedRoom.NameQuality == database.NameQualityNil {
-		name, dmAvatarURL, dmUserID, err := h.calculateRoomParticipantName(ctx, room.ID, summary)
+	if heroesChanged || updatedRoom.NameQuality == database.NameQualityNil {
+		dmRoomName, dmAvatarURL, dmUserID, err := h.calculateRoomParticipantName(ctx, room.ID, summary, updatedRoom.NameQuality)
 		if err != nil {
 			return fmt.Errorf("failed to calculate room name: %w", err)
 		}
 		updatedRoom.DMUserID = &dmUserID
-		updatedRoom.Name = &name
-		updatedRoom.NameQuality = database.NameQualityParticipants
+		if updatedRoom.NameQuality <= database.NameQualityParticipants {
+			updatedRoom.Name = &dmRoomName
+			updatedRoom.NameQuality = database.NameQualityParticipants
+		}
 		if !dmAvatarURL.IsEmpty() && !room.ExplicitAvatar {
 			updatedRoom.Avatar = &dmAvatarURL
 		}
@@ -1101,10 +1102,18 @@ func joinMemberNames(names []string, totalCount int) string {
 	}
 }
 
-func (h *HiClient) calculateRoomParticipantName(ctx context.Context, roomID id.RoomID, summary *mautrix.LazyLoadSummary) (string, id.ContentURI, id.UserID, error) {
+func (h *HiClient) calculateRoomParticipantName(
+	ctx context.Context,
+	roomID id.RoomID,
+	summary *mautrix.LazyLoadSummary,
+	currentNameQuality database.NameQuality,
+) (string, id.ContentURI, id.UserID, error) {
 	var primaryAvatarURL id.ContentURI
 	if summary == nil || len(summary.Heroes) == 0 {
 		return "Empty room", primaryAvatarURL, "", nil
+	} else if currentNameQuality > database.NameQualityParticipants && summary.MemberCount() > 10 {
+		// Short-circuit for large rooms
+		return "", primaryAvatarURL, "", nil
 	}
 	var functionalMembers []id.UserID
 	functionalMembersEvt, err := h.DB.CurrentState.Get(ctx, roomID, event.StateElementFunctionalMembers, "")

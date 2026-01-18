@@ -215,19 +215,19 @@ func (h *HiClient) processGetRoomState(ctx context.Context, roomID id.RoomID, fe
 		if err != nil {
 			return fmt.Errorf("failed to save current state entries: %w", err)
 		}
+		dmRoomName, dmAvatarURL, dmUserID, err := h.calculateRoomParticipantName(ctx, room.ID, llSummary, room.NameQuality)
+		if err != nil {
+			return fmt.Errorf("failed to calculate room name: %w", err)
+		}
+		updatedRoom.DMUserID = &dmUserID
 		if room.NameQuality <= database.NameQualityParticipants {
-			name, dmAvatarURL, dmUserID, err := h.calculateRoomParticipantName(ctx, room.ID, llSummary)
-			if err != nil {
-				return fmt.Errorf("failed to calculate room name: %w", err)
-			}
-			updatedRoom.DMUserID = &dmUserID
-			updatedRoom.Name = &name
+			updatedRoom.Name = &dmRoomName
 			updatedRoom.NameQuality = database.NameQualityParticipants
-			if !dmAvatarURL.IsEmpty() && !room.ExplicitAvatar && ptr.Val(updatedRoom.Avatar) != dmAvatarURL {
-				updatedRoom.Avatar = &dmAvatarURL
-			}
-		} else {
+		} else if dmUserID == "" {
 			llSummary.Heroes = nil
+		}
+		if !dmAvatarURL.IsEmpty() && !room.ExplicitAvatar && ptr.Val(updatedRoom.Avatar) != dmAvatarURL {
+			updatedRoom.Avatar = &dmAvatarURL
 		}
 		roomChanged := updatedRoom.CheckChangesAndCopyInto(room)
 		// TODO dispatch space edge changes if something changed? (fairly unlikely though)
