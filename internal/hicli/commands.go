@@ -467,7 +467,10 @@ type pollParams struct {
 }
 
 func (h *HiClient) handleCmdPoll(ctx context.Context, roomID id.RoomID, args pollParams, rel *event.RelatesTo) *database.Event {
-	if args.MaxSelections <= 0 {
+	if len(args.Options) == 0 {
+		return database.MakeFakeEvent(roomID, "Poll must have at least one option")
+	}
+	if args.MaxSelections <= 0 || args.MaxSelections > len(args.Options) {
 		args.MaxSelections = len(args.Options)
 	}
 	content := &event.PollStartEventContent{
