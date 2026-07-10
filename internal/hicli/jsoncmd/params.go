@@ -161,7 +161,8 @@ type GetRelatedEventsParams struct {
 	RoomID  id.RoomID  `json:"room_id"`
 	EventID id.EventID `json:"event_id"`
 
-	RelationType event.RelationType `json:"relation_type"`
+	RelationType event.RelationType `json:"relation_type,omitempty"`
+	EventType    string             `json:"event_type,omitempty"`
 }
 
 type GetStickyEventsParams struct {

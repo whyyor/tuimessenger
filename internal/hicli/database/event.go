@@ -45,7 +45,7 @@ const (
 		WHERE room_id = $1 AND timestamp > $2 AND sticky_duration IS NOT NULL AND timestamp + sticky_duration > $3
 	`
 	getRelatedEventsQuery = getEventBaseQuery + `
-		WHERE room_id = $1 AND relates_to = $2 AND ($3 = '' OR relation_type = $3)
+		WHERE room_id = $1 AND relates_to = $2 AND ($3 = '' OR relation_type = $3) AND ($4 = '' OR type = $4)
 		ORDER BY timestamp ASC
 	`
 	getMentionEventsQuery = getEventBaseQuery + `
@@ -138,8 +138,8 @@ func (eq *EventQuery) GetByRowID(ctx context.Context, rowID EventRowID) (*Event,
 	return eq.QueryOne(ctx, getEventByRowID, rowID)
 }
 
-func (eq *EventQuery) GetRelatedEvents(ctx context.Context, roomID id.RoomID, eventID id.EventID, relationType event.RelationType) ([]*Event, error) {
-	return eq.QueryMany(ctx, getRelatedEventsQuery, roomID, eventID, relationType)
+func (eq *EventQuery) GetRelatedEvents(ctx context.Context, roomID id.RoomID, eventID id.EventID, relationType event.RelationType, eventType string) ([]*Event, error) {
+	return eq.QueryMany(ctx, getRelatedEventsQuery, roomID, eventID, relationType, eventType)
 }
 
 func (eq *EventQuery) GetMentions(ctx context.Context, ts time.Time, unreadType UnreadType, limit int, roomID id.RoomID) ([]*Event, error) {
