@@ -18,6 +18,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"go.mau.fi/util/exstrings"
+	"go.mau.fi/util/random"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
@@ -81,6 +82,8 @@ func (h *HiClient) ProcessCommand(
 		responseText = h.handleCmdConvertToRoom(ctx, roomID)
 	case cmdspec.PowerLevel:
 		responseText, retErr = callWithParsedArgs(ctx, roomID, cmd.Arguments, relatesTo, h.handleCmdPowerLevel)
+	case cmdspec.Poll:
+		return callWithParsedArgs(ctx, roomID, cmd.Arguments, relatesTo, h.handleCmdPoll)
 	default:
 		responseHTML = fmt.Sprintf("Unknown command <code>%s</code>", html.EscapeString(cmd.Command))
 	}
@@ -455,4 +458,40 @@ func (h *HiClient) handleCmdPowerLevel(ctx context.Context, roomID id.RoomID, ar
 		return fmt.Sprintf("Failed to update power level event: %v", err)
 	}
 	return ""
+}
+
+type pollParams struct {
+	Question      string   `json:"question"`
+	Options       []string `json:"options"`
+	MaxSelections int      `json:"max_selections"`
+}
+
+func (h *HiClient) handleCmdPoll(ctx context.Context, roomID id.RoomID, args pollParams, rel *event.RelatesTo) *database.Event {
+	if args.MaxSelections <= 0 {
+		args.MaxSelections = len(args.Options)
+	}
+	content := &event.PollStartEventContent{
+		RelatesTo: rel,
+		PollStart: event.PollStart{
+			Kind:          "org.matrix.msc3381.disclosed",
+			MaxSelections: args.MaxSelections,
+			Question: event.MSC1767Message{
+				Text: args.Question,
+			},
+			Answers: make([]event.PollOption, len(args.Options)),
+		},
+	}
+	for i, option := range args.Options {
+		content.PollStart.Answers[i] = event.PollOption{
+			ID: random.String(8),
+			MSC1767Message: event.MSC1767Message{
+				Text: option,
+			},
+		}
+	}
+	evt, err := h.send(ctx, roomID, event.EventUnstablePollStart, content, "", false, false, true, 0)
+	if err != nil {
+		return database.MakeFakeEvent(roomID, fmt.Sprintf("Failed to send event: %s", html.EscapeString(err.Error())))
+	}
+	return evt
 }

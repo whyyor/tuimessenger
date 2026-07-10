@@ -38,6 +38,7 @@ const (
 	ConvertToDM    = "converttodm"
 	ConvertToRoom  = "converttoroom"
 	PowerLevel     = "powerlevel"
+	Poll           = "poll"
 )
 
 var CommandDefinitions = []*cmdschema.EventContent{{
@@ -249,5 +250,22 @@ var CommandDefinitions = []*cmdschema.EventContent{{
 		Key:         "value",
 		Schema:      cmdschema.PrimitiveTypeInteger.Schema(),
 		Description: event.MakeExtensibleText("The new power level for the thing"),
+	}},
+}, {
+	Command:     Poll,
+	Description: event.MakeExtensibleText("Create a new poll"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:         "question",
+		Schema:      cmdschema.PrimitiveTypeString.Schema(),
+		Description: event.MakeExtensibleText("The question to ask in the poll"),
+	}, {
+		Key:          "max_selections",
+		Schema:       cmdschema.PrimitiveTypeInteger.Schema(),
+		Description:  event.MakeExtensibleText("The maximum number of answers a user can select. Defaults to 1."),
+		DefaultValue: 1,
+	}, {
+		Key:         "options",
+		Schema:      cmdschema.Array(cmdschema.PrimitiveTypeString.Schema()),
+		Description: event.MakeExtensibleText("The possible answers to the poll"),
 	}},
 }}
