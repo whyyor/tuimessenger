@@ -1,11 +1,18 @@
--- v0 -> v22 (compatible with v10+): Latest revision
+-- v0 -> v23 (compatible with v10+): Latest revision
 CREATE TABLE account (
-	user_id        TEXT NOT NULL PRIMARY KEY,
-	device_id      TEXT NOT NULL,
-	access_token   TEXT NOT NULL,
-	homeserver_url TEXT NOT NULL,
+	user_id        TEXT    NOT NULL PRIMARY KEY,
+	device_id      TEXT    NOT NULL,
+	access_token   TEXT    NOT NULL,
+	homeserver_url TEXT    NOT NULL,
 
-	next_batch     TEXT NOT NULL
+	next_batch     TEXT    NOT NULL,
+
+	client_id      TEXT    NOT NULL DEFAULT '',
+	refresh_token  TEXT    NOT NULL DEFAULT '',
+	expiry         INTEGER NOT NULL DEFAULT 0,
+
+	displayname    TEXT    NOT NULL DEFAULT '',
+	avatar_url     TEXT    NOT NULL DEFAULT ''
 ) STRICT;
 
 CREATE TABLE room (

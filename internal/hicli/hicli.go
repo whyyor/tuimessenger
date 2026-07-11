@@ -24,6 +24,7 @@ import (
 	"go.mau.fi/util/dbutil"
 	_ "go.mau.fi/util/dbutil/litestream"
 	"go.mau.fi/util/exerrors"
+	"go.mau.fi/util/jsontime"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
 	"maunium.net/go/mautrix/crypto/backup"
@@ -147,10 +148,11 @@ func New(rawDB, cryptoDB *dbutil.Database, log zerolog.Logger, pickleKey []byte,
 			},
 			Timeout: 300 * time.Second,
 		},
-		Syncer:     (*hiSyncer)(c),
-		Store:      (*hiStore)(c),
-		StateStore: c.ClientStore,
-		Log:        log.With().Str("component", "mautrix client").Logger(),
+		SaveNewToken: c.saveOAuthTokens,
+		Syncer:       (*hiSyncer)(c),
+		Store:        (*hiStore)(c),
+		StateStore:   c.ClientStore,
+		Log:          log.With().Str("component", "mautrix client").Logger(),
 
 		SyncPresence: event.PresenceOffline,
 
@@ -166,6 +168,28 @@ func New(rawDB, cryptoDB *dbutil.Database, log zerolog.Logger, pickleKey []byte,
 	c.Crypto.IgnorePostDecryptionParseErrors = true
 	c.Client.Crypto = (*hiCryptoHelper)(c)
 	return c
+}
+
+func (h *HiClient) saveOAuthTokens(ctx context.Context, refreshToken, accessToken string, expiry time.Time) error {
+	acc := h.Account
+	if acc == nil {
+		return nil
+	}
+	acc.RefreshToken = refreshToken
+	acc.AccessToken = accessToken
+	acc.Expiry = jsontime.UM(expiry)
+	for {
+		err := h.DB.Account.PutRefreshToken(ctx, acc.UserID, refreshToken, accessToken, expiry)
+		if err == nil || !isDatabaseBusyError(err) {
+			return err
+		}
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("Failed to save refresh token, retrying")
+		select {
+		case <-time.After(100 * time.Millisecond):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (h *HiClient) tempClient(homeserverURL string) (*mautrix.Client, error) {
@@ -218,7 +242,7 @@ func (h *HiClient) Start(ctx context.Context, userID id.UserID, expectedAccount 
 		h.CryptoStore.DeviceID = account.DeviceID
 		h.Client.UserID = account.UserID
 		h.Client.DeviceID = account.DeviceID
-		h.Client.AccessToken = account.AccessToken
+		h.Client.OAuthSetTokens(account.ClientID, account.RefreshToken, account.AccessToken, account.Expiry.Time)
 		h.Client.HomeserverURL, err = url.Parse(account.HomeserverURL)
 		if err != nil {
 			return err
@@ -291,10 +315,10 @@ func (h *HiClient) loadOwnProfile(ctx context.Context) {
 	if profile.DisplayName != h.Account.DisplayName || profile.AvatarURL != h.Account.AvatarURL {
 		h.Account.DisplayName = profile.DisplayName
 		h.Account.AvatarURL = profile.AvatarURL
-		//err = h.DB.Account.Put(ctx, h.Account)
-		//if err != nil {
-		//	zerolog.Ctx(ctx).Err(err).Msg("Failed to update account with profile information")
-		//}
+		err = h.DB.Account.PutProfile(ctx, h.Account.UserID, h.Account.DisplayName, h.Account.AvatarURL)
+		if err != nil {
+			zerolog.Ctx(ctx).Err(err).Msg("Failed to update account with profile information")
+		}
 		h.dispatchCurrentState()
 	}
 }
@@ -327,7 +351,7 @@ func (h *HiClient) Sync() {
 	if err != nil && ctx.Err() == nil {
 		h.markSyncErrored(err, true)
 		log.Err(err).Msg("Fatal error in syncer")
-		if errors.Is(err, mautrix.MUnknownToken) && h.LogoutFunc != nil {
+		if (errors.Is(err, mautrix.MUnknownToken) || errors.Is(err, mautrix.ErrOAuthInvalidGrant)) && h.LogoutFunc != nil {
 			go func() {
 				err = h.LogoutFunc(h.Log.WithContext(context.Background()))
 				if err != nil {

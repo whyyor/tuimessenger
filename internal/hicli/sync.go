@@ -323,7 +323,7 @@ func (h *HiClient) processSyncResponse(ctx context.Context, resp *mautrix.RespSy
 		}
 	}
 	h.Account.NextBatch = resp.NextBatch
-	err = h.DB.Account.PutNextBatch(ctx, h.Account.UserID, resp.NextBatch)
+	err = h.DB.Account.PutNextBatch(ctx, h.Account.UserID, h.Account.NextBatch)
 	if err != nil {
 		return fmt.Errorf("failed to save next_batch: %w", err)
 	}

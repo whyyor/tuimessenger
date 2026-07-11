@@ -13,6 +13,7 @@ import (
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
+	"maunium.net/go/mautrix/oauth"
 	"maunium.net/go/mautrix/pushrules"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
@@ -402,4 +403,29 @@ type RerequestSessionParams struct {
 	RoomID    id.RoomID    `json:"room_id"`
 	SessionID id.SessionID `json:"session_id"`
 	Sender    id.UserID    `json:"sender"`
+}
+
+type OAuthRegisterClientParams struct {
+	HomeserverURL string `json:"homeserver_url"`
+	oauth.ClientMetadata
+}
+
+type OAuthGetAuthorizationURLParams struct {
+	HomeserverURL string `json:"homeserver_url"`
+	oauth.GetAuthorizationURLParams
+}
+
+type OAuthGenerateDeviceCodeParams struct {
+	HomeserverURL string `json:"homeserver_url"`
+	oauth.GenerateDeviceCodeParams
+}
+
+type OAuthExchangeTokenParams struct {
+	HomeserverURL string `json:"homeserver_url"`
+	oauth.ExchangeTokenParams
+}
+
+type OAuthPollDeviceCodeParams struct {
+	HomeserverURL string `json:"homeserver_url"`
+	oauth.PollDeviceCodeParams
 }

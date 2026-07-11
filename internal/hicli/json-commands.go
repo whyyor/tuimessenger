@@ -20,6 +20,7 @@ import (
 	"maunium.net/go/mautrix/crypto/ssss"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
+	"maunium.net/go/mautrix/oauth"
 	"maunium.net/go/mautrix/pushrules"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
@@ -133,6 +134,16 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 		return jsoncmd.Logout.RunCtx(ctx, req.Data, h.API.Logout)
 	case jsoncmd.ReqLogin:
 		return jsoncmd.Login.RunCtx(ctx, req.Data, h.API.Login)
+	case jsoncmd.ReqOAuthRegisterClient:
+		return jsoncmd.OAuthRegisterClient.RunCtx(ctx, req.Data, h.API.OAuthRegisterClient)
+	case jsoncmd.ReqOAuthGetAuthorizationURL:
+		return jsoncmd.OAuthGetAuthorizationURL.RunCtx(ctx, req.Data, h.API.OAuthGetAuthorizationURL)
+	case jsoncmd.ReqOAuthExchangeToken:
+		return jsoncmd.OAuthExchangeToken.RunCtx(ctx, req.Data, h.API.OAuthExchangeToken)
+	case jsoncmd.ReqOAuthGenerateDeviceCode:
+		return jsoncmd.OAuthGenerateDeviceCode.RunCtx(ctx, req.Data, h.API.OAuthGenerateDeviceCode)
+	case jsoncmd.ReqOAuthPollDeviceCode:
+		return jsoncmd.OAuthPollDeviceCode.RunCtx(ctx, req.Data, h.API.OAuthPollDeviceCode)
 	case jsoncmd.ReqLoginCustom:
 		return jsoncmd.LoginCustom.RunCtx(ctx, req.Data, h.API.LoginCustom)
 	case jsoncmd.ReqVerify:
@@ -515,7 +526,7 @@ func (h *JSONAPI) DiscoverHomeserver(ctx context.Context, params *jsoncmd.Discov
 	return mautrix.DiscoverClientAPI(ctx, homeserver)
 }
 
-func (h *JSONAPI) GetLoginFlows(ctx context.Context, params *jsoncmd.GetLoginFlowsParams) (*mautrix.RespLoginFlows, error) {
+func (h *JSONAPI) GetLoginFlows(ctx context.Context, params *jsoncmd.GetLoginFlowsParams) (*jsoncmd.LoginFlowsResponse, error) {
 	cli, err := h.tempClient(params.HomeserverURL)
 	if err != nil {
 		return nil, err
@@ -524,7 +535,59 @@ func (h *JSONAPI) GetLoginFlows(ctx context.Context, params *jsoncmd.GetLoginFlo
 	if err != nil {
 		return nil, err
 	}
-	return cli.GetLoginFlows(ctx)
+	serverMeta, _ := cli.OAuthGetServerMetadata(ctx)
+	flows, err := cli.GetLoginFlows(ctx)
+	if err != nil && (!errors.Is(err, mautrix.MUnrecognized) || serverMeta == nil) {
+		return nil, err
+	}
+	if serverMeta != nil {
+		if flows == nil {
+			flows = &mautrix.RespLoginFlows{}
+		}
+		if !flows.HasFlow(mautrix.AuthTypeOAuth) {
+			flows.Flows = append(flows.Flows, mautrix.LoginFlow{Type: mautrix.AuthTypeOAuth})
+		}
+		err = nil
+	}
+	return &jsoncmd.LoginFlowsResponse{
+		RespLoginFlows: flows,
+		OAuth:          serverMeta,
+	}, err
+}
+
+func (h *JSONAPI) OAuthRegisterClient(ctx context.Context, params *jsoncmd.OAuthRegisterClientParams) (*oauth.ClientMetadata, error) {
+	return loginOAuthPrepare(h.HiClient, params.HomeserverURL, func() (*oauth.ClientMetadata, error) {
+		return h.Client.OAuthRegisterClient(ctx, &params.ClientMetadata)
+	})
+}
+
+func (h *JSONAPI) OAuthGetAuthorizationURL(ctx context.Context, params *jsoncmd.OAuthGetAuthorizationURLParams) (*oauth.AuthorizationState, error) {
+	return loginOAuthPrepare(h.HiClient, params.HomeserverURL, func() (*oauth.AuthorizationState, error) {
+		return h.Client.OAuthGetAuthorizationURL(ctx, params.GetAuthorizationURLParams)
+	})
+}
+
+func (h *JSONAPI) OAuthExchangeToken(ctx context.Context, params *jsoncmd.OAuthExchangeTokenParams) error {
+	return h.loginOAuth(ctx, params.HomeserverURL, params.ClientID, func() (*oauth.TokenResponse, error) {
+		params.StoreCredentials = true
+		return h.Client.OAuthExchangeToken(ctx, params.ExchangeTokenParams)
+	})
+}
+
+func (h *JSONAPI) OAuthGenerateDeviceCode(ctx context.Context, params *jsoncmd.OAuthGenerateDeviceCodeParams) (*oauth.DeviceCodeResponse, error) {
+	return loginOAuthPrepare(h.HiClient, params.HomeserverURL, func() (*oauth.DeviceCodeResponse, error) {
+		return h.Client.OAuthGenerateDeviceCode(ctx, params.GenerateDeviceCodeParams)
+	})
+}
+
+func (h *JSONAPI) OAuthPollDeviceCode(ctx context.Context, params *jsoncmd.OAuthPollDeviceCodeParams) error {
+	if err := h.ensureHomeserverURL(params.HomeserverURL); err != nil {
+		return err
+	}
+	return h.loginOAuth(ctx, params.HomeserverURL, params.ClientID, func() (*oauth.TokenResponse, error) {
+		params.StoreCredentials = true
+		return h.Client.OAuthPollDeviceCode(ctx, params.PollDeviceCodeParams)
+	})
 }
 
 func (h *JSONAPI) RegisterPush(ctx context.Context, params *database.PushRegistration) error {

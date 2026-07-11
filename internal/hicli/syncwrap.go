@@ -71,7 +71,7 @@ func (h *hiSyncer) ProcessResponse(ctx context.Context, resp *mautrix.RespSync, 
 
 func (h *hiSyncer) OnFailedSync(_ *mautrix.RespSync, err error) (time.Duration, error) {
 	c := (*HiClient)(h)
-	if errors.Is(err, mautrix.MUnknownToken) {
+	if errors.Is(err, mautrix.MUnknownToken) || errors.Is(err, mautrix.ErrOAuthInvalidGrant) {
 		return 0, err
 	}
 	c.syncErrors++

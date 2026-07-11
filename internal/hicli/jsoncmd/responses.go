@@ -7,8 +7,10 @@
 package jsoncmd
 
 import (
+	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto/ssss"
 	"maunium.net/go/mautrix/id"
+	"maunium.net/go/mautrix/oauth"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
 )
@@ -55,4 +57,9 @@ type ManualPaginationResponse struct {
 type RecoveryKeyResponse struct {
 	RecoveryKey    string                   `json:"recovery_key"`
 	PassphraseMeta *ssss.PassphraseMetadata `json:"passphrase_meta,omitempty"`
+}
+
+type LoginFlowsResponse struct {
+	*mautrix.RespLoginFlows
+	OAuth *oauth.ServerMetadata `json:"oauth,omitempty"`
 }
