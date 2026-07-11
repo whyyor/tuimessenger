@@ -45,6 +45,14 @@ type syncContext struct {
 	changedDMs    map[id.RoomID]id.UserID
 }
 
+func (sc *syncContext) getChangedDM(roomID id.RoomID) (id.UserID, bool) {
+	if sc == nil || sc.changedDMs == nil {
+		return "", false
+	}
+	userID, ok := sc.changedDMs[roomID]
+	return userID, ok
+}
+
 func (h *HiClient) markSyncErrored(err error, permanent bool) {
 	stat := &jsoncmd.SyncStatus{
 		Type:       jsoncmd.SyncStatusErroring,
@@ -866,16 +874,13 @@ func (h *HiClient) processStateAndTimeline(
 		updatedRoom.LazyLoadSummary = summary
 		heroesChanged = true
 	}
-	if syncCtx != nil && syncCtx.changedDMs != nil {
-		dmUserID := syncCtx.changedDMs[room.ID]
+	if dmUserID, ok := syncCtx.getChangedDM(room.ID); ok {
 		updatedRoom.DMUserID = &dmUserID
-	} else {
-		dmUserID, err := h.GetDMUserID(ctx, room.ID)
-		if err == nil && dmUserID != ptr.Val(room.DMUserID) {
-			updatedRoom.DMUserID = &dmUserID
-			if syncCtx != nil {
-				delete(syncCtx.changedDMs, room.ID)
-			}
+		delete(syncCtx.changedDMs, room.ID)
+	} else if dmUserID, err := h.GetDMUserID(ctx, room.ID); err == nil && dmUserID != ptr.Val(room.DMUserID) {
+		updatedRoom.DMUserID = &dmUserID
+		if syncCtx != nil {
+			delete(syncCtx.changedDMs, room.ID)
 		}
 	}
 	_, spaceOrderChanged := accountData[event.AccountDataSpaceOrder]
