@@ -219,7 +219,7 @@ func (gr *GomuksRPC) OAuthRegisterClient(ctx context.Context, params *jsoncmd.OA
 	return executeRequest(gr, ctx, jsoncmd.OAuthRegisterClient, params)
 }
 
-func (gr *GomuksRPC) OAuthGetAuthorizationURL(ctx context.Context, params *jsoncmd.OAuthGetAuthorizationURLParams) (*oauth.AuthorizationState, error) {
+func (gr *GomuksRPC) OAuthGetAuthorizationURL(ctx context.Context, params *jsoncmd.OAuthGetAuthorizationURLParams) (*oauth.AuthorizationCodeResponse, error) {
 	return executeRequest(gr, ctx, jsoncmd.OAuthGetAuthorizationURL, params)
 }
 

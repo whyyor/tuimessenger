@@ -561,8 +561,8 @@ func (h *JSONAPI) OAuthRegisterClient(ctx context.Context, params *jsoncmd.OAuth
 	})
 }
 
-func (h *JSONAPI) OAuthGetAuthorizationURL(ctx context.Context, params *jsoncmd.OAuthGetAuthorizationURLParams) (*oauth.AuthorizationState, error) {
-	return loginOAuthPrepare(h.HiClient, params.HomeserverURL, func() (*oauth.AuthorizationState, error) {
+func (h *JSONAPI) OAuthGetAuthorizationURL(ctx context.Context, params *jsoncmd.OAuthGetAuthorizationURLParams) (*oauth.AuthorizationCodeResponse, error) {
+	return loginOAuthPrepare(h.HiClient, params.HomeserverURL, func() (*oauth.AuthorizationCodeResponse, error) {
 		return h.Client.OAuthGetAuthorizationURL(ctx, params.GetAuthorizationURLParams)
 	})
 }

@@ -249,7 +249,7 @@ var (
 	OAuthRegisterClient = &CommandSpec[*OAuthRegisterClientParams, *oauth.ClientMetadata]{Name: ReqOAuthRegisterClient}
 	// OAuthGetAuthorizationURL gets the authorization URL for logging into a homeserver with OAuth2.
 	// The frontend must persist the response to pass it into `oauth_exchange_token` after receiving the callback redirect.
-	OAuthGetAuthorizationURL = &CommandSpec[*OAuthGetAuthorizationURLParams, *oauth.AuthorizationState]{Name: ReqOAuthGetAuthorizationURL}
+	OAuthGetAuthorizationURL = &CommandSpec[*OAuthGetAuthorizationURLParams, *oauth.AuthorizationCodeResponse]{Name: ReqOAuthGetAuthorizationURL}
 	// OAuthExchangeToken uses an OAuth2 authorization code from a redirect callback to log into the homeserver.
 	// After a successful login, the `client_state` event will be dispatched.
 	// The frontend should use the event rather than the response to this method to update its state.
