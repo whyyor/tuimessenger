@@ -8,6 +8,9 @@ All RPC messages (requests, responses and events) use the same envelope format:
   to. For events, the backend will start at -1 and go backwards.
 * `data` (any): payload for the command/event, type depends on the command.
 
+When using the C FFI, the envelope is replaced with function parameters and
+there's no request ID, but otherwise the semantics are the same.
+
 ### Responses
 
 For every request with `request_id` set, the backend replies exactly once with
