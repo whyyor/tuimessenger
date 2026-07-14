@@ -28,6 +28,7 @@ type GomuksAPI interface {
 	GetMutualRooms(ctx context.Context, params *GetMutualRoomsParams) (*mautrix.RespMutualRooms, error)
 	TrackUserDevices(ctx context.Context, params *GetProfileParams) (*ProfileEncryptionInfo, error)
 	GetProfileEncryptionInfo(ctx context.Context, params *GetProfileParams) (*ProfileEncryptionInfo, error)
+	GetOwnDevices(ctx context.Context) (*GetOwnDevicesResponse, error)
 	GetEvent(ctx context.Context, params *GetEventParams) (*database.Event, error)
 	GetEventByRowID(ctx context.Context, params *GetEventByRowIDParams) (*database.Event, error)
 	GetRelatedEvents(ctx context.Context, params *GetRelatedEventsParams) ([]*database.Event, error)

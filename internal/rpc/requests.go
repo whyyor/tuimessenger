@@ -91,6 +91,10 @@ func (gr *GomuksRPC) GetProfileEncryptionInfo(ctx context.Context, params *jsonc
 	return executeRequest(gr, ctx, jsoncmd.GetProfileEncryptionInfo, params)
 }
 
+func (gr *GomuksRPC) GetOwnDevices(ctx context.Context) (*jsoncmd.GetOwnDevicesResponse, error) {
+	return executeRequest(gr, ctx, jsoncmd.GetOwnDevices, nil)
+}
+
 func (gr *GomuksRPC) GetEvent(ctx context.Context, params *jsoncmd.GetEventParams) (*database.Event, error) {
 	return executeRequest(gr, ctx, jsoncmd.GetEvent, params)
 }

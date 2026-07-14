@@ -48,6 +48,7 @@ const (
 	ReqGetMutualRooms           Name = "get_mutual_rooms"
 	ReqTrackUserDevices         Name = "track_user_devices"
 	ReqGetProfileEncryptionInfo Name = "get_profile_encryption_info"
+	ReqGetOwnDevices            Name = "get_own_devices"
 	ReqGetEvent                 Name = "get_event"
 	ReqGetEventByRowID          Name = "get_event_by_rowid"
 	ReqGetEventContext          Name = "get_event_context"
@@ -163,6 +164,8 @@ var (
 	TrackUserDevices = &CommandSpec[*GetProfileParams, *ProfileEncryptionInfo]{Name: ReqTrackUserDevices}
 	// GetProfileEncryptionInfo returns the device list and trust state information for a user.
 	GetProfileEncryptionInfo = &CommandSpec[*GetProfileParams, *ProfileEncryptionInfo]{Name: ReqGetProfileEncryptionInfo}
+	// GetOwnDevices returns the current user's full device list and other details.
+	GetOwnDevices = &CommandSpecWithoutRequest[*GetOwnDevicesResponse]{Name: ReqGetOwnDevices}
 	// GetEvent returns a single event in a room. This uses the database if possible,
 	// but will fetch from the homeserver if the event isn't found locally.
 	GetEvent = &CommandSpec[*GetEventParams, *database.Event]{Name: ReqGetEvent}

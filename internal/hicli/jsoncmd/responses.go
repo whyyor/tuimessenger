@@ -33,6 +33,12 @@ type ProfileEncryptionInfo struct {
 	Errors         []string         `json:"errors"`
 }
 
+type GetOwnDevicesResponse struct {
+	Encryption    *ProfileEncryptionInfo   `json:"encryption"`
+	Devices       []mautrix.RespDeviceInfo `json:"devices"`
+	CurrentDevice *ProfileDevice           `json:"current_device"`
+}
+
 type PaginationResponse struct {
 	Events        []*database.Event                  `json:"events"`
 	Receipts      map[id.EventID][]*database.Receipt `json:"receipts"`

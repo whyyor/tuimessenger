@@ -80,6 +80,8 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 		return jsoncmd.TrackUserDevices.RunCtx(ctx, req.Data, h.API.TrackUserDevices)
 	case jsoncmd.ReqGetProfileEncryptionInfo:
 		return jsoncmd.GetProfileEncryptionInfo.RunCtx(ctx, req.Data, h.API.GetProfileEncryptionInfo)
+	case jsoncmd.ReqGetOwnDevices:
+		return jsoncmd.GetOwnDevices.RunCtx(ctx, req.Data, h.API.GetOwnDevices)
 	case jsoncmd.ReqGetEvent:
 		return jsoncmd.GetEvent.RunCtx(ctx, req.Data, h.API.GetEvent)
 	case jsoncmd.ReqGetEventByRowID:
@@ -288,6 +290,10 @@ func (h *JSONAPI) TrackUserDevices(ctx context.Context, params *jsoncmd.GetProfi
 
 func (h *JSONAPI) GetProfileEncryptionInfo(ctx context.Context, params *jsoncmd.GetProfileParams) (*jsoncmd.ProfileEncryptionInfo, error) {
 	return h.HiClient.GetProfileEncryptionInfo(ctx, params.UserID)
+}
+
+func (h *JSONAPI) GetOwnDevices(ctx context.Context) (*jsoncmd.GetOwnDevicesResponse, error) {
+	return h.HiClient.GetOwnDevices(ctx)
 }
 
 func (h *JSONAPI) GetEvent(ctx context.Context, params *jsoncmd.GetEventParams) (*database.Event, error) {
