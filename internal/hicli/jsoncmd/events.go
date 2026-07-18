@@ -186,4 +186,7 @@ type RunData struct {
 	ETag string `json:"etag"`
 	// VAPIDKey is the server key used for web push sent by the gomuks backend.
 	VAPIDKey string `json:"vapid_key"`
+	// ListenerID is an ID used to acknowledge events received via server-sent events.
+	// It's unset for non-SSE connections.
+	ListenerID uint64 `json:"listener_id,omitempty"`
 }

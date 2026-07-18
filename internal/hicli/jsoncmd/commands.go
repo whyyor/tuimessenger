@@ -21,6 +21,14 @@ type Container[T any] struct {
 	Data      T     `json:"data"`
 }
 
+func (c *Container[T]) AsAny() *Container[any] {
+	return &Container[any]{
+		Command:   c.Command,
+		RequestID: c.RequestID,
+		Data:      c.Data,
+	}
+}
+
 type Name string
 
 func (n Name) String() string {
