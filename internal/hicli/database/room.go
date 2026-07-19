@@ -35,7 +35,7 @@ const (
 		INSERT INTO room (room_id) VALUES ($1)
 		ON CONFLICT (room_id) DO NOTHING
 	`
-	upsertRoomFromSyncQuery = `
+	updateRoomFromSyncQuery = `
 		UPDATE room
 		SET room_type = COALESCE(room.room_type, json($2)->>'$.type', ''),
 		    creation_content = COALESCE(room.creation_content, $2),
@@ -52,6 +52,7 @@ const (
 			has_member_list = room.has_member_list OR $13,
 			preview_event_rowid = COALESCE($14, room.preview_event_rowid),
 			sorting_timestamp = COALESCE($15, room.sorting_timestamp),
+			mod_timestamp = unixepoch('subsec')*1000,
 			unread_highlights = COALESCE($16, room.unread_highlights),
 			unread_notifications = COALESCE($17, room.unread_notifications),
 			unread_messages = COALESCE($18, room.unread_messages),
@@ -60,14 +61,14 @@ const (
 		WHERE room_id = $1
 	`
 	setRoomPrevBatchQuery = `
-		UPDATE room SET prev_batch = $2 WHERE room_id = $1
+		UPDATE room SET prev_batch = $2, mod_timestamp = unixepoch('subsec')*1000 WHERE room_id = $1
 	`
 	deleteRoomQuery = `
 		DELETE FROM room WHERE room_id = $1
 	`
 	updateRoomPreviewIfLaterOnTimelineQuery = `
 		UPDATE room
-		SET preview_event_rowid = $2
+		SET preview_event_rowid = $2, mod_timestamp = unixepoch('subsec')*1000
 		WHERE room_id = $1
 		  AND COALESCE((SELECT rowid FROM timeline WHERE event_rowid = $2), -1)
 		          > COALESCE((SELECT rowid FROM timeline WHERE event_rowid = preview_event_rowid), 0)
@@ -105,8 +106,8 @@ func (rq *RoomQuery) GetAllSpaces(ctx context.Context) ([]*Room, error) {
 	return rq.QueryMany(ctx, getRoomsByTypeQuery, event.RoomTypeSpace)
 }
 
-func (rq *RoomQuery) Upsert(ctx context.Context, room *Room) error {
-	return rq.Exec(ctx, upsertRoomFromSyncQuery, room.sqlVariables()...)
+func (rq *RoomQuery) Update(ctx context.Context, room *Room) error {
+	return rq.Exec(ctx, updateRoomFromSyncQuery, room.sqlVariables()...)
 }
 
 func (rq *RoomQuery) Delete(ctx context.Context, roomID id.RoomID) error {

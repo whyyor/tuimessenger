@@ -246,7 +246,7 @@ func (h *HiClient) processGetRoomState(ctx context.Context, roomID id.RoomID, fe
 		if roomChanged {
 			// Only set this here so it doesn't unconditionally flag the room as changed
 			updatedRoom.LazyLoadSummary = llSummary
-			err = h.DB.Room.Upsert(ctx, updatedRoom)
+			err = h.DB.Room.Update(ctx, updatedRoom)
 			if err != nil {
 				return fmt.Errorf("failed to save room data: %w", err)
 			}

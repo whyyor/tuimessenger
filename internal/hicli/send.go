@@ -637,7 +637,7 @@ func (h *HiClient) loadMembers(ctx context.Context, room *database.Room) error {
 		if err != nil {
 			return err
 		}
-		return h.DB.Room.Upsert(ctx, &database.Room{
+		return h.DB.Room.Update(ctx, &database.Room{
 			ID:            room.ID,
 			HasMemberList: true,
 		})

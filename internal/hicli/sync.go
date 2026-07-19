@@ -319,7 +319,7 @@ func (h *HiClient) processSyncResponse(ctx context.Context, resp *mautrix.RespSy
 				continue
 			}
 			existingRoomData.DMUserID = &newDMUserID
-			err = h.DB.Room.Upsert(ctx, existingRoomData)
+			err = h.DB.Room.Update(ctx, existingRoomData)
 			if err != nil {
 				return fmt.Errorf("failed to update DM user ID for room %s: %w", roomID, err)
 			}
@@ -1178,7 +1178,7 @@ func (h *HiClient) processStateAndTimeline(
 	}
 	roomChanged := updatedRoom.CheckChangesAndCopyInto(room)
 	if roomChanged {
-		err = h.DB.Room.Upsert(ctx, updatedRoom)
+		err = h.DB.Room.Update(ctx, updatedRoom)
 		if err != nil {
 			return fmt.Errorf("failed to save room data: %w", err)
 		}

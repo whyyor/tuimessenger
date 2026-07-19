@@ -20,11 +20,15 @@ import (
 const (
 	upsertAccountDataQuery = `
 		INSERT INTO account_data (user_id, type, content) VALUES ($1, $2, $3)
-		ON CONFLICT (user_id, type) DO UPDATE SET content = excluded.content
+		ON CONFLICT (user_id, type) DO UPDATE
+			SET content = excluded.content,
+				mod_timestamp = unixepoch('subsec')*1000
 	`
 	upsertRoomAccountDataQuery = `
 		INSERT INTO room_account_data (user_id, room_id, type, content) VALUES ($1, $2, $3, $4)
-		ON CONFLICT (user_id, room_id, type) DO UPDATE SET content = excluded.content
+		ON CONFLICT (user_id, room_id, type) DO UPDATE
+			SET content = excluded.content,
+				mod_timestamp = unixepoch('subsec')*1000
 	`
 	getGlobalAccountDataQuery = `
 		SELECT user_id, '', type, content FROM account_data WHERE user_id = $1
