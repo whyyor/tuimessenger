@@ -61,10 +61,16 @@ const (
 			prev_batch = COALESCE($20, room.prev_batch)
 		WHERE room_id = $1
 	`
+	// TODO this might not need to bump mod timestamp
 	setRoomPrevBatchQuery = `
 		UPDATE room SET prev_batch = $2, mod_timestamp = unixepoch('subsec')*1000 WHERE room_id = $1
 	`
-	deleteRoomQuery = `
+	addLeftRoomRowQuery = `
+		INSERT INTO left_room (room_id) VALUES ($1) ON CONFLICT (room_id) DO UPDATE
+			SET mod_timestamp = unixepoch('subsec') * 1000
+	`
+	getLeftRoomsQuery = `SELECT room_id FROM left_room WHERE mod_timestamp > $1`
+	deleteRoomQuery   = `
 		DELETE FROM room WHERE room_id = $1
 	`
 	updateRoomPreviewIfLaterOnTimelineQuery = `
@@ -116,7 +122,15 @@ func (rq *RoomQuery) Update(ctx context.Context, room *Room) error {
 }
 
 func (rq *RoomQuery) Delete(ctx context.Context, roomID id.RoomID) error {
+	err := rq.Exec(ctx, addLeftRoomRowQuery, roomID)
+	if err != nil {
+		return err
+	}
 	return rq.Exec(ctx, deleteRoomQuery, roomID)
+}
+
+func (rq *RoomQuery) GetLeftRoomsSince(ctx context.Context, since int64) ([]id.RoomID, error) {
+	return roomIDScanner.NewRowIter(rq.GetDB().Query(ctx, getLeftRoomsQuery, since)).AsList()
 }
 
 func (rq *RoomQuery) CreateRow(ctx context.Context, roomID id.RoomID) error {

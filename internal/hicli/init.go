@@ -112,9 +112,13 @@ func (h *HiClient) GetCatchupSync(ctx context.Context, since int64) (*jsoncmd.Sy
 	if err != nil {
 		return nil, fmt.Errorf("failed to get space edges: %w", err)
 	}
-	payload.InvitedRooms, err = h.DB.InvitedRoom.GetAll(ctx)
+	payload.InvitedRooms, err = h.DB.InvitedRoom.GetAllSince(ctx, since)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get invited rooms: %w", err)
+	}
+	payload.LeftRooms, err = h.DB.Room.GetLeftRoomsSince(ctx, since)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get left rooms: %w", err)
 	}
 	roomAD, err := h.DB.AccountData.GetAllRoomSince(ctx, h.Account.UserID, since)
 	if err != nil {

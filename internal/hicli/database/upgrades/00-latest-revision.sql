@@ -1,4 +1,4 @@
--- v0 -> v24 (compatible with v10+): Latest revision
+-- v0 -> v25 (compatible with v10+): Latest revision
 CREATE TABLE account (
 	user_id        TEXT    NOT NULL PRIMARY KEY,
 	device_id      TEXT    NOT NULL,
@@ -51,9 +51,10 @@ CREATE INDEX room_mod_timestamp_idx ON room (mod_timestamp);
 CREATE INDEX room_preview_idx ON room (preview_event_rowid);
 
 CREATE TABLE invited_room (
-	room_id      TEXT    NOT NULL PRIMARY KEY,
-	received_at  INTEGER NOT NULL,
-	invite_state TEXT    NOT NULL
+	room_id       TEXT    NOT NULL PRIMARY KEY,
+	received_at   INTEGER NOT NULL,
+	mod_timestamp INTEGER NOT NULL DEFAULT (unixepoch('subsec') * 1000),
+	invite_state  TEXT    NOT NULL
 ) STRICT;
 
 CREATE TRIGGER invited_room_delete_on_room_insert
@@ -61,7 +62,13 @@ CREATE TRIGGER invited_room_delete_on_room_insert
 	ON room
 BEGIN
 	DELETE FROM invited_room WHERE room_id = NEW.room_id;
+	DELETE FROM left_room WHERE room_id = NEW.room_id;
 END;
+
+CREATE TABLE left_room (
+	room_id       TEXT    NOT NULL PRIMARY KEY,
+	mod_timestamp INTEGER NOT NULL DEFAULT (unixepoch('subsec') * 1000)
+) STRICT;
 
 CREATE TABLE account_data (
 	user_id       TEXT    NOT NULL,
