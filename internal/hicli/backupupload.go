@@ -221,10 +221,10 @@ func (h *HiClient) RestoreKeyBackup(
 	progress.Stage = "saving"
 	progressCallback(progress)
 	for chunk := range slices.Chunk(entries, persistChunkSize) {
-		err := h.DB.DoTxn(ctx, nil, func(ctx context.Context) error {
+		persistChunk := func(ctx context.Context) error {
 			for _, entry := range chunk {
 				progress.CurrentRoomID = entry.RoomID
-				err := h.Crypto.StoreGroupSession(ctx, entry.Entry, false)
+				err := h.Crypto.StoreGroupSession(ctx, entry.Entry)
 				if err != nil {
 					log.Err(err).
 						Stringer("key_backup_version", h.KeyBackupVersion).
@@ -237,6 +237,9 @@ func (h *HiClient) RestoreKeyBackup(
 				debouncedProgressCallback()
 			}
 			return nil
+		}
+		err := h.withEventDecryptionLock(ctx, "", true, func(ctx context.Context) error {
+			return h.DB.DoTxn(ctx, nil, persistChunk)
 		})
 		if err != nil {
 			return fmt.Errorf("failed to persist decrypted entries: %w", err)

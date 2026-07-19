@@ -28,6 +28,7 @@ type contextKey int
 
 const (
 	syncContextKey contextKey = iota
+	eventDecryptionLockContextKey
 )
 
 var isDatabaseBusyError = func(error) bool {
@@ -45,14 +46,19 @@ func (h *hiSyncer) ProcessResponse(ctx context.Context, resp *mautrix.RespSync, 
 			LeftRooms:    make([]id.RoomID, 0, len(resp.Rooms.Leave)),
 		}})
 	}
-	err := c.preProcessSyncResponse(ctx, resp, since)
-	if err != nil {
-		return err
-	}
+	hasEncrypted := c.preProcessSyncResponse(ctx, resp)
 	for i := 0; ; i++ {
-		err = c.DB.DoTxn(ctx, nil, func(ctx context.Context) error {
-			return c.processSyncResponse(ctx, resp, since)
-		})
+		doProcessTxn := func(ctx context.Context) error {
+			return c.DB.DoTxn(ctx, nil, func(ctx context.Context) error {
+				return c.processSyncResponse(ctx, resp, since)
+			})
+		}
+		var err error
+		if hasEncrypted {
+			err = doProcessTxn(ctx)
+		} else {
+			err = c.withEventDecryptionLock(ctx, "", false, doProcessTxn)
+		}
 		if i < 24 && isDatabaseBusyError(err) {
 			zerolog.Ctx(ctx).Warn().Err(err).Msg("Database is busy, retrying")
 			c.markSyncErrored(err, false)

@@ -420,7 +420,7 @@ func (h *HiClient) PaginateServer(ctx context.Context, roomID id.RoomID, limit i
 		}, nil
 	}
 	wakeupSessionRequests := false
-	err = h.DB.DoTxn(ctx, nil, func(ctx context.Context) error {
+	paginationTxn := func(ctx context.Context) error {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
@@ -478,6 +478,9 @@ func (h *HiClient) PaginateServer(ctx context.Context, roomID id.RoomID, limit i
 			evt.TimelineRowID = tuples[i].Timeline
 		}
 		return nil
+	}
+	err = h.withEventDecryptionLock(ctx, "", false, func(ctx context.Context) error {
+		return h.DB.DoTxn(ctx, nil, paginationTxn)
 	})
 	if err == nil && wakeupSessionRequests {
 		h.WakeupRequestQueue()

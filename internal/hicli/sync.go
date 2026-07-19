@@ -78,7 +78,7 @@ func (h *HiClient) markSyncOK() {
 	}
 }
 
-func (h *HiClient) preProcessSyncResponse(ctx context.Context, resp *mautrix.RespSync, since string) error {
+func (h *HiClient) preProcessSyncResponse(ctx context.Context, resp *mautrix.RespSync) (hasEncrypted bool) {
 	log := zerolog.Ctx(ctx)
 	listenToDevice := h.ToDeviceInSync.Load()
 	var syncTD []*jsoncmd.SyncToDevice
@@ -125,6 +125,14 @@ func (h *HiClient) preProcessSyncResponse(ctx context.Context, resp *mautrix.Res
 			}
 		}
 	}
+	for _, room := range resp.Rooms.Join {
+		for _, evt := range room.Timeline.Events {
+			if evt.Type.Type == event.EventEncrypted.Type {
+				hasEncrypted = true
+				break
+			}
+		}
+	}
 	resp.ToDevice.Events = postponedToDevices
 	if len(syncTD) > 0 {
 		syncCtx, ok := ctx.Value(syncContextKey).(*syncContext)
@@ -134,7 +142,7 @@ func (h *HiClient) preProcessSyncResponse(ctx context.Context, resp *mautrix.Res
 	}
 	h.Crypto.MarkOlmHashSavePoint(ctx)
 
-	return nil
+	return
 }
 
 func (h *HiClient) maybeDiscardOutboundSession(ctx context.Context, newMembership event.Membership, evt *event.Event) bool {

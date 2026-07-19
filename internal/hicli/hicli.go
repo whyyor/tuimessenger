@@ -69,6 +69,8 @@ type HiClient struct {
 	encryptLock       sync.Mutex
 	loginLock         sync.Mutex
 
+	eventDecryptionLock sync.Mutex
+
 	requestQueueWakeup chan struct{}
 
 	jsonRequestsLock sync.Mutex
@@ -162,6 +164,7 @@ func New(rawDB, cryptoDB *dbutil.Database, log zerolog.Logger, pickleKey []byte,
 	c.CryptoStore = crypto.NewSQLCryptoStore(cryptoDB, dbutil.ZeroLogger(log.With().Str("db_section", "crypto").Logger()), "", "", pickleKey)
 	cryptoLog := log.With().Str("component", "crypto").Logger()
 	c.Crypto = crypto.NewOlmMachine(c.Client, &cryptoLog, c.CryptoStore, c.ClientStore)
+	c.Crypto.SetMegolmDecryptLock(c.withEventDecryptionLock)
 	c.Crypto.SessionReceived = c.handleReceivedMegolmSession
 	c.Crypto.DisableRatchetTracking = true
 	c.Crypto.DisableDecryptKeyFetching = true
@@ -321,6 +324,26 @@ func (h *HiClient) loadOwnProfile(ctx context.Context) {
 		}
 		h.dispatchCurrentState()
 	}
+}
+
+func (h *HiClient) withEventDecryptionLock(ctx context.Context, sessID id.SessionID, storeOnly bool, fn func(context.Context) error) error {
+	if ctx.Value(eventDecryptionLockContextKey) != nil {
+		return fn(ctx)
+	}
+	start := time.Now()
+	h.eventDecryptionLock.Lock()
+	defer h.eventDecryptionLock.Unlock()
+	dur := time.Since(start)
+	if dur > 5*time.Second {
+		zerolog.Ctx(ctx).Warn().Dur("wait_dur", dur).Msg("Waited long to acquire event decryption lock")
+	}
+	start = time.Now()
+	err := fn(context.WithValue(ctx, eventDecryptionLockContextKey, true))
+	dur = time.Since(start)
+	if dur > 5*time.Second {
+		zerolog.Ctx(ctx).Warn().Dur("exec_dur", dur).Msg("Held event decryption lock for long")
+	}
+	return err
 }
 
 func (h *HiClient) IsSyncing() bool {
