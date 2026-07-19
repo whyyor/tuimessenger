@@ -174,7 +174,7 @@ type Room struct {
 	UnreadCounts
 	MarkedUnread *bool `json:"marked_unread,omitempty"`
 
-	PrevBatch string `json:"prev_batch"`
+	PrevBatch string `json:"-"`
 }
 
 func (r *Room) GetType() event.RoomType {
