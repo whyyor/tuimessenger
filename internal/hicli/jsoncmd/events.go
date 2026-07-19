@@ -83,6 +83,11 @@ type SyncComplete struct {
 	// The `since` token sent to the server in the /sync request.
 	// This is only for debugging, the frontend doesn't need to care about it.
 	Since *string `json:"since,omitempty"`
+	// Server timestamp which can be used for catchup syncs after a longer disconnect
+	// that doesn't allow stream resumption.
+	ServerTimestamp int64 `json:"server_timestamp,omitempty"`
+	// Catchup is set to true when the previous server timestamp was used for a catchup sync.
+	Catchup bool `json:"catchup,omitempty"`
 	// If true, the frontend should throw away all state it has before applying this sync.
 	// This is used on the first payload after connecting if resuming wasn't used or didn't succeed.
 	ClearState bool `json:"clear_state,omitempty"`
@@ -187,6 +192,5 @@ type RunData struct {
 	// VAPIDKey is the server key used for web push sent by the gomuks backend.
 	VAPIDKey string `json:"vapid_key"`
 	// ListenerID is an ID used to acknowledge events received via server-sent events.
-	// It's unset for non-SSE connections.
 	ListenerID uint64 `json:"listener_id,omitempty"`
 }

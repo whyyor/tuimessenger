@@ -199,7 +199,7 @@ func (h *HiClient) postProcessSyncResponse(ctx context.Context, resp *mautrix.Re
 	}
 	if since == "" {
 		zerolog.Ctx(ctx).Info().Msg("Init sync complete, dispatching chunked room list to clients")
-		for payload := range h.GetInitialSync(ctx, 100) {
+		for payload := range h.GetInitialSync(ctx, 100, 0) {
 			payload.Since = &since
 			h.EventHandler(payload)
 		}

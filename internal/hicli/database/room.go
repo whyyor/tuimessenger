@@ -29,6 +29,7 @@ const (
 		FROM room
 	`
 	getRoomsBySortingTimestampQuery = getRoomBaseQuery + `WHERE sorting_timestamp < $1 AND sorting_timestamp > 0 AND room_type<>'m.space' ORDER BY sorting_timestamp DESC LIMIT $2`
+	getRoomsByModTimestampQuery     = getRoomBaseQuery + `WHERE mod_timestamp > $1`
 	getRoomsByTypeQuery             = getRoomBaseQuery + `WHERE room_type = $1`
 	getRoomByIDQuery                = getRoomBaseQuery + `WHERE room_id = $1`
 	ensureRoomExistsQuery           = `
@@ -100,6 +101,10 @@ func (rq *RoomQuery) Get(ctx context.Context, roomID id.RoomID) (*Room, error) {
 
 func (rq *RoomQuery) GetBySortTS(ctx context.Context, maxTS time.Time, limit int) ([]*Room, error) {
 	return rq.QueryMany(ctx, getRoomsBySortingTimestampQuery, maxTS.UnixMilli(), limit)
+}
+
+func (rq *RoomQuery) GetAllChangedSince(ctx context.Context, since int64) ([]*Room, error) {
+	return rq.QueryMany(ctx, getRoomsByModTimestampQuery, since)
 }
 
 func (rq *RoomQuery) GetAllSpaces(ctx context.Context) ([]*Room, error) {
