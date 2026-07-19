@@ -282,7 +282,7 @@ func (r *Room) CheckChangesAndCopyInto(other *Room) (hasChanges bool) {
 		other.UnreadMessages = r.UnreadMessages
 		hasChanges = true
 	}
-	if r.MarkedUnread != other.MarkedUnread {
+	if r.MarkedUnread != nil && ptr.Val(r.MarkedUnread) != ptr.Val(other.MarkedUnread) {
 		other.MarkedUnread = r.MarkedUnread
 		hasChanges = true
 	}
