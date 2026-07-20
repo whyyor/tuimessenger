@@ -33,6 +33,10 @@ inside the data. When reconnecting, the client should include the run ID as well
 as the most recent negative request ID it received in the `run_id` and
 `last_received_event` query params respectively.
 
+The client should also set the `prev_listener_id` query param to the previous
+`listener_id` value received from the `run_id` event to tell the backend that
+the previous websocket no longer needs buffering.
+
 The event buffer is entirely in-memory, which means resumption will fail if the
 backend has been restarted. For non-resumed inits, the first `sync_complete`
 event will have the `clear_state` flag set to true. For successful resumes, the
@@ -40,6 +44,17 @@ client will only get missed events rather than the full initial sync.
 
 The `init_complete` event is always sent once the client is caught up regardless
 of whether the resume succeeded or not.
+
+### Catchup syncs
+
+For cases where session resumption isn't possible, the client can request a
+catchup sync instead by setting the `last_server_ts` query parameter to the
+most recent `server_timestamp` it received from a `sync_complete` event.
+
+A catchup sync is effectively a filtered subset of the normal initial sync: it
+will only contain the room list, space edges and account data, no room timeline.
+The client is expected to persist data equivalent to what it would receive in a
+full initial sync and then overwrite any rooms that have catchup sync data.
 
 ### Keepalive pings and event acknowledgement
 

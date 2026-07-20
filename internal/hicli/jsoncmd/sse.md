@@ -1,0 +1,14 @@
+## Server-sent events
+
+As an alternative to websockets, clients can use server-sent events for
+receiving data and the `exec` endpoint for sending.
+
+The SSE endpoint is `_gomuks/sse`. It takes the same query parameters for
+session resumption and catchup syncs as the websocket. However, unlike
+websockets, compression is enabled automatically based on the `Accept-Encoding`
+header rather than a query param. The backend supports `zstd` and `deflate`.
+
+Event acknowledgement is done by sending a HTTP request to `_gomuks/sse/ping`
+with `run_id`, `listener_id` and `last_received_event` as query parameters.
+However, there's no connection killing, so the interval for acks can be longer
+than with websockets. 1 minute is recommended.
