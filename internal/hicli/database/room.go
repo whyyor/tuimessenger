@@ -233,7 +233,7 @@ func (r *Room) VisibleMetaIsEqual(other *Room) bool {
 		r.HasMemberList == other.HasMemberList
 }
 
-func (r *Room) CheckChangesAndCopyInto(other *Room) (hasChanges bool) {
+func (r *Room) CheckChangesAndCopyInto(other *Room) (hasChanges, hasSyncableChanges bool) {
 	if r.CreationContent != nil {
 		other.CreationContent = r.CreationContent
 		hasChanges = true
@@ -300,6 +300,7 @@ func (r *Room) CheckChangesAndCopyInto(other *Room) (hasChanges bool) {
 		other.MarkedUnread = r.MarkedUnread
 		hasChanges = true
 	}
+	hasSyncableChanges = hasChanges
 	if r.PrevBatch != "" && r.PrevBatch != other.PrevBatch {
 		other.PrevBatch = r.PrevBatch
 		hasChanges = true

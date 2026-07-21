@@ -237,7 +237,7 @@ func (h *HiClient) processGetRoomState(ctx context.Context, roomID id.RoomID, fe
 				updatedRoom.Avatar = &dmAvatarURL
 			}
 		}
-		roomChanged := updatedRoom.CheckChangesAndCopyInto(room)
+		roomChanged, syncRoomChanged := updatedRoom.CheckChangesAndCopyInto(room)
 		// TODO dispatch space edge changes if something changed? (fairly unlikely though)
 		err = sdc.Apply(ctx, room, h.DB.SpaceEdge)
 		if err != nil {
@@ -250,7 +250,7 @@ func (h *HiClient) processGetRoomState(ctx context.Context, roomID id.RoomID, fe
 			if err != nil {
 				return fmt.Errorf("failed to save room data: %w", err)
 			}
-			if dispatchEvt {
+			if dispatchEvt && syncRoomChanged {
 				h.EventHandler(&jsoncmd.SyncComplete{
 					Rooms: map[id.RoomID]*jsoncmd.SyncRoom{
 						roomID: {

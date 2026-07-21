@@ -1176,7 +1176,7 @@ func (h *HiClient) processStateAndTimeline(
 	if timeline.PrevBatch != "" && (room.PrevBatch == "" || timeline.Limited) {
 		updatedRoom.PrevBatch = timeline.PrevBatch
 	}
-	roomChanged := updatedRoom.CheckChangesAndCopyInto(room)
+	roomChanged, syncRoomChanged := updatedRoom.CheckChangesAndCopyInto(room)
 	if roomChanged {
 		err = h.DB.Room.Update(ctx, updatedRoom)
 		if err != nil {
@@ -1192,7 +1192,11 @@ func (h *HiClient) processStateAndTimeline(
 		for _, receipt := range receipts {
 			receipt.RoomID = ""
 		}
-		syncCtx.evt.Rooms[room.ID] = &jsoncmd.SyncRoom{
+		roomID := room.ID
+		if !syncRoomChanged {
+			room = nil
+		}
+		syncCtx.evt.Rooms[roomID] = &jsoncmd.SyncRoom{
 			Meta:        room,
 			Timeline:    timelineRowTuples,
 			AccountData: accountData,
