@@ -507,6 +507,20 @@ func (ts *tagStack) contains(tags ...atom.Atom) bool {
 	return false
 }
 
+func (ts *tagStack) peek() atom.Atom {
+	if len(*ts) == 0 {
+		return atom.Atom(0)
+	}
+	return (*ts)[len(*ts)-1]
+}
+
+func (ts *tagStack) peek2() atom.Atom {
+	if len(*ts) < 2 {
+		return atom.Atom(0)
+	}
+	return (*ts)[len(*ts)-2]
+}
+
 func (ts *tagStack) push(tag atom.Atom) {
 	*ts = append(*ts, tag)
 }
@@ -605,6 +619,9 @@ Loop:
 			case atom.Code:
 				built.WriteString(`<code class="hicli-inline-code"`)
 			case atom.Input:
+				if ts.peek2() != atom.Ul || ts.peek() != atom.Li {
+					continue
+				}
 				inputType, ok := getAttribute(token.Attr, "type")
 				if !ok || inputType != "checkbox" {
 					continue
