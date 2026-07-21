@@ -300,7 +300,7 @@ func (r *Room) CheckChangesAndCopyInto(other *Room) (hasChanges bool) {
 		other.MarkedUnread = r.MarkedUnread
 		hasChanges = true
 	}
-	if r.PrevBatch != "" && other.PrevBatch == "" {
+	if r.PrevBatch != "" && r.PrevBatch != other.PrevBatch {
 		other.PrevBatch = r.PrevBatch
 		hasChanges = true
 	}

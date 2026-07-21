@@ -1118,7 +1118,6 @@ func (h *HiClient) processStateAndTimeline(
 				return fmt.Errorf("failed to clear old timeline: %w", err)
 			}
 			updatedRoom.PrevBatch = timeline.PrevBatch
-			room.PrevBatch = ""
 			h.paginationInterrupterLock.Lock()
 			if interrupt, ok := h.paginationInterrupter[room.ID]; ok {
 				interrupt(ErrTimelineReset)
