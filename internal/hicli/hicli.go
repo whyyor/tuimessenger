@@ -326,7 +326,8 @@ func (h *HiClient) checkServerVersions(ctx context.Context, cli *mautrix.Client)
 	return nil
 }
 
-func (h *HiClient) maybeUpdateOwnProfile(ctx context.Context, profile json.RawMessage) {
+func (h *HiClient) maybeUpdateOwnProfile(profile json.RawMessage) {
+	ctx := h.Log.WithContext(context.TODO())
 	h.ownProfileFetchLock.Lock()
 	defer h.ownProfileFetchLock.Unlock()
 	if time.Since(h.lastOwnProfileFetch) < 1*time.Minute {
