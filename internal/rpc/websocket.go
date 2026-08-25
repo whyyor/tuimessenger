@@ -45,9 +45,10 @@ func (gr *GomuksRPC) Connect(ctx context.Context) error {
 	wsURL := gr.BuildRawURL(GomuksURLPath{"websocket"})
 	wsURL.Scheme = strings.Replace(wsURL.Scheme, "http", "ws", 1)
 	query := url.Values{}
-	if gr.runID != "" && gr.lastReqID != 0 {
-		query.Set("run_id", gr.runID)
-		query.Set("last_received_event", strconv.FormatInt(gr.lastReqID, 10))
+	lastReqID := gr.lastReqID.Load()
+	if runID := gr.getRunID(); runID != "" && lastReqID != 0 {
+		query.Set("run_id", runID)
+		query.Set("last_received_event", strconv.FormatInt(lastReqID, 10))
 	}
 	wsURL.RawQuery = query.Encode()
 	zerolog.Ctx(ctx).Info().Stringer("url", wsURL).Msg("Connecting to websocket")
@@ -208,7 +209,7 @@ func (gr *GomuksRPC) eventLoop(ctx context.Context, evtChan <-chan wrappedEvent)
 				return
 			}
 			gr.handleEvent(ctx, evt.Data)
-			gr.lastReqID = evt.ReqID
+			gr.lastReqID.Store(evt.ReqID)
 		case <-ctx.Done():
 			return
 		}
@@ -243,7 +244,7 @@ func (gr *GomuksRPC) pingLoop(ctx context.Context, ws *websocket.Conn) {
 				Command:   jsoncmd.ReqPing,
 				RequestID: gr.getNextRequestIDNoWait(),
 				Data: jsoncmd.PingParams{
-					LastReceivedID: gr.lastReqID,
+					LastReceivedID: gr.lastReqID.Load(),
 				},
 			})
 			if err != nil {
@@ -348,7 +349,7 @@ func (gr *GomuksRPC) readLoopItem(ctx context.Context, log *zerolog.Logger, ws *
 		parsedCmd := parseEvent(ctx, cmd)
 		switch typedCmd := parsedCmd.(type) {
 		case *jsoncmd.RunData:
-			gr.runID = typedCmd.RunID
+			gr.setRunID(typedCmd.RunID)
 		}
 		we := wrappedEvent{Data: parsedCmd, ReqID: cmd.RequestID}
 		select {

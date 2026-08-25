@@ -27,9 +27,38 @@ import (
 
 type EventHandler = func(ctx context.Context, event any)
 
+// ConnState describes the state of the websocket connection to the gomuks backend.
+type ConnState int
+
+const (
+	ConnStateConnecting ConnState = iota
+	ConnStateConnected
+	ConnStateReconnecting
+	ConnStateDisconnected
+)
+
+func (cs ConnState) String() string {
+	switch cs {
+	case ConnStateConnecting:
+		return "connecting"
+	case ConnStateConnected:
+		return "connected"
+	case ConnStateReconnecting:
+		return "reconnecting"
+	case ConnStateDisconnected:
+		return "disconnected"
+	default:
+		return "unknown"
+	}
+}
+
+// ConnStateHandler is called whenever the websocket connection state changes.
+type ConnStateHandler = func(state ConnState, err error)
+
 type GomuksRPC struct {
-	EventHandler EventHandler
-	UserAgent    string
+	EventHandler     EventHandler
+	ConnStateHandler ConnStateHandler
+	UserAgent        string
 
 	BaseURL *url.URL
 	http    *http.Client
@@ -37,11 +66,31 @@ type GomuksRPC struct {
 	connCtx atomic.Pointer[context.Context]
 	stop    atomic.Pointer[context.CancelFunc]
 
+	// lastReqID and runID are written by the read/event loops and read by the
+	// connect and ping loops, so they must be accessed atomically.
+	lastReqID atomic.Int64
+	runID     atomic.Pointer[string]
+
 	pendingRequestsLock sync.RWMutex
 	reqIDCounter        int64
-	lastReqID           int64
-	runID               string
 	pendingRequests     map[int64]chan<- *jsoncmd.Container[json.RawMessage]
+}
+
+func (gr *GomuksRPC) getRunID() string {
+	if p := gr.runID.Load(); p != nil {
+		return *p
+	}
+	return ""
+}
+
+func (gr *GomuksRPC) setRunID(id string) {
+	gr.runID.Store(&id)
+}
+
+func (gr *GomuksRPC) setConnState(state ConnState, err error) {
+	if handler := gr.ConnStateHandler; handler != nil {
+		handler(state, err)
+	}
 }
 
 func NewGomuksRPC(rawBaseURL string) (*GomuksRPC, error) {
@@ -62,11 +111,12 @@ func NewGomuksRPC(rawBaseURL string) (*GomuksRPC, error) {
 		Timeout: 180 * time.Second,
 	}
 	return &GomuksRPC{
-		EventHandler:    func(_ context.Context, _ any) {},
-		BaseURL:         baseURL,
-		UserAgent:       "gomuks-rpc " + mautrix.DefaultUserAgent,
-		http:            cli,
-		pendingRequests: make(map[int64]chan<- *jsoncmd.Container[json.RawMessage]),
+		EventHandler:     func(_ context.Context, _ any) {},
+		ConnStateHandler: func(_ ConnState, _ error) {},
+		BaseURL:          baseURL,
+		UserAgent:        "gomuks-rpc " + mautrix.DefaultUserAgent,
+		http:             cli,
+		pendingRequests:  make(map[int64]chan<- *jsoncmd.Container[json.RawMessage]),
 	}, nil
 }
 
