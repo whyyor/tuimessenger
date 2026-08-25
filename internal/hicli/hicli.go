@@ -233,6 +233,19 @@ func (h *HiClient) ShouldSendInitPayload() bool {
 	return acc != nil && acc.NextBatch != "" && h.VerificationState.IsVerified
 }
 
+func (h *HiClient) repairOTKsIfNeeded(ctx context.Context) error {
+	exists, err := h.DB.TableExists(ctx, "otks_need_reset")
+	if err != nil || !exists {
+		return err
+	}
+	err = h.Crypto.RepairOneTimeKeys(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = h.DB.Exec(ctx, "DROP TABLE otks_need_reset")
+	return err
+}
+
 func (h *HiClient) Start(ctx context.Context, userID id.UserID, expectedAccount *database.Account) error {
 	if expectedAccount != nil && userID != expectedAccount.UserID {
 		panic(fmt.Errorf("invalid parameters: different user ID in expected account and user ID"))
@@ -276,6 +289,10 @@ func (h *HiClient) Start(ctx context.Context, userID id.UserID, expectedAccount 
 		err = h.Crypto.Load(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to load olm machine: %w", err)
+		}
+		err = h.repairOTKsIfNeeded(ctx)
+		if err != nil {
+			return err
 		}
 
 		h.VerificationState, err = h.checkIsCurrentDeviceVerified(ctx)
