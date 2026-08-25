@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"runtime/debug"
@@ -37,8 +38,11 @@ type wrappedEvent struct {
 	ReqID int64
 }
 
-func (gr *GomuksRPC) Connect(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
+// connectOnce opens a single websocket connection and returns the context
+// belonging to it. The context is cancelled when the connection dies, so
+// callers can use it to detect disconnection.
+func (gr *GomuksRPC) connectOnce(ctx context.Context) (context.Context, error) {
+	connCtx, cancel := context.WithCancel(ctx)
 	if stopFn := gr.stop.Swap(&cancel); stopFn != nil {
 		(*stopFn)()
 	}
@@ -51,23 +55,130 @@ func (gr *GomuksRPC) Connect(ctx context.Context) error {
 		query.Set("last_received_event", strconv.FormatInt(lastReqID, 10))
 	}
 	wsURL.RawQuery = query.Encode()
-	zerolog.Ctx(ctx).Info().Stringer("url", wsURL).Msg("Connecting to websocket")
-	ws, _, err := websocket.Dial(ctx, wsURL.String(), &websocket.DialOptions{
+	zerolog.Ctx(connCtx).Info().Stringer("url", wsURL).Msg("Connecting to websocket")
+	ws, resp, err := websocket.Dial(connCtx, wsURL.String(), &websocket.DialOptions{
 		HTTPClient: gr.http,
 		HTTPHeader: http.Header{"User-Agent": {gr.UserAgent}},
 	})
 	if err != nil {
 		cancel()
-		return fmt.Errorf("failed to connect to websocket: %w", err)
+		// Don't leave the previous, dead connection in place: rawRequest would
+		// write into it instead of returning ErrNotConnectedToWebsocket.
+		gr.conn.Store(nil)
+		if resp != nil {
+			return nil, fmt.Errorf("failed to connect to websocket (HTTP %d): %w", resp.StatusCode, err)
+		}
+		return nil, fmt.Errorf("failed to connect to websocket: %w", err)
 	}
 	ws.SetReadLimit(50 * 1024 * 1024)
 	evtChan := make(chan wrappedEvent, 256)
-	go gr.eventLoop(ctx, evtChan)
-	go gr.readLoop(ctx, ws, cancel, evtChan)
-	go gr.pingLoop(ctx, ws)
-	gr.connCtx.Store(&ctx)
+	go gr.eventLoop(connCtx, evtChan)
+	go gr.readLoop(connCtx, ws, cancel, evtChan)
+	go gr.pingLoop(connCtx, ws)
+	gr.connCtx.Store(&connCtx)
 	gr.conn.Store(ws)
-	return nil
+	return connCtx, nil
+}
+
+// Connect makes a single connection attempt and returns once it has either
+// succeeded or failed. It does not reconnect; see ConnectWithRetry.
+func (gr *GomuksRPC) Connect(ctx context.Context) error {
+	_, err := gr.connectOnce(ctx)
+	return err
+}
+
+const (
+	reconnectBaseDelay = 1 * time.Second
+	reconnectMaxDelay  = 30 * time.Second
+	// connStableAfter is how long a connection must survive before it's
+	// considered healthy and the backoff counter is reset. Without this, a
+	// server that accepts connections and immediately drops them would be
+	// hammered at the minimum delay forever.
+	connStableAfter = 60 * time.Second
+)
+
+func reconnectDelay(attempt int) time.Duration {
+	delay := reconnectBaseDelay << min(attempt, 5)
+	if delay > reconnectMaxDelay {
+		delay = reconnectMaxDelay
+	}
+	// Half jitter, so many clients reconnecting after the same server blip
+	// don't all retry in lockstep.
+	return delay/2 + time.Duration(rand.Int64N(int64(delay/2)))
+}
+
+func sleepContext(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// ConnectWithRetry maintains a websocket connection until ctx is cancelled,
+// reconnecting with exponential backoff when it drops. Missed events are
+// replayed from the server's buffer using the run ID and last received event
+// ID, so a short disconnection is resumed rather than resynced.
+func (gr *GomuksRPC) ConnectWithRetry(ctx context.Context) error {
+	log := zerolog.Ctx(ctx)
+	attempt := 0
+	for {
+		if attempt == 0 {
+			gr.setConnState(ConnStateConnecting, nil)
+		}
+		connCtx, err := gr.connectOnce(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			attempt++
+			delay := reconnectDelay(attempt)
+			log.Warn().Err(err).
+				Int("attempt", attempt).
+				Dur("retry_in", delay).
+				Msg("Failed to connect to websocket, retrying")
+			gr.setConnState(ConnStateReconnecting, err)
+			if !sleepContext(ctx, delay) {
+				return ctx.Err()
+			}
+			continue
+		}
+
+		connectedAt := time.Now()
+		gr.setConnState(ConnStateConnected, nil)
+		log.Info().Msg("Connected to websocket")
+
+		// readLoop cancels this when the connection dies.
+		<-connCtx.Done()
+
+		// Fail pending requests immediately instead of leaving callers blocked
+		// until their own contexts expire.
+		gr.clearPendingRequests()
+
+		if ctx.Err() != nil {
+			gr.setConnState(ConnStateDisconnected, nil)
+			gr.Disconnect()
+			return ctx.Err()
+		}
+
+		if time.Since(connectedAt) > connStableAfter {
+			attempt = 0
+		}
+		attempt++
+		delay := reconnectDelay(attempt)
+		cause := context.Cause(connCtx)
+		log.Warn().Err(cause).
+			Int("attempt", attempt).
+			Dur("retry_in", delay).
+			Msg("Websocket disconnected, reconnecting")
+		gr.setConnState(ConnStateReconnecting, cause)
+		if !sleepContext(ctx, delay) {
+			return ctx.Err()
+		}
+	}
 }
 
 func (gr *GomuksRPC) Disconnect() {
