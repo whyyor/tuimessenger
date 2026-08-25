@@ -18,6 +18,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -56,6 +57,12 @@ type GomuksTUI struct {
 
 	NeedsRender bool
 
+	// ConnState is the current state of the connection to the gomuks backend.
+	ConnState rpc.ConnState
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	views map[View]mauview.Component
 }
 
@@ -72,9 +79,12 @@ func init() {
 }
 
 func NewGomuksTUI() *GomuksTUI {
+	ctx, cancel := context.WithCancel(context.Background())
 	ui := &GomuksTUI{
 		app:    mauview.NewApplication(),
 		Config: config.NewConfig(),
+		ctx:    ctx,
+		cancel: cancel,
 	}
 	debug.OnRecover = ui.app.ForceStop
 	return ui
@@ -126,7 +136,18 @@ func (ui *GomuksTUI) Connect() {
 	ui.gmx.SendNotification = ui.MainView.NotifyMessage
 	ui.gmx.EventHandler = ui.gomuksEventHandler
 	ui.MainView.matrix = ui.gmx
-	exerrors.PanicIfNotNil(ui.gmx.GomuksAPI.(*rpc.GomuksRPC).Connect(context.TODO()))
+	rpcClient := ui.gmx.GomuksAPI.(*rpc.GomuksRPC)
+	rpcClient.ConnStateHandler = ui.onConnStateChange
+	err := rpcClient.ConnectWithRetry(ui.ctx)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		exerrors.PanicIfNotNil(err)
+	}
+}
+
+func (ui *GomuksTUI) onConnStateChange(state rpc.ConnState, err error) {
+	debug.Printf("Connection state: %s (%v)", state, err)
+	ui.ConnState = state
+	ui.NeedsRender = true
 }
 
 func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
@@ -141,6 +162,7 @@ func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
 
 func (ui *GomuksTUI) Stop() {
 	debug.Print("Stopping")
+	ui.cancel()
 	ui.gmx.GomuksAPI.(*rpc.GomuksRPC).Disconnect()
 	debug.Print("Disconnection complete")
 	ui.app.Stop()

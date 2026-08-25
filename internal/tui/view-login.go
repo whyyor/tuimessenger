@@ -141,7 +141,9 @@ func (view *LoginView) actuallyLogin(server, username, password string) {
 		view.parent.Config.Username = username
 		view.parent.Config.Password = password
 		view.parent.Config.Save()
-		view.parent.Connect()
+		// Connect blocks until the client is stopped, so it has to run in the
+		// background for the view switch below to happen.
+		go view.parent.Connect()
 		view.parent.SetView(ViewMain)
 	}
 }
