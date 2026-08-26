@@ -68,6 +68,8 @@ type HiClient struct {
 	EventHandler func(evt any)
 	LogoutFunc   func(context.Context) error
 
+	RemoveFallbacks bool
+
 	firstSyncReceived     bool
 	sendInitSyncToClients bool
 	syncingID             int
