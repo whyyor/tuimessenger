@@ -111,8 +111,14 @@ func NewRoomView(parent *MainView, room *store.RoomStore) *RoomView {
 		SetPlaceholder("Send a message...").
 		SetPlaceholderTextColor(tcell.ColorGray).
 		SetTabCompleteFunc(view.InputTabComplete).
-		SetPressKeyUpAtStartFunc(view.EditPrevious).
-		SetPressKeyDownAtEndFunc(view.EditNext)
+		// These fire only when the cursor could not move, so multi-line drafts
+		// still walk their own lines before the arrows change room.
+		SetPressKeyUpAtStartFunc(func() {
+			view.parent.SwitchRoom(view.parent.roomList.Previous())
+		}).
+		SetPressKeyDownAtEndFunc(func() {
+			view.parent.SwitchRoom(view.parent.roomList.Next())
+		})
 
 	view.topic.
 		SetTextColor(tcell.ColorWhite).
