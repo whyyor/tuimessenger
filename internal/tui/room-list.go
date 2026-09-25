@@ -191,10 +191,11 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 
 	for y, room := range roomSlice {
 		unread := room.MarkedUnread || room.UnreadNotifications > 0 || room.UnreadHighlights > 0
+		isSelected := room.RoomID == list.selected
 		rowStyle := tcell.StyleDefault.
 			Foreground(list.mainTextColor).
 			Bold(unread)
-		if room.RoomID == list.selected {
+		if isSelected {
 			rowStyle = rowStyle.
 				Foreground(list.selectedTextColor).
 				Background(list.selectedBackgroundColor)
@@ -203,7 +204,12 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 0, y, list.width, rowStyle)
 
 		icon, iconColor := BridgeIconColor(room.Bridge)
-		widget.WriteLine(screen, mauview.AlignLeft, icon, 1, y, 2, rowStyle.Foreground(iconColor))
+		iconStyle := rowStyle.Foreground(iconColor)
+		if isSelected {
+			// Brand colors clash on the red selection bar; inherit its text color.
+			iconStyle = rowStyle
+		}
+		widget.WriteLine(screen, mauview.AlignLeft, icon, 1, y, 2, iconStyle)
 
 		// Reserve space on the right for the unread badge before truncating.
 		badge := ""
@@ -213,14 +219,19 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 			if room.UnreadMessages < 100 {
 				badge = strconv.Itoa(room.UnreadMessages)
 			}
-			badgeColor := ColorUnreadBadge
-			if room.UnreadHighlights > 0 {
-				badgeColor = ColorUnreadHighlight
+			badgeStyle = rowStyle.Bold(true)
+			if !isSelected {
+				badgeColor := ColorUnreadBadge
+				if room.UnreadHighlights > 0 {
+					badgeColor = ColorUnreadHighlight
+				}
+				badgeStyle = badgeStyle.Foreground(badgeColor)
 			}
-			badgeStyle = rowStyle.Foreground(badgeColor).Bold(true)
 		} else if room.MarkedUnread {
 			badge = "●"
-			badgeStyle = rowStyle.Foreground(ColorUnreadBadge)
+			if !isSelected {
+				badgeStyle = rowStyle.Foreground(ColorUnreadBadge)
+			}
 		}
 
 		nameMax := list.width - 3 - 1

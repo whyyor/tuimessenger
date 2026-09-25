@@ -12,9 +12,11 @@ var (
 	// ColorBarText is the foreground on top of ColorBarBackground.
 	ColorBarText = tcell.NewHexColor(0xc8c9c5)
 	// ColorSelectionBackground marks the selected room in the room list.
-	ColorSelectionBackground = tcell.NewHexColor(0x2d4f67)
+	// Monokai Remastered red, matching the Ghostty palette this fork lives in.
+	ColorSelectionBackground = tcell.NewHexColor(0xfd6883)
 	// ColorSelectionText is the foreground on top of ColorSelectionBackground.
-	ColorSelectionText = tcell.NewHexColor(0xdcd7ba)
+	// The red is bright, so the text goes dark instead of light.
+	ColorSelectionText = tcell.NewHexColor(0x2c2525)
 	// ColorStatusText is used for the transient status line above the composer.
 	ColorStatusText = tcell.NewHexColor(0x8a8a94)
 	// ColorBorder is used for modal borders.

@@ -184,7 +184,12 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 		}
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 0, y, width, rowStyle)
 		icon, iconColor := BridgeIconColor(entry.Bridge)
-		widget.WriteLine(screen, mauview.AlignLeft, icon, 1, y, 2, rowStyle.Foreground(iconColor))
+		iconStyle := rowStyle.Foreground(iconColor)
+		if i == fs.selected {
+			// Brand colors clash on the red selection bar; inherit its text color.
+			iconStyle = rowStyle
+		}
+		widget.WriteLine(screen, mauview.AlignLeft, icon, 1, y, 2, iconStyle)
 		nameMax := width - 4
 		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(entry.Name, nameMax, "…"), 3, y, nameMax, rowStyle)
 	}
