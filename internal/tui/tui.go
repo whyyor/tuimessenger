@@ -59,6 +59,10 @@ type GomuksTUI struct {
 
 	// ConnState is the current state of the connection to the gomuks backend.
 	ConnState rpc.ConnState
+	// Resyncing is true from a manual resync until the backend finishes
+	// streaming the fresh initial data. The websocket reconnects in
+	// milliseconds; this is the phase a human can actually see.
+	Resyncing bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -148,13 +152,18 @@ func (ui *GomuksTUI) Connect() {
 // is the terminal equivalent of reloading the web client.
 func (ui *GomuksTUI) Resync() {
 	debug.Print("Manual resync requested")
+	ui.Resyncing = true
+	ui.Render()
 	ui.gmx.GomuksAPI.(*rpc.GomuksRPC).Resync()
 }
 
 func (ui *GomuksTUI) onConnStateChange(state rpc.ConnState, err error) {
 	debug.Printf("Connection state: %s (%v)", state, err)
 	ui.ConnState = state
-	ui.NeedsRender = true
+	// Render immediately: the localhost reconnect is over in milliseconds, so
+	// waiting for the next sync would repaint after the state is already back
+	// to connected and the indicator would never be visible.
+	ui.Render()
 }
 
 func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
@@ -162,6 +171,11 @@ func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
 	case *jsoncmd.SyncComplete:
 		if ui.NeedsRender {
 			debug.Print("Rendering...")
+			ui.Render()
+		}
+	case *jsoncmd.InitComplete:
+		if ui.Resyncing {
+			ui.Resyncing = false
 			ui.Render()
 		}
 	}

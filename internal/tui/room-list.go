@@ -182,8 +182,14 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 	// A healthy connection stays out of the way; anything else claims the bottom
 	// row so sync trouble (and the result of a manual resync) is visible.
 	connState := list.parent.parent.ConnState
-	listHeight := list.height
+	statusText := ""
 	if connState != rpc.ConnStateConnected {
+		statusText = connState.String()
+	} else if list.parent.parent.Resyncing {
+		statusText = "resyncing"
+	}
+	listHeight := list.height
+	if statusText != "" {
 		listHeight--
 	}
 	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+listHeight)]
@@ -243,9 +249,9 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(room.Name, nameMax, "…"), 3, y, nameMax, rowStyle)
 	}
 
-	if connState != rpc.ConnStateConnected && list.height > 0 {
+	if statusText != "" && list.height > 0 {
 		widget.WriteLinePadded(screen, mauview.AlignLeft,
-			fmt.Sprintf(" %s…", connState), 0, list.height-1, list.width,
+			fmt.Sprintf(" %s…", statusText), 0, list.height-1, list.width,
 			tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true))
 	}
 }
