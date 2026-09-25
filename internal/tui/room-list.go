@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 	"maunium.net/go/mautrix/id"
 
@@ -189,29 +190,46 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 	list.lock.Unlock()
 
 	for y, room := range roomSlice {
-		style := tcell.StyleDefault.
+		unread := room.MarkedUnread || room.UnreadNotifications > 0 || room.UnreadHighlights > 0
+		rowStyle := tcell.StyleDefault.
 			Foreground(list.mainTextColor).
-			Bold(room.MarkedUnread || room.UnreadNotifications > 0 || room.UnreadHighlights > 0)
+			Bold(unread)
 		if room.RoomID == list.selected {
-			style = style.
+			rowStyle = rowStyle.
 				Foreground(list.selectedTextColor).
 				Background(list.selectedBackgroundColor)
 		}
+		// Paint the full row first so selection and badges share one background.
+		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 0, y, list.width, rowStyle)
 
-		title := BridgeIcon(room.Bridge) + " " + room.Name
-		widget.WriteLinePadded(screen, mauview.AlignLeft, title, 0, y, list.width, style)
+		icon, iconColor := BridgeIconColor(room.Bridge)
+		widget.WriteLine(screen, mauview.AlignLeft, icon, 1, y, 2, rowStyle.Foreground(iconColor))
 
+		// Reserve space on the right for the unread badge before truncating.
+		badge := ""
+		badgeStyle := rowStyle
 		if room.UnreadMessages > 0 {
-			unreadMessageCount := "99+"
-			if room.UnreadMessages < 1000 {
-				unreadMessageCount = strconv.Itoa(room.UnreadMessages)
+			badge = "99+"
+			if room.UnreadMessages < 100 {
+				badge = strconv.Itoa(room.UnreadMessages)
 			}
+			badgeColor := ColorUnreadBadge
 			if room.UnreadHighlights > 0 {
-				unreadMessageCount += "!"
+				badgeColor = ColorUnreadHighlight
 			}
-			unreadMessageCount = fmt.Sprintf("(%s)", unreadMessageCount)
-			widget.WriteLine(screen, mauview.AlignRight, unreadMessageCount, list.width-7, y, 7, style)
+			badgeStyle = rowStyle.Foreground(badgeColor).Bold(true)
+		} else if room.MarkedUnread {
+			badge = "●"
+			badgeStyle = rowStyle.Foreground(ColorUnreadBadge)
 		}
+
+		nameMax := list.width - 3 - 1
+		if badge != "" {
+			badgeWidth := runewidth.StringWidth(badge)
+			nameMax -= badgeWidth + 1
+			widget.WriteLine(screen, mauview.AlignLeft, badge, list.width-badgeWidth-1, y, badgeWidth, badgeStyle)
+		}
+		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(room.Name, nameMax, "…"), 3, y, nameMax, rowStyle)
 	}
 
 	if connState != rpc.ConnStateConnected && list.height > 0 {

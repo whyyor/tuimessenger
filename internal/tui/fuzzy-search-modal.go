@@ -17,18 +17,18 @@
 package tui
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/lithammer/fuzzysearch/fuzzy"
+	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
+	"go.mau.fi/gomuks/tui/widget"
 )
 
 type FuzzySearchModal struct {
@@ -37,14 +37,14 @@ type FuzzySearchModal struct {
 	container *mauview.Box
 
 	search  *mauview.InputArea
-	results *mauview.TextView
+	results *fuzzyResultsView
 
-	matches  fuzzy.Ranks
-	selected int
+	matches      fuzzy.Ranks
+	selected     int
+	scrollOffset int
 
 	roomList    []*store.RoomListEntry
 	roomTitles  []string
-	roomIcons   []string
 	roomLower   []string
 	roomRecency []time.Time
 
@@ -57,21 +57,21 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		roomList: mainView.matrix.ReversedRoomList.Current(),
 	}
 	fs.roomTitles = make([]string, len(fs.roomList))
-	fs.roomIcons = make([]string, len(fs.roomList))
 	fs.roomLower = make([]string, len(fs.roomList))
 	fs.roomRecency = make([]time.Time, len(fs.roomList))
 	for i, room := range fs.roomList {
 		fs.roomTitles[i] = room.Name
-		fs.roomIcons[i] = BridgeIcon(room.Bridge)
 		fs.roomLower[i] = strings.ToLower(room.Name)
 		fs.roomRecency[i] = room.SortingTimestamp
 	}
 
-	fs.results = mauview.NewTextView().SetRegions(true)
+	fs.results = &fuzzyResultsView{parent: fs}
 	fs.search = mauview.NewInputArea().
 		SetChangedFunc(fs.changeHandler).
-		SetTextColor(tcell.ColorWhite).
-		SetBackgroundColor(tcell.ColorDarkCyan)
+		SetTextColor(tcell.ColorDefault).
+		SetBackgroundColor(ColorBarBackground).
+		SetPlaceholder(" Search rooms...").
+		SetPlaceholderTextColor(ColorStatusText)
 	fs.search.Focus()
 
 	flex := mauview.NewFlex().
@@ -81,6 +81,7 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 
 	fs.container = mauview.NewBox(flex).
 		SetBorder(true).
+		SetBorderStyle(tcell.StyleDefault.Foreground(ColorBorder)).
 		SetTitle("Quick Room Switcher").
 		SetBlurCaptureFunc(func() bool {
 			fs.parent.HideModal()
@@ -115,22 +116,11 @@ func (fs *FuzzySearchModal) changeHandler(str string) {
 		fs.matches = fuzzy.RankFindFold(str, fs.roomTitles)
 		sortRoomMatches(fs.matches, str, fs.roomLower, fs.roomRecency)
 	}
-	fs.results.Clear()
-	if len(fs.matches) == 0 {
-		fs.results.Highlight()
-		return
-	}
-	for _, match := range fs.matches {
-		_, _ = fmt.Fprintf(fs.results, `["%d"]%s %s[""]%s`,
-			match.OriginalIndex, fs.roomIcons[match.OriginalIndex], match.Target, "\n")
-	}
-	fs.results.Highlight(strconv.Itoa(fs.matches[0].OriginalIndex))
 	fs.selected = 0
-	fs.results.ScrollToBeginning()
+	fs.scrollOffset = 0
 }
 
 func (fs *FuzzySearchModal) OnKeyEvent(event mauview.KeyEvent) bool {
-	highlights := fs.results.GetHighlights()
 	kb := config.Keybind{
 		Key: event.Key(),
 		Ch:  event.Rune(),
@@ -138,37 +128,68 @@ func (fs *FuzzySearchModal) OnKeyEvent(event mauview.KeyEvent) bool {
 	}
 	switch fs.parent.config.Keybindings.Modal[kb] {
 	case "cancel":
-		// Close room finder
 		fs.parent.HideModal()
 		return true
 	case "select_next":
-		// Cycle highlighted area to next match
-		if len(highlights) > 0 {
+		if len(fs.matches) > 0 {
 			fs.selected = (fs.selected + 1) % len(fs.matches)
-			fs.results.Highlight(strconv.Itoa(fs.matches[fs.selected].OriginalIndex))
-			fs.results.ScrollToHighlight()
 		}
 		return true
 	case "select_prev":
-		if len(highlights) > 0 {
-			fs.selected = (fs.selected - 1) % len(fs.matches)
-			if fs.selected < 0 {
-				fs.selected += len(fs.matches)
-			}
-			fs.results.Highlight(strconv.Itoa(fs.matches[fs.selected].OriginalIndex))
-			fs.results.ScrollToHighlight()
+		if len(fs.matches) > 0 {
+			fs.selected = (fs.selected - 1 + len(fs.matches)) % len(fs.matches)
 		}
 		return true
 	case "confirm":
-		// Switch room to currently selected room
-		if len(highlights) > 0 {
-			debug.Print("Fuzzy Selected Room:", fs.roomList[fs.matches[fs.selected].OriginalIndex].Name)
-			fs.parent.SwitchRoom(fs.roomList[fs.matches[fs.selected].OriginalIndex].RoomID)
+		if fs.selected < len(fs.matches) {
+			room := fs.roomList[fs.matches[fs.selected].OriginalIndex]
+			debug.Print("Fuzzy Selected Room:", room.Name)
+			fs.parent.SwitchRoom(room.RoomID)
 		}
 		fs.parent.HideModal()
-		fs.results.Clear()
-		fs.search.SetText("")
 		return true
 	}
 	return fs.search.OnKeyEvent(event)
 }
+
+// fuzzyResultsView renders the match list. mauview's TextView highlight is
+// hardcoded to reverse video, so drawing directly is the only way to give the
+// selection the same treatment as the room list, and it allows per-network
+// icon colors without pushing tag-like room names through a region parser.
+type fuzzyResultsView struct {
+	parent *FuzzySearchModal
+}
+
+func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
+	fs := fr.parent
+	width, height := screen.Size()
+	// Keep the selection in view.
+	if fs.selected < fs.scrollOffset {
+		fs.scrollOffset = fs.selected
+	} else if fs.selected >= fs.scrollOffset+height {
+		fs.scrollOffset = fs.selected - height + 1
+	}
+	for y := 0; y < height; y++ {
+		i := fs.scrollOffset + y
+		if i >= len(fs.matches) {
+			break
+		}
+		entry := fs.roomList[fs.matches[i].OriginalIndex]
+		rowStyle := tcell.StyleDefault
+		if i == fs.selected {
+			rowStyle = rowStyle.
+				Foreground(ColorSelectionText).
+				Background(ColorSelectionBackground).
+				Bold(true)
+		}
+		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 0, y, width, rowStyle)
+		icon, iconColor := BridgeIconColor(entry.Bridge)
+		widget.WriteLine(screen, mauview.AlignLeft, icon, 1, y, 2, rowStyle.Foreground(iconColor))
+		nameMax := width - 4
+		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(entry.Name, nameMax, "…"), 3, y, nameMax, rowStyle)
+	}
+}
+
+func (fr *fuzzyResultsView) OnKeyEvent(_ mauview.KeyEvent) bool     { return false }
+func (fr *fuzzyResultsView) OnPasteEvent(_ mauview.PasteEvent) bool { return false }
+func (fr *fuzzyResultsView) OnMouseEvent(_ mauview.MouseEvent) bool { return false }
