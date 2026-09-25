@@ -23,6 +23,7 @@ import (
 type RoomListEntry struct {
 	RoomID           id.RoomID
 	DMUserID         id.UserID
+	Bridge           string
 	SortingTimestamp time.Time
 	PreviewEvent     *database.Event
 	PreviewSender    *database.Event
@@ -102,6 +103,7 @@ func (gs *GomuksStore) makeRoomListEntry(roomStore *RoomStore) *RoomListEntry {
 	entry := &RoomListEntry{
 		RoomID:           roomStore.ID,
 		DMUserID:         ptr.Val(meta.DMUserID),
+		Bridge:           bridgeIDFromMeta(meta),
 		SortingTimestamp: meta.SortingTimestamp.Time,
 		PreviewEvent:     roomStore.GetEventByRowID(meta.PreviewEventRowID),
 		Name:             name,

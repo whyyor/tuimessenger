@@ -190,7 +190,8 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 				Background(list.selectedBackgroundColor)
 		}
 
-		widget.WriteLinePadded(screen, mauview.AlignLeft, room.Name, 0, y, list.width, style)
+		title := BridgeIcon(room.Bridge) + " " + room.Name
+		widget.WriteLinePadded(screen, mauview.AlignLeft, title, 0, y, list.width, style)
 
 		if room.UnreadMessages > 0 {
 			unreadMessageCount := "99+"
