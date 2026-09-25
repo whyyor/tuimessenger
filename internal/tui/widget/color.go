@@ -17,7 +17,6 @@
 package widget
 
 import (
-	"fmt"
 	"hash/fnv"
 
 	"github.com/gdamore/tcell/v2"
@@ -25,200 +24,35 @@ import (
 	"maunium.net/go/mautrix/id"
 )
 
-var colorNames = []string{
-	"maroon",
-	"green",
-	"olive",
-	"navy",
-	"purple",
-	"teal",
-	"silver",
-	"gray",
-	"red",
-	"lime",
-	"yellow",
-	"blue",
-	"fuchsia",
-	"aqua",
-	"white",
-	"aliceblue",
-	"antiquewhite",
-	"aquamarine",
-	"azure",
-	"beige",
-	"bisque",
-	"blanchedalmond",
-	"blueviolet",
-	"brown",
-	"burlywood",
-	"cadetblue",
-	"chartreuse",
-	"chocolate",
-	"coral",
-	"cornflowerblue",
-	"cornsilk",
-	"crimson",
-	"darkblue",
-	"darkcyan",
-	"darkgoldenrod",
-	"darkgray",
-	"darkgreen",
-	"darkkhaki",
-	"darkmagenta",
-	"darkolivegreen",
-	"darkorange",
-	"darkorchid",
-	"darkred",
-	"darksalmon",
-	"darkseagreen",
-	"darkslateblue",
-	"darkslategray",
-	"darkturquoise",
-	"darkviolet",
-	"deeppink",
-	"deepskyblue",
-	"dimgray",
-	"dodgerblue",
-	"firebrick",
-	"floralwhite",
-	"forestgreen",
-	"gainsboro",
-	"ghostwhite",
-	"gold",
-	"goldenrod",
-	"greenyellow",
-	"honeydew",
-	"hotpink",
-	"indianred",
-	"indigo",
-	"ivory",
-	"khaki",
-	"lavender",
-	"lavenderblush",
-	"lawngreen",
-	"lemonchiffon",
-	"lightblue",
-	"lightcoral",
-	"lightcyan",
-	"lightgoldenrodyellow",
-	"lightgray",
-	"lightgreen",
-	"lightpink",
-	"lightsalmon",
-	"lightseagreen",
-	"lightskyblue",
-	"lightslategray",
-	"lightsteelblue",
-	"lightyellow",
-	"limegreen",
-	"linen",
-	"mediumaquamarine",
-	"mediumblue",
-	"mediumorchid",
-	"mediumpurple",
-	"mediumseagreen",
-	"mediumslateblue",
-	"mediumspringgreen",
-	"mediumturquoise",
-	"mediumvioletred",
-	"midnightblue",
-	"mintcream",
-	"mistyrose",
-	"moccasin",
-	"navajowhite",
-	"oldlace",
-	"olivedrab",
-	"orange",
-	"orangered",
-	"orchid",
-	"palegoldenrod",
-	"palegreen",
-	"paleturquoise",
-	"palevioletred",
-	"papayawhip",
-	"peachpuff",
-	"peru",
-	"pink",
-	"plum",
-	"powderblue",
-	"rebeccapurple",
-	"rosybrown",
-	"royalblue",
-	"saddlebrown",
-	"salmon",
-	"sandybrown",
-	"seagreen",
-	"seashell",
-	"sienna",
-	"skyblue",
-	"slateblue",
-	"slategray",
-	"snow",
-	"springgreen",
-	"steelblue",
-	"tan",
-	"thistle",
-	"tomato",
-	"turquoise",
-	"violet",
-	"wheat",
-	"whitesmoke",
-	"yellowgreen",
-	"grey",
-	"dimgrey",
-	"darkgrey",
-	"darkslategrey",
-	"lightgrey",
-	"lightslategrey",
-	"slategrey",
+// The Monokai accent family (Remastered values from the Ghostty palette this
+// fork lives in, plus two classics), replacing the old list of ~150 web color
+// names, half of which were unreadable on a dark background.
+var hashColors = []tcell.Color{
+	tcell.NewHexColor(0xfd6883), // red
+	tcell.NewHexColor(0xadda78), // green
+	tcell.NewHexColor(0xf9cc6c), // yellow
+	tcell.NewHexColor(0xf38d70), // orange
+	tcell.NewHexColor(0xa8a9eb), // purple
+	tcell.NewHexColor(0x85dacc), // cyan
+	tcell.NewHexColor(0xf92672), // classic magenta
+	tcell.NewHexColor(0xe6db74), // classic cream
 }
 
-// GetHashColorName gets a color name for the given string based on its FNV-1 hash.
-//
-// The array of possible color names are the alphabetically ordered color
-// names specified in tcell.ColorNames.
-//
-// The algorithm to get the color is as follows:
-//
-//	colorNames[ FNV1(string) % len(colorNames) ]
-//
-// With the exception of the three special cases:
-//
-//	--> = green
-//	<-- = red
-//	--- = yellow
-func GetHashColorName(s string) string {
-	switch s {
-	case "-->":
-		return "green"
-	case "<--":
-		return "red"
-	case "---":
-		return "yellow"
-	default:
-		h := fnv.New32a()
-		_, _ = h.Write([]byte(s))
-		return colorNames[h.Sum32()%uint32(len(colorNames))]
-	}
-}
-
-// GetHashColor gets the tcell Color value for the given string.
-//
-// GetHashColor calls GetHashColorName() and gets the Color value from the tcell.ColorNames map.
+// GetHashColor picks a stable Monokai accent for the given string (or user
+// ID) based on its FNV-1a hash.
 func GetHashColor(val interface{}) tcell.Color {
-	switch str := val.(type) {
+	var s string
+	switch typed := val.(type) {
 	case string:
-		return tcell.ColorNames[GetHashColorName(str)]
+		s = typed
 	case *string:
-		return tcell.ColorNames[GetHashColorName(*str)]
+		s = *typed
 	case id.UserID:
-		return tcell.ColorNames[GetHashColorName(string(str))]
+		s = string(typed)
 	default:
-		return tcell.ColorNames["red"]
+		return hashColors[0]
 	}
-}
-
-// AddColor adds tview color tags to the given string.
-func AddColor(s, color string) string {
-	return fmt.Sprintf("[%s]%s[white]", color, s)
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(s))
+	return hashColors[h.Sum32()%uint32(len(hashColors))]
 }
