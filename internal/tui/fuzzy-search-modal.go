@@ -17,6 +17,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -69,20 +70,29 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 	fs.search = mauview.NewInputArea().
 		SetChangedFunc(fs.changeHandler).
 		SetTextColor(tcell.ColorDefault).
-		SetBackgroundColor(ColorBarBackground).
-		SetPlaceholder(" Search rooms...").
-		SetPlaceholderTextColor(ColorStatusText)
+		SetBackgroundColor(tcell.ColorDefault)
 	fs.search.Focus()
 
+	prompt := mauview.NewTextView().
+		SetText(" room> ").
+		SetTextColor(tcell.PaletteColor(5))
+	inputRow := mauview.NewFlex().
+		SetDirection(mauview.FlexColumn).
+		AddFixedComponent(prompt, 7).
+		AddProportionalComponent(fs.search, 1)
+
+	// fzf-style layout: results grow upward from a match counter and the
+	// prompt at the bottom.
 	flex := mauview.NewFlex().
 		SetDirection(mauview.FlexRow).
-		AddFixedComponent(fs.search, 1).
-		AddProportionalComponent(fs.results, 1)
+		AddProportionalComponent(fs.results, 1).
+		AddFixedComponent(&fuzzyCountView{parent: fs}, 1).
+		AddFixedComponent(inputRow, 1)
 
 	fs.container = mauview.NewBox(flex).
 		SetBorder(true).
 		SetBorderStyle(tcell.StyleDefault.Foreground(ColorBorder)).
-		SetTitle("Quick Room Switcher").
+		SetTitle("rooms").
 		SetBlurCaptureFunc(func() bool {
 			fs.parent.HideModal()
 			return true
@@ -121,6 +131,18 @@ func (fs *FuzzySearchModal) changeHandler(str string) {
 }
 
 func (fs *FuzzySearchModal) OnKeyEvent(event mauview.KeyEvent) bool {
+	// The list renders bottom-up, so the arrows work on visual rows: Down
+	// moves toward the prompt (better matches), Up away from it.
+	if len(fs.matches) > 0 && event.Modifiers() == 0 {
+		switch event.Key() {
+		case tcell.KeyUp:
+			fs.selected = (fs.selected + 1) % len(fs.matches)
+			return true
+		case tcell.KeyDown:
+			fs.selected = (fs.selected - 1 + len(fs.matches)) % len(fs.matches)
+			return true
+		}
+	}
 	kb := config.Keybind{
 		Key: event.Key(),
 		Ch:  event.Rune(),
@@ -169,31 +191,51 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 	} else if fs.selected >= fs.scrollOffset+height {
 		fs.scrollOffset = fs.selected - height + 1
 	}
-	for y := 0; y < height; y++ {
-		i := fs.scrollOffset + y
+	gutterStyle := tcell.StyleDefault.Foreground(ColorBorder)
+	accentStyle := tcell.StyleDefault.Foreground(ColorSelectionBackground)
+	for visRow := 0; visRow < height; visRow++ {
+		i := fs.scrollOffset + visRow
+		// Best match sits at the bottom, next to the prompt.
+		y := height - 1 - visRow
 		if i >= len(fs.matches) {
 			break
 		}
 		entry := fs.roomList[fs.matches[i].OriginalIndex]
 		rowStyle := tcell.StyleDefault
+		gutter := gutterStyle
 		if i == fs.selected {
-			rowStyle = rowStyle.
-				Foreground(ColorSelectionText).
-				Background(ColorSelectionBackground).
-				Bold(true)
+			// Subtle bar with a red gutter accent instead of a solid color row.
+			rowStyle = rowStyle.Background(ColorBarBackground).Bold(true)
+			gutter = accentStyle.Background(ColorBarBackground)
 		}
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 0, y, width, rowStyle)
+		screen.SetContent(1, y, '▌', nil, gutter)
 		icon, iconColor := BridgeIconColor(entry.Bridge)
-		iconStyle := rowStyle.Foreground(iconColor)
-		if i == fs.selected {
-			// Brand colors clash on the red selection bar; inherit its text color.
-			iconStyle = rowStyle
-		}
-		widget.WriteLine(screen, mauview.AlignLeft, icon, 1, y, 2, iconStyle)
-		nameMax := width - 4
-		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(entry.Name, nameMax, "…"), 3, y, nameMax, rowStyle)
+		widget.WriteLine(screen, mauview.AlignLeft, icon, 3, y, 2, rowStyle.Foreground(iconColor))
+		nameMax := width - 6
+		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(entry.Name, nameMax, "…"), 5, y, nameMax, rowStyle)
 	}
 }
+
+// fuzzyCountView is the "12/775 ────" line between the results and the prompt.
+type fuzzyCountView struct {
+	parent *FuzzySearchModal
+}
+
+func (fc *fuzzyCountView) Draw(screen mauview.Screen) {
+	fs := fc.parent
+	width, _ := screen.Size()
+	count := fmt.Sprintf(" %d/%d ", len(fs.matches), len(fs.roomList))
+	widget.WriteLine(screen, mauview.AlignLeft, count, 1, 0, width, tcell.StyleDefault.Foreground(tcell.PaletteColor(3)))
+	ruleStyle := tcell.StyleDefault.Foreground(ColorBorder)
+	for x := 1 + runewidth.StringWidth(count); x < width-1; x++ {
+		screen.SetContent(x, 0, '─', nil, ruleStyle)
+	}
+}
+
+func (fc *fuzzyCountView) OnKeyEvent(_ mauview.KeyEvent) bool     { return false }
+func (fc *fuzzyCountView) OnPasteEvent(_ mauview.PasteEvent) bool { return false }
+func (fc *fuzzyCountView) OnMouseEvent(_ mauview.MouseEvent) bool { return false }
 
 func (fr *fuzzyResultsView) OnKeyEvent(_ mauview.KeyEvent) bool     { return false }
 func (fr *fuzzyResultsView) OnPasteEvent(_ mauview.PasteEvent) bool { return false }
