@@ -101,10 +101,16 @@ func newUIMessage(
 		msgtype = event.MessageType(evt.Type)
 	}
 
+	// Own messages keep a white name; hash colors are for telling others apart.
+	senderColor := widget.GetHashColor(evt.Sender)
+	if evt.Sender == room.OwnUserID() {
+		senderColor = tcell.ColorWhite
+	}
+
 	return &UIMessage{
 		Room:               room,
 		OverrideSenderName: displayname,
-		DefaultSenderColor: widget.GetHashColor(evt.Sender),
+		DefaultSenderColor: senderColor,
 		MsgType:            msgtype,
 		IsService:          false,
 		Event:              evt,

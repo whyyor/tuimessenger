@@ -24,15 +24,15 @@ import (
 	"maunium.net/go/mautrix/id"
 )
 
-// The classic Monokai accents, replacing the old list of ~150 web color
-// names, half of which were unreadable on a dark background.
+// Absolute ANSI palette colors: the terminal's own red, green, yellow,
+// purple and cyan, so names render in whatever Monokai the terminal theme
+// defines rather than hardcoded hexes.
 var hashColors = []tcell.Color{
-	tcell.NewHexColor(0xf92672), // red
-	tcell.NewHexColor(0xa6e22e), // green
-	tcell.NewHexColor(0xe6db74), // yellow
-	tcell.NewHexColor(0xfd971f), // orange
-	tcell.NewHexColor(0xae81ff), // purple
-	tcell.NewHexColor(0x66d9ef), // cyan
+	tcell.PaletteColor(1), // red
+	tcell.PaletteColor(2), // green
+	tcell.PaletteColor(3), // yellow
+	tcell.PaletteColor(5), // purple
+	tcell.PaletteColor(6), // cyan
 }
 
 // GetHashColor picks a stable Monokai accent for the given string (or user
