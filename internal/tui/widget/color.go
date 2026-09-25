@@ -24,18 +24,15 @@ import (
 	"maunium.net/go/mautrix/id"
 )
 
-// The Monokai accent family (Remastered values from the Ghostty palette this
-// fork lives in, plus two classics), replacing the old list of ~150 web color
+// The classic Monokai accents, replacing the old list of ~150 web color
 // names, half of which were unreadable on a dark background.
 var hashColors = []tcell.Color{
-	tcell.NewHexColor(0xfd6883), // red
-	tcell.NewHexColor(0xadda78), // green
-	tcell.NewHexColor(0xf9cc6c), // yellow
-	tcell.NewHexColor(0xf38d70), // orange
-	tcell.NewHexColor(0xa8a9eb), // purple
-	tcell.NewHexColor(0x85dacc), // cyan
-	tcell.NewHexColor(0xf92672), // classic magenta
-	tcell.NewHexColor(0xe6db74), // classic cream
+	tcell.NewHexColor(0xf92672), // red
+	tcell.NewHexColor(0xa6e22e), // green
+	tcell.NewHexColor(0xe6db74), // yellow
+	tcell.NewHexColor(0xfd971f), // orange
+	tcell.NewHexColor(0xae81ff), // purple
+	tcell.NewHexColor(0x66d9ef), // cyan
 }
 
 // GetHashColor picks a stable Monokai accent for the given string (or user
