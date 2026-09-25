@@ -109,7 +109,7 @@ type Config struct {
 
 	Dir string `yaml:"-"`
 
-	Preferences UserPreferences   `yaml:"-"`
+	Preferences UserPreferences   `yaml:"preferences"`
 	Keybindings ParsedKeybindings `yaml:"-"`
 
 	nosave bool
