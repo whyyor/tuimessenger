@@ -33,6 +33,7 @@ import (
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
+	"go.mau.fi/gomuks/tui/lib/emojistrip"
 	"go.mau.fi/gomuks/tui/lib/notification"
 	"go.mau.fi/gomuks/tui/widget"
 )
@@ -278,13 +279,6 @@ func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNot
 	if view.config.Preferences.DisableNotifications {
 		return
 	}
-	currentRoom := view.currentRoom
-	isCurrent := currentRoom != nil && currentRoom.Room.ID == room.ID
-	recentlyFocused := time.Now().Add(-30 * time.Second).Before(view.lastFocusTime)
-	if recentlyFocused && isCurrent {
-		debug.Print("Not sending notification: room is focused")
-		return
-	}
 	body := notif.Event.GetMautrixContent().AsMessage().Body
 	if len(body) == 0 {
 		debug.Print("Not sending notification with empty body")
@@ -296,10 +290,14 @@ func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNot
 	memberEvt := room.GetMember(notif.Event.Sender)
 	notifTitle := notif.Event.Sender.Localpart()
 	if memberEvt != nil && memberEvt.Displayname != "" {
-		notifTitle = memberEvt.Displayname
+		if stripped := emojistrip.Strip(memberEvt.Displayname); stripped != "" {
+			notifTitle = stripped
+		}
 	}
-	if roomName := room.Meta.Current().Name; roomName != nil && *roomName != "" && notifTitle != *roomName {
-		notifTitle = fmt.Sprintf("%s (%s)", notifTitle, *roomName)
+	if roomName := room.Meta.Current().Name; roomName != nil && *roomName != "" {
+		if stripped := emojistrip.Strip(*roomName); stripped != "" && stripped != notifTitle {
+			notifTitle = fmt.Sprintf("%s (%s)", notifTitle, stripped)
+		}
 	}
 	err := notification.Send(notifTitle, body, notif.Highlight, notif.Sound)
 	if err != nil {
