@@ -139,8 +139,19 @@ func (gs *GomuksStore) ApplySync(sync *jsoncmd.SyncComplete) {
 		}
 	}
 	for roomID, data := range sync.Rooms {
-		data.Meta.EnsureNotNil()
 		roomStore, existingRoom := gs.rooms[roomID]
+		// Meta is omitempty; incremental syncs without metadata changes send nil.
+		// Apply the timeline anyway instead of panicking and dropping the batch.
+		if data.Meta == nil {
+			if existingRoom {
+				roomStore.ApplySync(data)
+				if !resyncRoomList {
+					changedRoomListEntries[roomID] = gs.makeRoomListEntry(roomStore)
+				}
+			}
+			continue
+		}
+		data.Meta.EnsureNotNil()
 		if !existingRoom {
 			roomStore = NewRoomStore(gs, data.Meta)
 			gs.rooms[roomID] = roomStore

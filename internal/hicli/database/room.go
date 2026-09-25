@@ -221,6 +221,9 @@ func (r *Room) GetType() event.RoomType {
 }
 
 func (r *Room) EnsureNotNil() {
+	if r == nil {
+		return
+	}
 	if r.CreationContent == nil {
 		r.CreationContent = &event.CreateEventContent{}
 	}
