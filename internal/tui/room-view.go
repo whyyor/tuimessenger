@@ -323,12 +323,16 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 		contentWidth = width
 	}
 
+	// One column of breathing room between the room list and the content.
 	view.topicScreen.Width = width
-	view.contentScreen.Width = contentWidth
+	view.contentScreen.OffsetX = 1
+	view.contentScreen.Width = contentWidth - 1
 	view.contentScreen.Height = contentHeight
 	view.statusScreen.OffsetY = view.contentScreen.YEnd()
-	view.statusScreen.Width = width
-	view.inputScreen.Width = width
+	view.statusScreen.OffsetX = 1
+	view.statusScreen.Width = width - 1
+	view.inputScreen.OffsetX = 1
+	view.inputScreen.Width = width - 1
 	view.inputScreen.OffsetY = view.statusScreen.YEnd()
 	view.inputScreen.Height = inputHeight
 	view.ulBorderScreen.OffsetX = view.contentScreen.XEnd()
@@ -854,6 +858,10 @@ func (view *RoomView) Update(meta *database.Room) {
 			topicStr = ptr.Val(meta.Name)
 		}
 		topicStr = strings.TrimSpace(topicStr)
+	}
+	// Leading space keeps the topic off the pane edge.
+	if topicStr != "" {
+		topicStr = " " + topicStr
 	}
 	view.topic.SetText(topicStr)
 	if meta.EncryptionEvent != nil && meta.EncryptionEvent.Algorithm == id.AlgorithmMegolmV1 {
