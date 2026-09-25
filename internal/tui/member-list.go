@@ -102,7 +102,8 @@ func (ml *MemberList) Update(data []*store.AutocompleteMemberEntry, levels *even
 
 func (ml *MemberList) Draw(screen mauview.Screen) {
 	width, _ := screen.Size()
-	sigilStyle := tcell.StyleDefault.Background(tcell.ColorGreen).Foreground(tcell.ColorDefault)
+	// Foreground only: a green background block per row reads as a solid bar.
+	sigilStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	for y, member := range ml.list {
 		if member.Sigil != ' ' {
 			screen.SetCell(0, y, sigilStyle, member.Sigil)

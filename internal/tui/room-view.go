@@ -39,7 +39,6 @@ import (
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
 	"go.mau.fi/gomuks/tui/messages"
-	"go.mau.fi/gomuks/tui/widget"
 )
 
 type RoomView struct {
@@ -47,16 +46,14 @@ type RoomView struct {
 	content  *MessageView
 	status   *mauview.TextField
 	userList *MemberList
-	ulBorder *widget.Border
 	input    *mauview.InputArea
 	Room     *store.RoomStore
 
-	topicScreen    *mauview.ProxyScreen
-	contentScreen  *mauview.ProxyScreen
-	statusScreen   *mauview.ProxyScreen
-	inputScreen    *mauview.ProxyScreen
-	ulBorderScreen *mauview.ProxyScreen
-	ulScreen       *mauview.ProxyScreen
+	topicScreen   *mauview.ProxyScreen
+	contentScreen *mauview.ProxyScreen
+	statusScreen  *mauview.ProxyScreen
+	inputScreen   *mauview.ProxyScreen
+	ulScreen      *mauview.ProxyScreen
 
 	userListLoaded bool
 	hasTopic       bool
@@ -90,16 +87,14 @@ func NewRoomView(parent *MainView, room *store.RoomStore) *RoomView {
 		topic:    mauview.NewTextView(),
 		status:   mauview.NewTextField(),
 		userList: NewMemberList(),
-		ulBorder: widget.NewBorder(),
 		input:    mauview.NewInputArea(),
 		Room:     room,
 
-		topicScreen:    &mauview.ProxyScreen{OffsetX: 0, OffsetY: 0, Height: TopicBarHeight},
-		contentScreen:  &mauview.ProxyScreen{OffsetX: 0, OffsetY: StatusBarHeight},
-		statusScreen:   &mauview.ProxyScreen{OffsetX: 0, Height: StatusBarHeight},
-		inputScreen:    &mauview.ProxyScreen{OffsetX: 0},
-		ulBorderScreen: &mauview.ProxyScreen{OffsetY: StatusBarHeight, Width: UserListBorderWidth},
-		ulScreen:       &mauview.ProxyScreen{OffsetY: StatusBarHeight, Width: UserListWidth},
+		topicScreen:   &mauview.ProxyScreen{OffsetX: 0, OffsetY: 0, Height: TopicBarHeight},
+		contentScreen: &mauview.ProxyScreen{OffsetX: 0, OffsetY: StatusBarHeight},
+		statusScreen:  &mauview.ProxyScreen{OffsetX: 0, Height: StatusBarHeight},
+		inputScreen:   &mauview.ProxyScreen{OffsetX: 0},
+		ulScreen:      &mauview.ProxyScreen{OffsetY: StatusBarHeight, Width: UserListWidth},
 
 		parent: parent,
 		config: parent.config,
@@ -305,7 +300,6 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 		view.contentScreen.Parent = screen
 		view.statusScreen.Parent = screen
 		view.inputScreen.Parent = screen
-		view.ulBorderScreen.Parent = screen
 		view.ulScreen.Parent = screen
 		view.prevScreen = screen
 	}
@@ -335,7 +329,6 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.contentScreen.OffsetY = topicBarHeight
 	view.contentScreen.Width = contentWidth - 1
 	view.contentScreen.Height = contentHeight
-	view.ulBorderScreen.OffsetY = topicBarHeight
 	view.ulScreen.OffsetY = topicBarHeight
 	view.statusScreen.OffsetY = view.contentScreen.YEnd()
 	view.statusScreen.OffsetX = 1
@@ -344,9 +337,8 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.inputScreen.Width = width - 1
 	view.inputScreen.OffsetY = view.statusScreen.YEnd()
 	view.inputScreen.Height = inputHeight
-	view.ulBorderScreen.OffsetX = view.contentScreen.XEnd()
-	view.ulBorderScreen.Height = contentHeight
-	view.ulScreen.OffsetX = view.ulBorderScreen.XEnd()
+	// The old border column stays as blank spacing before the member list.
+	view.ulScreen.OffsetX = view.contentScreen.XEnd() + UserListBorderWidth
 	view.ulScreen.Height = contentHeight
 
 	// Draw everything
@@ -358,7 +350,6 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.status.Draw(view.statusScreen)
 	view.input.Draw(view.inputScreen)
 	if !hideUserList {
-		view.ulBorder.Draw(view.ulBorderScreen)
 		view.userList.Draw(view.ulScreen)
 	}
 }
