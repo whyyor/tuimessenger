@@ -35,7 +35,6 @@ import (
 	"go.mau.fi/gomuks/tui/debug"
 	"go.mau.fi/gomuks/tui/lib/emojistrip"
 	"go.mau.fi/gomuks/tui/lib/notification"
-	"go.mau.fi/gomuks/tui/widget"
 )
 
 type MainView struct {
@@ -70,7 +69,6 @@ func (ui *GomuksTUI) NewMainView() mauview.Component {
 
 	mainView.flex.
 		AddFixedComponent(mainView.roomList, 25).
-		AddFixedComponent(widget.NewBorder(), 1).
 		AddProportionalComponent(mainView.roomView, 1)
 	mainView.BumpFocus(nil)
 
