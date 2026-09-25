@@ -334,6 +334,11 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 
 		for line := viewStart; line < height; line++ {
 			showScrollbar := line-viewStart >= scrollBarPos-scrollBarHeight && line-viewStart < scrollBarPos
+			// Only the scrollbar itself is drawn; a full-height separator rule
+			// is just noise next to the sender column.
+			if !showScrollbar {
+				continue
+			}
 			isTop := line == viewStart && scrollOffset+height >= view.TotalHeight()
 			isBottom := line == height-1 && scrollOffset == 0
 
