@@ -306,6 +306,16 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 	view.update(width)
 	scrollOffset := view.GetScrollOffset()
 
+	// Fill the viewport on open: if the loaded timeline is shorter than the
+	// screen, keep paginating until it fills or history runs out. Manual
+	// scroll-up only takes over beyond that. LoadMoreHistory's Paginating
+	// CompareAndSwap makes redraw-triggered retries harmless.
+	if view.TotalHeight() < height {
+		if room := view.parent.Room; room.HasMoreHistory() && !room.Paginating.Load() {
+			go view.parent.parent.LoadHistory(room.ID)
+		}
+	}
+
 	if len(view.msgBuffer) == 0 {
 		widget.WriteLineSimple(screen, "It's quite empty in here.", 0, height)
 		return

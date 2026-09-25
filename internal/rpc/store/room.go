@@ -150,6 +150,13 @@ func (rs *RoomStore) OwnUserID() id.UserID {
 	return rs.parent.UserID
 }
 
+// HasMoreHistory reports whether the server may have older events to paginate.
+func (rs *RoomStore) HasMoreHistory() bool {
+	rs.lock.RLock()
+	defer rs.lock.RUnlock()
+	return rs.hasMoreHistory
+}
+
 func (rs *RoomStore) GetPaginationParams() (oldestRowID database.TimelineRowID, count int) {
 	rs.lock.RLock()
 	defer rs.lock.RUnlock()
