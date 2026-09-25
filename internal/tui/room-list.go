@@ -26,6 +26,7 @@ import (
 	"go.mau.fi/mauview"
 	"maunium.net/go/mautrix/id"
 
+	"go.mau.fi/gomuks/pkg/rpc"
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/widget"
 )
@@ -177,7 +178,14 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 	list.lock.Lock()
 	list.rooms = list.parent.matrix.ReversedRoomList.Current()
 	list.width, list.height = screen.Size()
-	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
+	// A healthy connection stays out of the way; anything else claims the bottom
+	// row so sync trouble (and the result of a manual resync) is visible.
+	connState := list.parent.parent.ConnState
+	listHeight := list.height
+	if connState != rpc.ConnStateConnected {
+		listHeight--
+	}
+	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+listHeight)]
 	list.lock.Unlock()
 
 	for y, room := range roomSlice {
@@ -204,5 +212,11 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 			unreadMessageCount = fmt.Sprintf("(%s)", unreadMessageCount)
 			widget.WriteLine(screen, mauview.AlignRight, unreadMessageCount, list.width-7, y, 7, style)
 		}
+	}
+
+	if connState != rpc.ConnStateConnected && list.height > 0 {
+		widget.WriteLinePadded(screen, mauview.AlignLeft,
+			fmt.Sprintf(" %s…", connState), 0, list.height-1, list.width,
+			tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true))
 	}
 }

@@ -6,6 +6,7 @@ main:
     'Ctrl+End': scroll_down
     'Ctrl+Enter': add_newline
     'Ctrl+l': show_bare
+    'Ctrl+r': resync
     'Alt+Down': next_room
     'Alt+Up': prev_room
     'Alt+k':  search_rooms
@@ -14,6 +15,7 @@ main:
     'Alt+Enter': add_newline
     'Alt+a': next_active_room
     'Alt+l': show_bare
+    'Alt+r': resync
     'Ctrl+c': force_quit
 
 modal:

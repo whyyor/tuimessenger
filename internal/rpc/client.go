@@ -71,6 +71,10 @@ type GomuksRPC struct {
 	lastReqID atomic.Int64
 	runID     atomic.Pointer[string]
 
+	// resyncCh wakes ConnectWithRetry out of its backoff sleep when the user
+	// asks for an immediate resync.
+	resyncCh chan struct{}
+
 	pendingRequestsLock sync.RWMutex
 	reqIDCounter        int64
 	pendingRequests     map[int64]chan<- *jsoncmd.Container[json.RawMessage]
@@ -116,6 +120,7 @@ func NewGomuksRPC(rawBaseURL string) (*GomuksRPC, error) {
 		BaseURL:          baseURL,
 		UserAgent:        "gomuks-rpc " + mautrix.DefaultUserAgent,
 		http:             cli,
+		resyncCh:         make(chan struct{}, 1),
 		pendingRequests:  make(map[int64]chan<- *jsoncmd.Container[json.RawMessage]),
 	}, nil
 }

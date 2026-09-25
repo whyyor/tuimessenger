@@ -190,6 +190,9 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		view.SwitchRoom(view.roomList.NextWithActivity())
 	case "show_bare":
 		view.ShowBare(view.currentRoom)
+	case "resync":
+		// Disconnect writes a close frame, so keep it off the render thread.
+		go view.parent.Resync()
 	case "force_quit":
 		view.parent.Finish()
 		return false

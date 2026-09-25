@@ -144,6 +144,13 @@ func (ui *GomuksTUI) Connect() {
 	}
 }
 
+// Resync reconnects to the backend right away and asks for a full resync, which
+// is the terminal equivalent of reloading the web client.
+func (ui *GomuksTUI) Resync() {
+	debug.Print("Manual resync requested")
+	ui.gmx.GomuksAPI.(*rpc.GomuksRPC).Resync()
+}
+
 func (ui *GomuksTUI) onConnStateChange(state rpc.ConnState, err error) {
 	debug.Printf("Connection state: %s (%v)", state, err)
 	ui.ConnState = state

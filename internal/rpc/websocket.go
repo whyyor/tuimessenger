@@ -118,6 +118,36 @@ func sleepContext(ctx context.Context, d time.Duration) bool {
 	}
 }
 
+// Resync drops the current connection and reconnects immediately, skipping the
+// reconnect backoff. Forgetting the run ID means the server cannot replay from
+// its event buffer and sends full initial data instead, which is equivalent to
+// reloading the web client. That also recovers from state divergence, which a
+// plain resume cannot.
+func (gr *GomuksRPC) Resync() {
+	gr.runID.Store(nil)
+	gr.lastReqID.Store(0)
+	select {
+	case gr.resyncCh <- struct{}{}:
+	default: // a resync is already pending
+	}
+	gr.Disconnect()
+}
+
+// waitBeforeRetry sleeps for d, returning early if a resync was requested.
+// forced reports an early wake; alive is false when the client is shutting down.
+func (gr *GomuksRPC) waitBeforeRetry(ctx context.Context, d time.Duration) (forced, alive bool) {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return false, true
+	case <-gr.resyncCh:
+		return true, true
+	case <-ctx.Done():
+		return false, false
+	}
+}
+
 // ConnectWithRetry maintains a websocket connection until ctx is cancelled,
 // reconnecting with exponential backoff when it drops. Missed events are
 // replayed from the server's buffer using the run ID and last received event
@@ -141,8 +171,12 @@ func (gr *GomuksRPC) ConnectWithRetry(ctx context.Context) error {
 				Dur("retry_in", delay).
 				Msg("Failed to connect to websocket, retrying")
 			gr.setConnState(ConnStateReconnecting, err)
-			if !sleepContext(ctx, delay) {
+			forced, alive := gr.waitBeforeRetry(ctx, delay)
+			if !alive {
 				return ctx.Err()
+			}
+			if forced {
+				attempt = 0
 			}
 			continue
 		}
@@ -164,6 +198,14 @@ func (gr *GomuksRPC) ConnectWithRetry(ctx context.Context) error {
 			return ctx.Err()
 		}
 
+		// A user-requested resync reconnects immediately instead of backing off.
+		select {
+		case <-gr.resyncCh:
+			attempt = 0
+			continue
+		default:
+		}
+
 		if time.Since(connectedAt) > connStableAfter {
 			attempt = 0
 		}
@@ -175,8 +217,12 @@ func (gr *GomuksRPC) ConnectWithRetry(ctx context.Context) error {
 			Dur("retry_in", delay).
 			Msg("Websocket disconnected, reconnecting")
 		gr.setConnState(ConnStateReconnecting, cause)
-		if !sleepContext(ctx, delay) {
+		forced, alive := gr.waitBeforeRetry(ctx, delay)
+		if !alive {
 			return ctx.Err()
+		}
+		if forced {
+			attempt = 0
 		}
 	}
 }
