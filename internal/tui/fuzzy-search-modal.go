@@ -18,8 +18,9 @@ package tui
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/lithammer/fuzzysearch/fuzzy"
@@ -41,8 +42,11 @@ type FuzzySearchModal struct {
 	matches  fuzzy.Ranks
 	selected int
 
-	roomList   []*store.RoomListEntry
-	roomTitles []string
+	roomList    []*store.RoomListEntry
+	roomTitles  []string
+	roomIcons   []string
+	roomLower   []string
+	roomRecency []time.Time
 
 	parent *MainView
 }
@@ -53,8 +57,14 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		roomList: mainView.matrix.ReversedRoomList.Current(),
 	}
 	fs.roomTitles = make([]string, len(fs.roomList))
+	fs.roomIcons = make([]string, len(fs.roomList))
+	fs.roomLower = make([]string, len(fs.roomList))
+	fs.roomRecency = make([]time.Time, len(fs.roomList))
 	for i, room := range fs.roomList {
 		fs.roomTitles[i] = room.Name
+		fs.roomIcons[i] = BridgeIcon(room.Bridge)
+		fs.roomLower[i] = strings.ToLower(room.Name)
+		fs.roomRecency[i] = room.SortingTimestamp
 	}
 
 	fs.results = mauview.NewTextView().SetRegions(true)
@@ -79,6 +89,9 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 
 	fs.Component = mauview.Center(fs.container, width, height).SetAlwaysFocusChild(true)
 
+	// SetChangedFunc only fires on edits, so seed the initial full list.
+	fs.changeHandler("")
+
 	return fs
 }
 
@@ -91,22 +104,29 @@ func (fs *FuzzySearchModal) Blur() {
 }
 
 func (fs *FuzzySearchModal) changeHandler(str string) {
-	// Get matches and display in result box
-	fs.matches = fuzzy.RankFindFold(str, fs.roomTitles)
-	if len(str) > 0 && len(fs.matches) > 0 {
-		sort.Sort(fs.matches)
-		fs.results.Clear()
-		for _, match := range fs.matches {
-			_, _ = fmt.Fprintf(fs.results, `["%d"]%s[""]%s`, match.OriginalIndex, match.Target, "\n")
+	// An empty query lists every room in room-list (recency) order. Ranking would
+	// destroy that ordering, so only sort when there is an actual query.
+	if str == "" {
+		fs.matches = make(fuzzy.Ranks, len(fs.roomTitles))
+		for i, title := range fs.roomTitles {
+			fs.matches[i] = fuzzy.Rank{Source: str, Target: title, OriginalIndex: i}
 		}
-		//fs.parent.parent.Render()
-		fs.results.Highlight(strconv.Itoa(fs.matches[0].OriginalIndex))
-		fs.selected = 0
-		fs.results.ScrollToBeginning()
 	} else {
-		fs.results.Clear()
-		fs.results.Highlight()
+		fs.matches = fuzzy.RankFindFold(str, fs.roomTitles)
+		sortRoomMatches(fs.matches, str, fs.roomLower, fs.roomRecency)
 	}
+	fs.results.Clear()
+	if len(fs.matches) == 0 {
+		fs.results.Highlight()
+		return
+	}
+	for _, match := range fs.matches {
+		_, _ = fmt.Fprintf(fs.results, `["%d"]%s %s[""]%s`,
+			match.OriginalIndex, fs.roomIcons[match.OriginalIndex], match.Target, "\n")
+	}
+	fs.results.Highlight(strconv.Itoa(fs.matches[0].OriginalIndex))
+	fs.selected = 0
+	fs.results.ScrollToBeginning()
 }
 
 func (fs *FuzzySearchModal) OnKeyEvent(event mauview.KeyEvent) bool {
