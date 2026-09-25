@@ -425,6 +425,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		view.InputSubmit(view.input.GetText())
 		return true
 	}
+	// A bare LF is Shift+Enter via the Ghostty text:\n keybind (tcell cannot
+	// parse the CSI-u encoding Ghostty would otherwise send). Insert a newline.
+	if event.Key() == tcell.KeyLF {
+		return view.input.OnKeyEvent(tcell.NewEventKey(tcell.KeyEnter, '\n', tcell.ModShift))
+	}
 	// macOS-native editing: Option (Alt) operates on words. InputArea ignores
 	// modifiers on backspace and gates word-motion behind Ctrl, so re-dispatch
 	// as keys it already understands. Routing back through OnKeyEvent keeps

@@ -5,6 +5,7 @@ main:
     'Ctrl+Home': scroll_up
     'Ctrl+End': scroll_down
     'Ctrl+Enter': add_newline
+    'Ctrl+j': add_newline
     'Ctrl+l': show_bare
     'Ctrl+r': resync
     'Alt+Down': next_room
