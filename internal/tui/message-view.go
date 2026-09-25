@@ -356,13 +356,18 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 		if len(msg.FormatTime()) > 0 && !view.config.Preferences.HideTimestamp {
 			widget.WriteLineSimpleColor(screen, msg.FormatTime(), 0, line, msg.TimestampColor())
 		}
-		// TODO hiding senders might not be that nice after all, maybe an option? (disabled for now)
-		//if !bareMode && (prevMsg == nil || meta.Sender() != prevMsg.Sender()) {
-		widget.WriteLineColor(
-			screen, mauview.AlignRight, msg.GetSenderName(),
-			usernameX, line, view.SenderWidth,
-			msg.SenderColor())
-		//}
+		// Only show the sender when it changes, so runs of messages from the
+		// same person read as one block instead of repeating the name.
+		firstIndex := index
+		for firstIndex > 0 && view.msgBuffer[firstIndex-1] == msg {
+			firstIndex--
+		}
+		if firstIndex == 0 || view.msgBuffer[firstIndex-1].Sender != msg.Sender {
+			widget.WriteLineColor(
+				screen, mauview.AlignRight, msg.GetSenderName(),
+				usernameX, line, view.SenderWidth,
+				msg.SenderColor())
+		}
 		if msg.LastEditRef != nil {
 			// TODO add better indicator for edits
 			screen.SetCell(usernameX+view.SenderWidth, line, tcell.StyleDefault.Foreground(tcell.ColorDarkRed), '*')

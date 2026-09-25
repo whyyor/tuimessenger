@@ -58,8 +58,8 @@ func NewRoomList(parent *MainView) *RoomList {
 		scrollOffset: 0,
 
 		mainTextColor:           tcell.ColorDefault,
-		selectedTextColor:       tcell.ColorWhite,
-		selectedBackgroundColor: tcell.ColorDarkGreen,
+		selectedTextColor:       ColorSelectionText,
+		selectedBackgroundColor: ColorSelectionBackground,
 	}
 	return list
 }

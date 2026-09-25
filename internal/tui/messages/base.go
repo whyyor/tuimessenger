@@ -87,7 +87,7 @@ func (msg *UIMessage) GetEvent() *database.Event {
 }
 
 const DateFormat = "January _2, 2006"
-const TimeFormat = "15:04:05"
+const TimeFormat = "15:04"
 
 func newUIMessage(
 	room *store.RoomStore,
@@ -203,7 +203,11 @@ func (msg *UIMessage) TimestampColor() tcell.Color {
 	if msg.IsService {
 		return tcell.ColorGray
 	}
-	return msg.getStateSpecificColor()
+	if stateColor := msg.getStateSpecificColor(); stateColor != tcell.ColorDefault {
+		return stateColor
+	}
+	// Dimmed so message content is the only bright text on the line.
+	return tcell.ColorGray
 }
 
 func (msg *UIMessage) ReplyHeight() int {

@@ -121,10 +121,14 @@ func NewRoomView(parent *MainView, room *store.RoomStore) *RoomView {
 		})
 
 	view.topic.
-		SetTextColor(tcell.ColorWhite).
-		SetBackgroundColor(tcell.ColorDarkGreen)
+		SetTextColor(ColorBarText).
+		SetBackgroundColor(ColorBarBackground)
 
-	view.status.SetBackgroundColor(tcell.ColorDimGray)
+	// No background band: the status line is empty most of the time, and a
+	// full-width gray bar for nothing is just noise.
+	view.status.
+		SetTextColor(ColorStatusText).
+		SetBackgroundColor(tcell.ColorDefault)
 
 	view.Update(room.Meta.Current())
 
@@ -313,8 +317,9 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 		inputHeight = 1
 	}
 	contentHeight := height - inputHeight - TopicBarHeight - StatusBarHeight
+	hideUserList := view.shouldHideUserList()
 	contentWidth := width - StaticHorizontalSpace
-	if view.config.Preferences.HideUserList {
+	if hideUserList {
 		contentWidth = width
 	}
 
@@ -337,10 +342,26 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.status.SetText(view.GetStatus())
 	view.status.Draw(view.statusScreen)
 	view.input.Draw(view.inputScreen)
-	if !view.config.Preferences.HideUserList {
+	if !hideUserList {
 		view.ulBorder.Draw(view.ulBorderScreen)
 		view.userList.Draw(view.ulScreen)
 	}
+}
+
+// shouldHideUserList hides the member list in DMs: a 21-column panel listing
+// people the topic bar already identifies is wasted space. A single hero in
+// the lazy-loading summary means a DM; the joined count cannot be used because
+// bridge bots inflate it (a Beeper DM has three joined members). Heroes live
+// in room meta, so no state loading is needed.
+func (view *RoomView) shouldHideUserList() bool {
+	if view.config.Preferences.HideUserList {
+		return true
+	}
+	meta := view.Room.Meta.Current()
+	if meta == nil || meta.LazyLoadSummary == nil {
+		return false
+	}
+	return len(meta.LazyLoadSummary.Heroes) == 1
 }
 
 func (view *RoomView) ClearAllContext() {

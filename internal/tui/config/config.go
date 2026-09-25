@@ -62,7 +62,9 @@ func init() {
 	// Enable inline URLs by default on VTE 0.50.0+
 	InlineURLsProbablySupported = vteVersion > 5000 ||
 		os.Getenv("TERM_PROGRAM") == "iTerm.app" ||
+		os.Getenv("TERM_PROGRAM") == "ghostty" ||
 		term == "foot" ||
+		term == "xterm-ghostty" ||
 		term == "xterm-kitty"
 }
 
