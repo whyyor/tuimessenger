@@ -385,6 +385,23 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		view.InputSubmit(view.input.GetText())
 		return true
 	}
+	// macOS-native editing: Option (Alt) operates on words. InputArea ignores
+	// modifiers on backspace and gates word-motion behind Ctrl, so re-dispatch
+	// as keys it already understands. Routing back through OnKeyEvent keeps
+	// undo snapshots and change callbacks intact.
+	if event.Modifiers()&tcell.ModAlt != 0 {
+		switch event.Key() {
+		case tcell.KeyBackspace, tcell.KeyBackspace2:
+			wordKey := tcell.KeyBackspace
+			if !mauview.Backspace1RemovesWord && mauview.Backspace2RemovesWord {
+				wordKey = tcell.KeyBackspace2
+			}
+			return view.input.OnKeyEvent(tcell.NewEventKey(wordKey, 0, tcell.ModNone))
+		case tcell.KeyLeft, tcell.KeyRight:
+			mod := tcell.ModCtrl | (event.Modifiers() & tcell.ModShift)
+			return view.input.OnKeyEvent(tcell.NewEventKey(event.Key(), 0, mod))
+		}
+	}
 	return view.input.OnKeyEvent(event)
 }
 
