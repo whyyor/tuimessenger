@@ -316,7 +316,10 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	if view.hasTopic {
 		topicBarHeight = TopicBarHeight
 	}
-	contentHeight := height - inputHeight - topicBarHeight - StatusBarHeight
+	// The composer is a padded box: a blank row above and below the input,
+	// with an accent line running down the left of the whole box.
+	composerHeight := inputHeight + 2
+	contentHeight := height - composerHeight - topicBarHeight - StatusBarHeight
 	hideUserList := view.shouldHideUserList()
 	contentWidth := width - StaticHorizontalSpace
 	if hideUserList {
@@ -333,9 +336,9 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.statusScreen.OffsetY = view.contentScreen.YEnd()
 	view.statusScreen.OffsetX = 1
 	view.statusScreen.Width = width - 1
-	view.inputScreen.OffsetX = 1
-	view.inputScreen.Width = width - 1
-	view.inputScreen.OffsetY = view.statusScreen.YEnd()
+	view.inputScreen.OffsetX = 3
+	view.inputScreen.Width = width - 3
+	view.inputScreen.OffsetY = view.statusScreen.YEnd() + 1
 	view.inputScreen.Height = inputHeight
 	// The old border column stays as blank spacing before the member list.
 	view.ulScreen.OffsetX = view.contentScreen.XEnd() + UserListBorderWidth
@@ -349,6 +352,10 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.status.SetText(view.GetStatus())
 	view.status.Draw(view.statusScreen)
 	view.input.Draw(view.inputScreen)
+	barStyle := tcell.StyleDefault.Foreground(ColorComposerBar)
+	for y := view.statusScreen.YEnd(); y < view.statusScreen.YEnd()+composerHeight; y++ {
+		screen.SetContent(1, y, '│', nil, barStyle)
+	}
 	if !hideUserList {
 		view.userList.Draw(view.ulScreen)
 	}

@@ -25,4 +25,7 @@ var (
 	ColorUnreadBadge = tcell.NewHexColor(0x7fb4ca)
 	// ColorUnreadHighlight marks rooms with unread mentions in the room list.
 	ColorUnreadHighlight = tcell.NewHexColor(0xe6c384)
+	// ColorComposerBar is the accent line beside the message composer,
+	// Ghostty's Monokai Remastered purple.
+	ColorComposerBar = tcell.NewHexColor(0xa8a9eb)
 )
