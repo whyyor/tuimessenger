@@ -28,6 +28,7 @@ import (
 	"go.mau.fi/mauview"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/format"
+	"maunium.net/go/mautrix/id"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/client"
@@ -380,8 +381,44 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 
 		msg.IsSelected = view.selected != 0 && msg.RowID == view.selected
 		msg.Draw(mauview.NewProxyScreen(screen, messageX, line, width-messageX, msg.Height()))
+
+		// Read receipt cluster: this event is somebody's latest read position.
+		if readers := view.visibleReaders(msg); len(readers) > 0 {
+			label := "✓ seen"
+			if !view.isDM() {
+				label = fmt.Sprintf("✓ %d", len(readers))
+			}
+			markerWidth := runewidth.StringWidth(label)
+			widget.WriteLineColor(screen, mauview.AlignLeft, label,
+				width-markerWidth-1, line+msg.Height()-1, markerWidth, tcell.ColorGray)
+		}
+
 		line += msg.Height()
 	}
+}
+
+// visibleReaders filters a receipt cluster down to people worth showing: not
+// us, not the message's own sender, and not bridge bots, which mark rooms read
+// on their own.
+func (view *MessageView) visibleReaders(msg *messages.UIMessage) []id.UserID {
+	users := view.parent.Room.ReceiptUsersAt(msg.ID)
+	if len(users) == 0 {
+		return nil
+	}
+	own := view.parent.Room.OwnUserID()
+	filtered := users[:0]
+	for _, user := range users {
+		if user == own || user == msg.Sender || strings.HasSuffix(user.Localpart(), "bot") {
+			continue
+		}
+		filtered = append(filtered, user)
+	}
+	return filtered
+}
+
+func (view *MessageView) isDM() bool {
+	meta := view.parent.Room.Meta.Current()
+	return meta != nil && meta.LazyLoadSummary != nil && len(meta.LazyLoadSummary.Heroes) == 1
 }
 
 func (view *MessageView) update(width int) {

@@ -57,6 +57,8 @@ type RoomStore struct {
 	eventsByRowID     map[database.EventRowID]*database.Event
 	eventsByID        map[id.EventID]*database.Event
 	requestedEvents   exmaps.Set[database.EventRowID]
+	receiptsByUser    map[id.UserID]*roomReceipt
+	receiptsByEvent   map[id.EventID][]id.UserID
 	state             map[event.Type]map[string]database.EventRowID
 	StateSubs         MultiNotifier[string]
 	AccountDataSubs   MultiNotifier[event.Type]
@@ -90,7 +92,62 @@ func NewRoomStore(parent *GomuksStore, meta *database.Room) *RoomStore {
 		eventsByID:       make(map[id.EventID]*database.Event),
 		requestedEvents:  make(exmaps.Set[database.EventRowID]),
 		requestedMembers: make(exmaps.Set[id.UserID]),
+		receiptsByUser:   make(map[id.UserID]*roomReceipt),
+		receiptsByEvent:  make(map[id.EventID][]id.UserID),
 	}
+}
+
+// roomReceipt is a user's latest read position, ordered by timeline row like
+// the web client does: receipt timestamps are wall clock and cannot order
+// positions.
+type roomReceipt struct {
+	eventID  id.EventID
+	position database.TimelineRowID
+}
+
+// applyReceiptsLocked folds new receipts into the latest-position-per-user
+// maps. Receipts for events that are not in memory are dropped, matching the
+// web client. Returns whether anything changed. Callers must hold rs.lock.
+func (rs *RoomStore) applyReceiptsLocked(receipts map[id.EventID][]*database.Receipt) (changed bool) {
+	for evtID, evtReceipts := range receipts {
+		evt, ok := rs.eventsByID[evtID]
+		if !ok || evt.TimelineRowID == 0 {
+			continue
+		}
+		for _, receipt := range evtReceipts {
+			existing := rs.receiptsByUser[receipt.UserID]
+			if existing != nil {
+				if existing.position >= evt.TimelineRowID {
+					continue
+				}
+				// The user read further: remove them from the old cluster.
+				oldUsers := rs.receiptsByEvent[existing.eventID]
+				if idx := slices.Index(oldUsers, receipt.UserID); idx >= 0 {
+					rs.receiptsByEvent[existing.eventID] = slices.Delete(oldUsers, idx, idx+1)
+					if len(rs.receiptsByEvent[existing.eventID]) == 0 {
+						delete(rs.receiptsByEvent, existing.eventID)
+					}
+				}
+			}
+			rs.receiptsByUser[receipt.UserID] = &roomReceipt{eventID: evtID, position: evt.TimelineRowID}
+			rs.receiptsByEvent[evtID] = append(rs.receiptsByEvent[evtID], receipt.UserID)
+			changed = true
+		}
+	}
+	return
+}
+
+// ReceiptUsersAt returns the users whose latest read position is exactly this
+// event, i.e. the receipt cluster the web client renders as avatars there.
+func (rs *RoomStore) ReceiptUsersAt(evtID id.EventID) []id.UserID {
+	rs.lock.RLock()
+	defer rs.lock.RUnlock()
+	return slices.Clone(rs.receiptsByEvent[evtID])
+}
+
+// OwnUserID returns the logged-in user's ID.
+func (rs *RoomStore) OwnUserID() id.UserID {
+	return rs.parent.UserID
 }
 
 func (rs *RoomStore) GetPaginationParams() (oldestRowID database.TimelineRowID, count int) {
@@ -172,7 +229,9 @@ func (rs *RoomStore) ApplySync(sync *jsoncmd.SyncRoom) {
 	} else {
 		rs.timeline = append(rs.timeline, sync.Timeline...)
 	}
-	if sync.Reset || len(sync.Timeline) > 0 {
+	// Receipts are applied after events so same-batch receipts resolve.
+	receiptsChanged := rs.applyReceiptsLocked(sync.Receipts)
+	if sync.Reset || len(sync.Timeline) > 0 || receiptsChanged {
 		rs.notifyTimelineWatchers()
 	}
 }
@@ -234,6 +293,7 @@ func (rs *RoomStore) ApplyPagination(resp *jsoncmd.PaginationResponse) {
 		}
 	}
 	rs.timeline = append(newTimeline, rs.timeline...)
+	rs.applyReceiptsLocked(resp.Receipts)
 	rs.notifyTimelineWatchers()
 }
 
