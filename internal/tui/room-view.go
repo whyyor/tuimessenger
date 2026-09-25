@@ -57,6 +57,7 @@ type RoomView struct {
 
 	userListLoaded bool
 	hasTopic       bool
+	lastTypingSent time.Time
 
 	prevScreen mauview.Screen
 
@@ -115,6 +116,8 @@ func NewRoomView(parent *MainView, room *store.RoomStore) *RoomView {
 		SetPressKeyDownAtEndFunc(func() {
 			view.parent.SwitchRoom(view.parent.roomList.Next())
 		})
+
+	view.SetInputChangedFunc(parent.InputChanged)
 
 	view.topic.
 		SetTextColor(ColorBarText).
@@ -747,7 +750,40 @@ func (view *RoomView) InputTabComplete(text string, cursorOffset int) {
 	//view.SetCompletions(strCompletions)
 }
 
+// SendTyping tells the backend (and through the bridge, the other side)
+// whether we are typing, mirroring the web composer: at most one start
+// notification per five seconds with a ten second timeout, and an explicit
+// stop when the composer empties or the message is sent.
+func (view *RoomView) SendTyping(typing bool) {
+	now := time.Now()
+	if typing {
+		if now.Sub(view.lastTypingSent) < 5*time.Second {
+			return
+		}
+		view.lastTypingSent = now
+	} else {
+		if view.lastTypingSent.IsZero() {
+			return
+		}
+		view.lastTypingSent = time.Time{}
+	}
+	timeout := 0
+	if typing {
+		timeout = 10_000
+	}
+	go func() {
+		err := view.parent.matrix.SetTyping(context.TODO(), &jsoncmd.SetTypingParams{
+			RoomID:  view.Room.ID,
+			Timeout: timeout,
+		})
+		if err != nil {
+			debug.Print("Failed to send typing notification:", err)
+		}
+	}()
+}
+
 func (view *RoomView) InputSubmit(text string) {
+	view.SendTyping(false)
 	if len(text) == 0 {
 		return
 	} else if cmd, err := view.ParseCommand(text); err != nil {

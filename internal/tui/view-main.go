@@ -128,9 +128,11 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 }
 
 func (view *MainView) InputChanged(roomView *RoomView, text string) {
-	//if !roomView.config.Preferences.DisableTypingNotifs {
-	//	view.matrix.SendTyping(roomView.Room.ID, len(text) > 0 && text[0] != '/')
-	//}
+	if roomView.config.Preferences.DisableTypingNotifs {
+		return
+	}
+	// Commands aren't worth announcing to the other side.
+	roomView.SendTyping(len(text) > 0 && text[0] != '/')
 }
 
 func (view *MainView) ShowBare(roomView *RoomView) {
