@@ -52,6 +52,10 @@ type UserPreferences struct {
 	DisableShowURLs      bool `yaml:"disable_show_urls"`
 
 	InlineURLMode string `yaml:"inline_url_mode"`
+	// ImageProtocol selects inline image rendering: "" auto-detects kitty
+	// graphics on supported terminals, "kitty" forces it, "ansi" forces
+	// half-block rendering.
+	ImageProtocol string `yaml:"image_protocol"`
 }
 
 var InlineURLsProbablySupported bool

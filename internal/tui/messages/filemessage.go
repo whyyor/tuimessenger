@@ -49,6 +49,10 @@ type FileMessage struct {
 	downloading bool
 	buffer      []tstring.TString
 
+	kittyPNG  []byte
+	kittyCols int
+	kittyRows int
+
 	matrix *client.GomuksClient
 }
 
@@ -123,6 +127,15 @@ func (msg *FileMessage) DownloadPreview(uiMsg *UIMessage) {
 			return
 		}
 		msg.imageData = data
+		if kittyTerminalSupported {
+			// Pre-encode off the render thread; PNG is the only compressed
+			// format the graphics protocol accepts.
+			if pngData, err := encodeToPNG(data); err == nil {
+				msg.kittyPNG = pngData
+			} else {
+				debug.Print("Failed to convert image to PNG for kitty graphics:", err)
+			}
+		}
 		uiMsg.bufferedWidth = -1
 		RequestRender()
 	}()
@@ -159,6 +172,38 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 		msg.buffer = []tstring.TString{tstring.NewColorTString("Failed to display image", tcell.ColorRed)}
 		return
 	}
+
+	// Kitty placeholder path: real pixels instead of half-blocks. Reply
+	// bubbles keep the text fallback; a virtual placement has one geometry
+	// per image, and the bubble preview would fight the full-size one.
+	if len(msg.kittyPNG) > 0 && !uiMsg.IsReplyBubble && kittyUsable(prefs.ImageProtocol) {
+		maxCols := width - 2
+		if maxCols > 48 {
+			maxCols = 48
+		}
+		cols := maxCols
+		// A cell is roughly twice as tall as wide.
+		rows := (img.Height*cols + img.Width) / (img.Width * 2)
+		const maxRows = 16
+		if rows > maxRows {
+			rows = maxRows
+			cols = rows * 2 * img.Width / img.Height
+			if cols > maxCols {
+				cols = maxCols
+			}
+		}
+		if rows < 1 {
+			rows = 1
+		}
+		if cols < 1 {
+			cols = 1
+		}
+		msg.kittyCols = cols
+		msg.kittyRows = rows
+		msg.buffer = nil
+		return
+	}
+	msg.kittyRows = 0
 	// Fit into a bounding box: each terminal row is two pixels tall, so a
 	// 16-row cap means 32 pixels of height. Never upscale.
 	maxCols := width - 2
@@ -188,10 +233,30 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 }
 
 func (msg *FileMessage) Height() int {
+	if msg.kittyRows > 0 {
+		return msg.kittyRows
+	}
 	return len(msg.buffer)
 }
 
 func (msg *FileMessage) Draw(screen mauview.Screen, _ *UIMessage) {
+	if msg.kittyRows > 0 {
+		img := kittyImageFor(msg.URL.String())
+		if kittyEnsurePlaced(img, msg.kittyPNG, msg.kittyCols, msg.kittyRows) {
+			// Foreground color carries the image ID; diacritics carry the
+			// cell's position in the virtual placement grid.
+			style := tcell.StyleDefault.Foreground(tcell.NewRGBColor(
+				int32(img.id>>16&0xff), int32(img.id>>8&0xff), int32(img.id&0xff)))
+			for y := 0; y < msg.kittyRows; y++ {
+				for x := 0; x < msg.kittyCols; x++ {
+					screen.SetContent(x, y, kittyPlaceholder,
+						[]rune{kittyRowColDiacritics[y], kittyRowColDiacritics[x]}, style)
+				}
+			}
+			return
+		}
+		// Terminal refused; fall back to text until the next recalculation.
+	}
 	for y, line := range msg.buffer {
 		line.Draw(screen, 0, y)
 	}
