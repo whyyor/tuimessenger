@@ -120,11 +120,19 @@ func (view *MainView) Draw(screen mauview.Screen) {
 // last so it sits on top of modals too: connectivity trumps everything.
 func (view *MainView) drawConnDialog(screen mauview.Screen) {
 	var text string
-	if view.parent.ConnState != rpc.ConnStateConnected {
+	switch {
+	case view.parent.ConnState != rpc.ConnStateConnected:
 		text = view.parent.ConnState.String() + "…"
-	} else if view.parent.Resyncing {
+	case view.parent.SyncStatus == jsoncmd.SyncStatusErroring:
+		// The daemon is connected to us but cannot sync with the homeserver;
+		// this is what actually delays new messages, so the dialog stays up
+		// until a sync succeeds.
+		text = "sync erroring…"
+	case view.parent.SyncStatus == jsoncmd.SyncStatusFailed:
+		text = "sync failed"
+	case view.parent.Resyncing:
 		text = "resyncing…"
-	} else {
+	default:
 		return
 	}
 	width, height := screen.Size()

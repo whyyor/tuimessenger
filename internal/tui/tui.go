@@ -64,6 +64,9 @@ type GomuksTUI struct {
 	// streaming the fresh initial data. The websocket reconnects in
 	// milliseconds; this is the phase a human can actually see.
 	Resyncing bool
+	// SyncStatus mirrors the daemon's own homeserver sync health, which is
+	// the layer a client-side reconnect cannot fix.
+	SyncStatus jsoncmd.SyncStatusType
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -181,6 +184,11 @@ func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
 	case *jsoncmd.InitComplete:
 		if ui.Resyncing {
 			ui.Resyncing = false
+			ui.Render()
+		}
+	case *jsoncmd.SyncStatus:
+		if ui.SyncStatus != evt.Type {
+			ui.SyncStatus = evt.Type
 			ui.Render()
 		}
 	case *jsoncmd.Typing:
