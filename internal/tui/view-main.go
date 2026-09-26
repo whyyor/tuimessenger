@@ -134,10 +134,12 @@ func (view *MainView) drawConnDialog(screen mauview.Screen) {
 	if boxX < 0 || boxY < 0 {
 		return
 	}
-	borderStyle := tcell.StyleDefault.Foreground(ColorBorder).Background(ColorBarBackground)
-	textStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(ColorBarBackground).Bold(true)
+	// Default background so the box inherits the terminal's translucency;
+	// the interior is still cleared so chat text doesn't bleed through.
+	borderStyle := tcell.StyleDefault.Foreground(ColorBorder)
+	textStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true)
 	for y := boxY; y < boxY+3; y++ {
-		widget.WriteLinePadded(screen, mauview.AlignLeft, "", boxX, y, boxWidth, borderStyle)
+		widget.WriteLinePadded(screen, mauview.AlignLeft, "", boxX, y, boxWidth, tcell.StyleDefault)
 	}
 	screen.SetContent(boxX, boxY, '┌', nil, borderStyle)
 	screen.SetContent(boxX+boxWidth-1, boxY, '┐', nil, borderStyle)
