@@ -97,6 +97,9 @@ func NewGomuksTUI() *GomuksTUI {
 
 func (ui *GomuksTUI) Run() {
 	ui.Config.LoadAll()
+	// The Ctrl+s sidebar toggle is session-only: always start visible, even
+	// though the toggled state gets persisted with the rest of the config.
+	ui.Config.Preferences.HideRoomList = false
 	log := exerrors.Must(ui.Config.LogConfig.Compile())
 	exzerolog.SetupDefaults(log)
 	loggedIn := false
