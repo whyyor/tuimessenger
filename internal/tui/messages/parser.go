@@ -182,6 +182,11 @@ func ParseStateEvent(room *store.RoomStore, evt *database.Event) *UIMessage {
 
 func ParseMessage(matrix *client.GomuksClient, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
 	content := evt.GetMautrixContent().AsMessage()
+	if evt.GetType() == event.EventSticker {
+		// m.sticker content has no msgtype but is otherwise an image; without
+		// this it fell through the switch and rendered as nothing at all.
+		content.MsgType = event.MsgImage
+	}
 	switch content.MsgType {
 	case event.MsgText, event.MsgNotice, event.MsgEmote:
 		var htmlEntity html.Entity
