@@ -30,6 +30,7 @@ import (
 	"maunium.net/go/mautrix/id"
 
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"go.mau.fi/gomuks/pkg/rpc"
 	"go.mau.fi/gomuks/pkg/rpc/client"
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
@@ -111,6 +112,44 @@ func (view *MainView) Draw(screen mauview.Screen) {
 	if view.modal != nil {
 		view.modal.Draw(screen)
 	}
+	view.drawConnDialog(screen)
+}
+
+// drawConnDialog overlays a small centered dialog while the connection is
+// anything but healthy, or while a manual resync streams fresh data. Drawn
+// last so it sits on top of modals too: connectivity trumps everything.
+func (view *MainView) drawConnDialog(screen mauview.Screen) {
+	var text string
+	if view.parent.ConnState != rpc.ConnStateConnected {
+		text = view.parent.ConnState.String() + "…"
+	} else if view.parent.Resyncing {
+		text = "resyncing…"
+	} else {
+		return
+	}
+	width, height := screen.Size()
+	boxWidth := runewidth.StringWidth(text) + 6
+	boxX := (width - boxWidth) / 2
+	boxY := height/2 - 1
+	if boxX < 0 || boxY < 0 {
+		return
+	}
+	borderStyle := tcell.StyleDefault.Foreground(ColorBorder).Background(ColorBarBackground)
+	textStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(ColorBarBackground).Bold(true)
+	for y := boxY; y < boxY+3; y++ {
+		widget.WriteLinePadded(screen, mauview.AlignLeft, "", boxX, y, boxWidth, borderStyle)
+	}
+	screen.SetContent(boxX, boxY, '┌', nil, borderStyle)
+	screen.SetContent(boxX+boxWidth-1, boxY, '┐', nil, borderStyle)
+	screen.SetContent(boxX, boxY+2, '└', nil, borderStyle)
+	screen.SetContent(boxX+boxWidth-1, boxY+2, '┘', nil, borderStyle)
+	for x := boxX + 1; x < boxX+boxWidth-1; x++ {
+		screen.SetContent(x, boxY, '─', nil, borderStyle)
+		screen.SetContent(x, boxY+2, '─', nil, borderStyle)
+	}
+	screen.SetContent(boxX, boxY+1, '│', nil, borderStyle)
+	screen.SetContent(boxX+boxWidth-1, boxY+1, '│', nil, borderStyle)
+	widget.WriteLine(screen, mauview.AlignLeft, text, boxX+3, boxY+1, boxWidth-6, textStyle)
 }
 
 func (view *MainView) drawEmptyHint(screen mauview.Screen) {
