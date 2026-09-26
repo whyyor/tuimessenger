@@ -242,6 +242,19 @@ func (view *MainView) Blur() {
 	}
 }
 
+// CloseCurrentRoom returns to the launch state: sidebar only, no room open.
+func (view *MainView) CloseCurrentRoom() {
+	if view.currentRoom == nil {
+		return
+	}
+	view.currentRoom.Blur()
+	view.currentRoom.Unload()
+	view.currentRoom = nil
+	view.roomView.SetInnerComponent(nil)
+	view.roomList.SetSelected("")
+	view.parent.Render()
+}
+
 func (view *MainView) SwitchRoom(roomID id.RoomID) {
 	roomData := view.matrix.GetRoom(roomID)
 	if roomData == nil {
