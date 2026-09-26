@@ -37,6 +37,8 @@ const (
 	CmdQuit   = "quit"
 	CmdEdit   = "edit"
 	CmdCopy   = "copy"
+	CmdUpload = "upload"
+	CmdPaste  = "paste"
 )
 
 var LocalCommands = []*cmdschema.EventContent{{
@@ -81,6 +83,19 @@ var LocalCommands = []*cmdschema.EventContent{{
 		DefaultValue: "clipboard",
 	}},
 	TailParam: "clipboard",
+}, {
+	Command:     CmdUpload,
+	Aliases:     []string{"image", "file"},
+	Description: event.MakeExtensibleText("Upload and send a file (drag one onto the terminal to insert its path)"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:         "path",
+		Schema:      cmdschema.PrimitiveTypeString.Schema(),
+		Description: event.MakeExtensibleText("Path of the file to send"),
+	}},
+	TailParam: "path",
+}, {
+	Command:     CmdPaste,
+	Description: event.MakeExtensibleText("Send the image from the clipboard"),
 }, {
 	Command:     CmdQuit,
 	Description: event.MakeExtensibleText("Quit gomuks terminal"),
@@ -159,6 +174,10 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 		view.StartSelecting(SelectEdit, "")
 	case CmdCopy:
 		view.StartSelecting(SelectCopy, gjson.GetBytes(cmd.Arguments, "register").Str)
+	case CmdUpload:
+		go view.UploadFile(gjson.GetBytes(cmd.Arguments, "path").Str)
+	case CmdPaste:
+		go view.UploadClipboard()
 	case CmdQuit:
 		view.parent.parent.Stop()
 	default:

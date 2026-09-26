@@ -10,9 +10,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,6 +23,7 @@ import (
 	"github.com/coder/websocket"
 	"golang.org/x/net/publicsuffix"
 	"maunium.net/go/mautrix"
+	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
@@ -196,4 +200,35 @@ func (gr *GomuksRPC) DownloadMedia(ctx context.Context, params DownloadMediaPara
 		return nil, fmt.Errorf("failed to download media: HTTP %d", resp.StatusCode)
 	}
 	return resp, err
+}
+
+// UploadMedia uploads a file through the backend, which handles thumbnailing
+// and encryption, and returns ready-to-send message content, the same flow
+// the web composer uses.
+func (gr *GomuksRPC) UploadMedia(ctx context.Context, filename string, encrypt bool, data io.Reader) (*event.MessageEventContent, error) {
+	addr := gr.BuildURLWithQuery(GomuksURLPath{"upload"}, url.Values{
+		"filename": {filename},
+		"encrypt":  {strconv.FormatBool(encrypt)},
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, addr, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare request: %w", err)
+	}
+	resp, err := gr.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload media: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read upload response: %w", err)
+	}
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("failed to upload media: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	var content event.MessageEventContent
+	if err = json.Unmarshal(body, &content); err != nil {
+		return nil, fmt.Errorf("failed to parse upload response: %w", err)
+	}
+	return &content, nil
 }

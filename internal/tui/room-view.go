@@ -441,6 +441,15 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		view.InputSubmit(view.input.GetText())
 		return true
 	}
+	// Ctrl+V with no text in the clipboard likely means an image is there;
+	// upload it instead of pasting nothing. Text pastes flow through to the
+	// input area as before.
+	if event.Key() == tcell.KeyCtrlV {
+		if text, _ := clipboard.ReadAll("clipboard"); strings.TrimSpace(text) == "" {
+			go view.UploadClipboard()
+			return true
+		}
+	}
 	// A bare LF is Shift+Enter via the Ghostty text:\n keybind (tcell cannot
 	// parse the CSI-u encoding Ghostty would otherwise send). Insert a newline.
 	if event.Key() == tcell.KeyLF {
