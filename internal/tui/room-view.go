@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"github.com/zyedidia/clipboard"
 	"go.mau.fi/mauview"
 	"go.mau.fi/util/ptr"
@@ -38,6 +39,7 @@ import (
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
+	"go.mau.fi/gomuks/tui/lib/emoji"
 	"go.mau.fi/gomuks/tui/messages"
 )
 
@@ -728,37 +730,43 @@ func (view *RoomView) AutocompleteEmoji(word string) (completions []string) {
 //	return
 //}
 
+// InputTabComplete completes :emoji: shortcodes at the cursor. A single
+// match inserts the emoji directly; several extend to the longest common
+// prefix and list candidates in the status line.
 func (view *RoomView) InputTabComplete(text string, cursorOffset int) {
-	//if len(text) == 0 {
-	//	return
-	//}
-	//
-	//str := runewidth.Truncate(text, cursorOffset, "")
-	//word := findWordToTabComplete(str)
-	//startIndex := len(str) - len(word)
-	//
-	//var strCompletion string
-	//
-	//strCompletions, newText, ok := view.parent.cmdProcessor.Autocomplete(view, text, cursorOffset)
-	//if !ok {
-	//	strCompletions, strCompletion = view.defaultAutocomplete(word, startIndex)
-	//}
-	//
-	//if len(strCompletions) > 0 {
-	//	strCompletion = exstrings.LongestCommonPrefix(strCompletions)
-	//	sort.Sort(sort.StringSlice(strCompletions))
-	//}
-	//if len(strCompletion) > 0 && len(strCompletions) < 2 {
-	//	strCompletion += " "
-	//	strCompletions = []string{}
-	//}
-	//
-	//if len(strCompletion) > 0 && newText == text {
-	//	newText = str[0:startIndex] + strCompletion + text[len(str):]
-	//}
-	//
-	//view.input.SetTextAndMoveCursor(newText)
-	//view.SetCompletions(strCompletions)
+	if view.config.Preferences.DisableEmojis || len(text) == 0 {
+		return
+	}
+	str := runewidth.Truncate(text, cursorOffset, "")
+	colon := strings.LastIndexByte(str, ':')
+	if colon == -1 || !emoji.IsValidToken(str[colon+1:]) {
+		return
+	}
+	token := str[colon+1:]
+	matches := emoji.Complete(token, 10)
+	switch {
+	case len(matches) == 0:
+		return
+	case len(matches) == 1:
+		newText := str[:colon] + variationselector.Add(matches[0].Emoji) + " " + text[len(str):]
+		view.input.SetTextAndMoveCursor(newText)
+		view.SetCompletions(nil)
+	default:
+		lcp := matches[0].Shortcode
+		for _, m := range matches[1:] {
+			for !strings.HasPrefix(m.Shortcode, lcp) {
+				lcp = lcp[:len(lcp)-1]
+			}
+		}
+		if len(lcp) > len(token) {
+			view.input.SetTextAndMoveCursor(str[:colon+1] + lcp + text[len(str):])
+		}
+		display := make([]string, len(matches))
+		for i, m := range matches {
+			display[i] = m.Emoji + " :" + m.Shortcode + ":"
+		}
+		view.SetCompletions(display)
+	}
 }
 
 // SendTyping tells the backend (and through the bridge, the other side)
@@ -804,6 +812,9 @@ func (view *RoomView) InputSubmit(text string) {
 	} else if cmd != nil {
 		go view.HandleCommand(cmd)
 	} else {
+		if !view.config.Preferences.DisableEmojis {
+			text = emoji.Replace(text)
+		}
 		go view.SendMessage(event.MsgText, text)
 	}
 	view.editMoveText = ""
