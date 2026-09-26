@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/disintegration/imaging"
 	"image"
 	"image/png"
 	"os"
@@ -148,15 +149,27 @@ func kittyEnsurePlaced(img *kittyImage, pngData []byte, cols, rows int) bool {
 	return true
 }
 
-// encodeToPNG converts arbitrary decoded-supported image data (webp stickers,
-// jpeg photos) to PNG, which is the only compressed format in the protocol.
+// previewMaxDim bounds the preview's longest side. The display box is at most
+// 48x16 cells (~480x320 points), so 1024px stays sharp on retina while an HD
+// original would push tens of megabytes of base64 through the tty and stall
+// the render thread.
+const previewMaxDim = 1024
+
+// encodeToPNG converts image data (webp stickers, jpeg photos) into a
+// display-sized PNG, which is also the only compressed format the kitty
+// protocol accepts.
 func encodeToPNG(data []byte) ([]byte, error) {
-	if bytes.HasPrefix(data, []byte("\x89PNG")) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err == nil && cfg.Width <= previewMaxDim && cfg.Height <= previewMaxDim &&
+		bytes.HasPrefix(data, []byte("\x89PNG")) {
 		return data, nil
 	}
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
+	}
+	if b := img.Bounds(); b.Dx() > previewMaxDim || b.Dy() > previewMaxDim {
+		img = imaging.Fit(img, previewMaxDim, previewMaxDim, imaging.Lanczos)
 	}
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {

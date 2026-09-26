@@ -127,14 +127,13 @@ func (msg *FileMessage) DownloadPreview(uiMsg *UIMessage) {
 			return
 		}
 		msg.imageData = data
-		if kittyTerminalSupported {
-			// Pre-encode off the render thread; PNG is the only compressed
-			// format the graphics protocol accepts.
-			if pngData, err := encodeToPNG(data); err == nil {
-				msg.kittyPNG = pngData
-			} else {
-				debug.Print("Failed to convert image to PNG for kitty graphics:", err)
-			}
+		// Pre-encode a display-sized preview off the render thread; both the
+		// kitty and the half-block path render from it so HD originals are
+		// decoded at full resolution exactly once.
+		if pngData, err := encodeToPNG(data); err == nil {
+			msg.kittyPNG = pngData
+		} else {
+			debug.Print("Failed to prepare image preview:", err)
 		}
 		uiMsg.bufferedWidth = -1
 		RequestRender()
@@ -166,7 +165,13 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 		return
 	}
 
-	img, _, err := image.DecodeConfig(bytes.NewReader(msg.imageData))
+	// Render from the downscaled preview when available; decoding the
+	// original again would repeat the full-resolution work per width change.
+	renderData := msg.imageData
+	if len(msg.kittyPNG) > 0 {
+		renderData = msg.kittyPNG
+	}
+	img, _, err := image.DecodeConfig(bytes.NewReader(renderData))
 	if err != nil || img.Width <= 0 || img.Height <= 0 {
 		debug.Print("File could not be decoded:", err)
 		msg.buffer = []tstring.TString{tstring.NewColorTString("Failed to display image", tcell.ColorRed)}
@@ -222,7 +227,7 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 		pxWidth = 1
 	}
 
-	ansFile, err := ansimage.NewScaledFromReader(bytes.NewReader(msg.imageData), 0, pxWidth, color.Black)
+	ansFile, err := ansimage.NewScaledFromReader(bytes.NewReader(renderData), 0, pxWidth, color.Black)
 	if err != nil {
 		msg.buffer = []tstring.TString{tstring.NewColorTString("Failed to display image", tcell.ColorRed)}
 		debug.Print("Failed to display image:", err)

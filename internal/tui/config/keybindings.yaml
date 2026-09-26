@@ -42,6 +42,8 @@ room:
     'Escape': clear
     'Ctrl+p': scroll_up
     'Ctrl+n': scroll_down
+    'Ctrl+u': scroll_up
+    'Ctrl+d': scroll_down
     'PageUp': scroll_up
     'PageDown': scroll_down
     'Enter': send
