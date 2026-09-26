@@ -193,6 +193,12 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 	case "resync":
 		// Disconnect writes a close frame, so keep it off the render thread.
 		go view.parent.Resync()
+	case "toggle_sidebar":
+		view.config.Preferences.HideRoomList = !view.config.Preferences.HideRoomList
+		// The topic bar carries the room name while the sidebar is hidden.
+		if view.currentRoom != nil {
+			view.currentRoom.Update(view.currentRoom.Room.Meta.Current())
+		}
 	case "force_quit":
 		view.parent.Finish()
 		return false

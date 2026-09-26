@@ -8,6 +8,7 @@ main:
     'Ctrl+j': add_newline
     'Ctrl+l': show_bare
     'Ctrl+r': resync
+    'Ctrl+s': toggle_sidebar
     'Alt+Down': next_room
     'Alt+Up': prev_room
     'Alt+k':  search_rooms
