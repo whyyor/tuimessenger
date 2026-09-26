@@ -45,8 +45,9 @@ type FileMessage struct {
 
 	eventID id.EventID
 
-	imageData []byte
-	buffer    []tstring.TString
+	imageData   []byte
+	downloading bool
+	buffer      []tstring.TString
 
 	matrix *client.GomuksClient
 }
@@ -106,27 +107,25 @@ func (msg *FileMessage) String() string {
 	return fmt.Sprintf(`&messages.FileMessage{Body="%s", URL="%s", Encrypted=%t}`, msg.Body, msg.URL, msg.IsEncrypted)
 }
 
-func (msg *FileMessage) DownloadPreview() {
-	//var url id.ContentURI
-	//var file *attachment.EncryptedFile
-	//if !msg.Thumbnail.IsEmpty() {
-	//	url = msg.Thumbnail
-	//	file = msg.ThumbnailFile
-	//} else if msg.Type == event.MsgImage && !msg.URL.IsEmpty() {
-	//	msg.Thumbnail = msg.URL
-	//	url = msg.URL
-	//	file = msg.File
-	//} else {
-	//	return
-	//}
-	//debug.Print("Loading file:", url)
-	//data, err := msg.matrix.Download(url, file != nil)
-	//if err != nil {
-	//	debug.Printf("Failed to download file %s: %v", url, err)
-	//	return
-	//}
-	//debug.Print("File", url, "loaded.")
-	//msg.imageData = data
+// DownloadPreview fetches the image in the background; when it lands, the
+// message buffer is invalidated and a repaint requested, so the "Download
+// media" placeholder upgrades to an inline rendering.
+func (msg *FileMessage) DownloadPreview(uiMsg *UIMessage) {
+	if msg.Type != event.MsgImage || len(msg.imageData) > 0 || msg.downloading || msg.URL.IsEmpty() {
+		return
+	}
+	msg.downloading = true
+	go func() {
+		defer debug.Recover()
+		data, err := msg.matrix.Download(msg.URL, msg.IsEncrypted)
+		if err != nil {
+			debug.Printf("Failed to download image %s: %v", msg.URL, err)
+			return
+		}
+		msg.imageData = data
+		uiMsg.bufferedWidth = -1
+		RequestRender()
+	}()
 }
 
 func (msg *FileMessage) ThumbnailPath() string {
@@ -155,15 +154,30 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 	}
 
 	img, _, err := image.DecodeConfig(bytes.NewReader(msg.imageData))
-	if err != nil {
+	if err != nil || img.Width <= 0 || img.Height <= 0 {
 		debug.Print("File could not be decoded:", err)
+		msg.buffer = []tstring.TString{tstring.NewColorTString("Failed to display image", tcell.ColorRed)}
+		return
 	}
-	imgWidth := img.Width
-	if img.Width > width {
-		imgWidth = width / 3
+	// Fit into a bounding box: each terminal row is two pixels tall, so a
+	// 16-row cap means 32 pixels of height. Never upscale.
+	maxCols := width - 2
+	if maxCols > 48 {
+		maxCols = 48
+	}
+	const maxRowsPx = 32
+	pxWidth := img.Width
+	if pxWidth > maxCols {
+		pxWidth = maxCols
+	}
+	if h := img.Height * pxWidth / img.Width; h > maxRowsPx {
+		pxWidth = maxRowsPx * img.Width / img.Height
+	}
+	if pxWidth < 1 {
+		pxWidth = 1
 	}
 
-	ansFile, err := ansimage.NewScaledFromReader(bytes.NewReader(msg.imageData), 0, imgWidth, color.Black)
+	ansFile, err := ansimage.NewScaledFromReader(bytes.NewReader(msg.imageData), 0, pxWidth, color.Black)
 	if err != nil {
 		msg.buffer = []tstring.TString{tstring.NewColorTString("Failed to display image", tcell.ColorRed)}
 		debug.Print("Failed to display image:", err)

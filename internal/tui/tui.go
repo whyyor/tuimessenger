@@ -36,6 +36,7 @@ import (
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/debug"
+	"go.mau.fi/gomuks/tui/messages"
 )
 
 type View string
@@ -139,6 +140,7 @@ func (ui *GomuksTUI) Connect() {
 	})
 	ui.gmx.SendNotification = ui.MainView.NotifyMessage
 	ui.gmx.EventHandler = ui.gomuksEventHandler
+	messages.RequestRender = ui.Render
 	ui.MainView.matrix = ui.gmx
 	rpcClient := ui.gmx.GomuksAPI.(*rpc.GomuksRPC)
 	rpcClient.ConnStateHandler = ui.onConnStateChange

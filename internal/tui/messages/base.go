@@ -89,6 +89,10 @@ func (msg *UIMessage) GetEvent() *database.Event {
 const DateFormat = "January _2, 2006"
 const TimeFormat = "15:04"
 
+// RequestRender is injected by the UI layer so asynchronous work (image
+// downloads) can trigger a repaint when it finishes. Defaults to a no-op.
+var RequestRender = func() {}
+
 func newUIMessage(
 	room *store.RoomStore,
 	evt *database.Event,
