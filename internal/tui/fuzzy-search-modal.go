@@ -213,6 +213,10 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 		icon, iconColor := BridgeIconColor(entry.Bridge)
 		widget.WriteLine(screen, mauview.AlignLeft, icon, 3, y, 2, rowStyle.Foreground(iconColor))
 		nameMax := width - 6
+		if entry.UnreadMessages > 0 || entry.UnreadNotifications > 0 || entry.UnreadHighlights > 0 || entry.MarkedUnread {
+			nameMax -= 2
+			widget.WriteLine(screen, mauview.AlignLeft, "●", width-2, y, 1, rowStyle.Foreground(tcell.ColorWhite))
+		}
 		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(entry.Name, nameMax, "…"), 5, y, nameMax, rowStyle)
 	}
 }
