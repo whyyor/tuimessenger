@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 	"go.mau.fi/util/ptr"
 	"maunium.net/go/mautrix/id"
@@ -35,6 +36,7 @@ import (
 	"go.mau.fi/gomuks/tui/debug"
 	"go.mau.fi/gomuks/tui/lib/emojistrip"
 	"go.mau.fi/gomuks/tui/lib/notification"
+	"go.mau.fi/gomuks/tui/widget"
 )
 
 type MainView struct {
@@ -95,7 +97,13 @@ func (view *MainView) HideModal() {
 
 func (view *MainView) Draw(screen mauview.Screen) {
 	if view.config.Preferences.HideRoomList {
-		view.roomView.Draw(screen)
+		if view.currentRoom == nil {
+			// Sidebar hidden and nothing open leaves a fully blank screen;
+			// hint at the way out instead of looking broken.
+			view.drawEmptyHint(screen)
+		} else {
+			view.roomView.Draw(screen)
+		}
 	} else {
 		view.flex.Draw(screen)
 	}
@@ -103,6 +111,17 @@ func (view *MainView) Draw(screen mauview.Screen) {
 	if view.modal != nil {
 		view.modal.Draw(screen)
 	}
+}
+
+func (view *MainView) drawEmptyHint(screen mauview.Screen) {
+	width, height := screen.Size()
+	hint := "Ctrl+k to search rooms · Ctrl+s to show the sidebar"
+	x := (width - runewidth.StringWidth(hint)) / 2
+	if x < 0 {
+		x = 0
+	}
+	widget.WriteLine(screen, mauview.AlignLeft, hint, x, height/2, width,
+		tcell.StyleDefault.Foreground(ColorStatusText))
 }
 
 func (view *MainView) BumpFocus(roomView *RoomView) {
