@@ -167,7 +167,7 @@ func (ui *GomuksTUI) onConnStateChange(state rpc.ConnState, err error) {
 }
 
 func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
-	switch rawEvt.(type) {
+	switch evt := rawEvt.(type) {
 	case *jsoncmd.SyncComplete:
 		if ui.NeedsRender {
 			debug.Print("Rendering...")
@@ -176,6 +176,13 @@ func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
 	case *jsoncmd.InitComplete:
 		if ui.Resyncing {
 			ui.Resyncing = false
+			ui.Render()
+		}
+	case *jsoncmd.Typing:
+		// Typing arrives outside sync batches, so nothing else repaints for
+		// it. Only the open room's status line shows it; every bridged room
+		// emits typing, so rendering for all of them would be constant churn.
+		if mv := ui.MainView; mv != nil && mv.currentRoom != nil && mv.currentRoom.Room.ID == evt.RoomID {
 			ui.Render()
 		}
 	}

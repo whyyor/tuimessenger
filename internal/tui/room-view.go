@@ -260,19 +260,24 @@ func (view *RoomView) GetStatus() string {
 		}
 	}
 
-	typing := view.Room.Typing.Current()
-	if len(typing) == 1 {
-		buf.WriteString("Typing: " + string(typing[0]))
-		buf.WriteString(" - ")
-	} else if len(typing) > 1 {
+	// Display names, not raw bridge user IDs, and never our own echo.
+	var typingNames []string
+	ownUserID := view.Room.OwnUserID()
+	for _, userID := range view.Room.Typing.Current() {
+		if userID == ownUserID {
+			continue
+		}
+		typingNames = append(typingNames, view.Room.GetDisplayname(userID))
+	}
+	if len(typingNames) > 0 {
 		buf.WriteString("Typing: ")
-		for i, userID := range typing {
-			if i == len(typing)-1 {
+		for i, name := range typingNames {
+			if i > 0 && i == len(typingNames)-1 {
 				buf.WriteString(" and ")
 			} else if i > 0 {
 				buf.WriteString(", ")
 			}
-			buf.WriteString(string(userID))
+			buf.WriteString(name)
 		}
 		buf.WriteString(" - ")
 	}
