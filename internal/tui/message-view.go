@@ -392,6 +392,14 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 		msg.IsSelected = view.selected != 0 && msg.RowID == view.selected
 		msg.Draw(mauview.NewProxyScreen(screen, messageX, line, width-messageX, msg.Height()))
 
+		// Deleted-but-witnessed messages keep their content with a marker.
+		if msg.RedactedBy != "" && !msg.IsService {
+			label := "(deleted)"
+			labelWidth := runewidth.StringWidth(label)
+			widget.WriteLineColor(screen, mauview.AlignLeft, label,
+				width-labelWidth-1, line, labelWidth, tcell.ColorGray)
+		}
+
 		// Read receipt cluster: this event is somebody's latest read position.
 		if readers := view.visibleReaders(msg); len(readers) > 0 {
 			label := "✓ seen"

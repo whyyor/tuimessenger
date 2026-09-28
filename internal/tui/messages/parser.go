@@ -71,6 +71,13 @@ func directParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences
 		if evt.RelationType == event.RelReplace {
 			return nil
 		} else if evt.RedactedBy != "" {
+			// The local database keeps the decrypted content of messages we
+			// witnessed before the redaction, so show the original with a
+			// (deleted) marker instead of a blank tombstone. Messages
+			// redacted before we ever decrypted them fall back to the stub.
+			if msg := ParseMessage(matrix, prefs, room, evt); msg != nil {
+				return msg
+			}
 			return NewRedactedMessage(evt, room)
 		}
 		return ParseMessage(matrix, prefs, room, evt)
