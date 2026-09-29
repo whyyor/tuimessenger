@@ -415,6 +415,24 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		case "confirm":
 			view.OnSelect(msgView.GetSelected())
 		default:
+			// Verb keys: act on the selected message directly instead of
+			// backing out to type a slash command.
+			if event.Modifiers() == 0 {
+				verbs := map[rune]SelectReason{
+					'r': SelectReply,
+					'p': SelectPlay,
+					'o': SelectOpen,
+					'd': SelectDownload,
+					'y': SelectCopy,
+					'e': SelectEdit,
+					'x': SelectRedact,
+				}
+				if reason, ok := verbs[event.Rune()]; ok {
+					view.selectReason = reason
+					view.OnSelect(msgView.GetSelected())
+					return true
+				}
+			}
 			return false
 		}
 		return true
