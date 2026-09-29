@@ -78,6 +78,56 @@ func (view *MessageView) SetSelected(message *messages.UIMessage) {
 	}
 }
 
+// SelectAdjacent moves the selection to the next (newer) or previous (older)
+// message passing the filter, starting from the newest when nothing is
+// selected yet. Returns whether a selection was made.
+func (view *MessageView) SelectAdjacent(forward bool, allow func(*messages.UIMessage) bool) bool {
+	view.lock.RLock()
+	defer view.lock.RUnlock()
+	var msgs []*messages.UIMessage
+	var prev *messages.UIMessage
+	for _, m := range view.msgBuffer {
+		if m != prev {
+			msgs = append(msgs, m)
+			prev = m
+		}
+	}
+	if len(msgs) == 0 {
+		return false
+	}
+	idx := -1
+	if view.selected != 0 {
+		for i, m := range msgs {
+			if m.RowID == view.selected {
+				idx = i
+				break
+			}
+		}
+	}
+	step := -1
+	if forward {
+		step = 1
+	}
+	if idx == -1 {
+		// Nothing selected: step from beyond the appropriate end so the
+		// first candidate is the newest (backward) or oldest (forward).
+		if forward {
+			idx = -1
+		} else {
+			idx = len(msgs)
+		}
+	}
+	for i := idx + step; i >= 0 && i < len(msgs); i += step {
+		m := msgs[i]
+		if m.IsService || m.ID == "" || (allow != nil && !allow(m)) {
+			continue
+		}
+		view.selected = m.RowID
+		return true
+	}
+	return false
+}
+
 func (view *MessageView) GetSelected() *messages.UIMessage {
 	view.lock.RLock()
 	defer view.lock.RUnlock()

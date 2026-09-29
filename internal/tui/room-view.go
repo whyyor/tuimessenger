@@ -601,33 +601,30 @@ func (view *RoomView) EditPrevious() {
 	}
 }
 
+// selectionFilter restricts what the selection can land on for the current
+// select reason: media messages for play/open/download, own messages for
+// edit, anything otherwise.
+func (view *RoomView) selectionFilter() func(*messages.UIMessage) bool {
+	switch view.selectReason {
+	case SelectPlay, SelectOpen, SelectDownload:
+		return func(m *messages.UIMessage) bool {
+			_, ok := m.Renderer.(*messages.FileMessage)
+			return ok
+		}
+	case SelectEdit:
+		own := view.Room.OwnUserID()
+		return func(m *messages.UIMessage) bool { return m.Sender == own }
+	default:
+		return nil
+	}
+}
+
 func (view *RoomView) SelectNext() {
-	//msgView := view.MessageView()
-	//if msgView.selected == 0 {
-	//	return
-	//}
-	//var filter findFilter
-	//if view.selectReason == SelectDownload || view.selectReason == SelectOpen {
-	//	filter = view.filterMediaOnly
-	//}
-	//foundMsg := view.findMessage(msgView.selected.GetEvent(), true, filter)
-	//if foundMsg != nil {
-	//	msgView.SetSelected(foundMsg)
-	//	// TODO scroll selected message into view
-	//}
+	view.MessageView().SelectAdjacent(true, view.selectionFilter())
 }
 
 func (view *RoomView) SelectPrevious() {
-	//msgView := view.MessageView()
-	//var filter findFilter
-	//if view.selectReason == SelectDownload || view.selectReason == SelectOpen {
-	//	filter = view.filterMediaOnly
-	//}
-	//foundMsg := view.findMessage(msgView.selected.GetEvent(), false, filter)
-	//if foundMsg != nil {
-	//	msgView.SetSelected(foundMsg)
-	//	// TODO scroll selected message into view
-	//}
+	view.MessageView().SelectAdjacent(false, view.selectionFilter())
 }
 
 type completion struct {
