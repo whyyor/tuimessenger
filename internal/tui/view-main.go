@@ -321,6 +321,7 @@ func (view *MainView) CloseCurrentRoom() {
 	if view.currentRoom == nil {
 		return
 	}
+	StopPlayback()
 	view.currentRoom.Blur()
 	view.currentRoom.Unload()
 	view.currentRoom = nil
@@ -336,6 +337,8 @@ func (view *MainView) SwitchRoom(roomID id.RoomID) {
 		return
 	}
 	debug.Print("Selecting room", roomID)
+	// Voice notes belong to the room they were played from.
+	StopPlayback()
 	view.roomList.SetSelected(roomID)
 	view.flex.SetFocused(view.roomView)
 	if view.currentRoom != nil {

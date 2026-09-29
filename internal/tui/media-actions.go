@@ -16,6 +16,17 @@ var (
 	playbackCmd  *exec.Cmd
 )
 
+// StopPlayback kills any running media playback. Called when leaving the
+// room the playback was started from.
+func StopPlayback() {
+	playbackLock.Lock()
+	defer playbackLock.Unlock()
+	if playbackCmd != nil && playbackCmd.Process != nil {
+		_ = playbackCmd.Process.Kill()
+	}
+	playbackCmd = nil
+}
+
 // mediaPlayerCommand finds a player able to handle ogg/opus voice notes.
 // afplay is last because it cannot play ogg, which is what WhatsApp sends.
 func mediaPlayerCommand(path string) *exec.Cmd {
