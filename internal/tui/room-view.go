@@ -404,6 +404,18 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		Mod: event.Modifiers(),
 	}
 
+	// Ctrl+; toggles visual mode. The terminal sends US (0x1f) for it via a
+	// Ghostty keybind, since ctrl+semicolon has no legacy encoding and tcell
+	// cannot parse the CSI-u sequence it would otherwise produce.
+	if event.Key() == tcell.KeyCtrlUnderscore {
+		if view.selecting {
+			view.ClearAllContext()
+		} else {
+			view.StartSelecting(SelectReply, "")
+		}
+		return true
+	}
+
 	if view.selecting {
 		switch view.config.Keybindings.Visual[kb] {
 		case "clear":
