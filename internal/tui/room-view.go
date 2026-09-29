@@ -547,37 +547,29 @@ func (view *RoomView) SetCompletions(completions []string) {
 //}
 
 func (view *RoomView) SetEditing(evt *database.Event) {
-	//if evt == nil {
-	//	view.editing = nil
-	//	view.SetInputText(view.editMoveText)
-	//	view.editMoveText = ""
-	//} else {
-	//	if view.editing == nil {
-	//		view.editMoveText = view.GetInputText()
-	//	}
-	//	view.editing = evt
-	//	// replying should never be non-nil when SetEditing, but do this just to be safe
-	//	view.replying = nil
-	//	msgContent := view.editing.Content.AsMessage()
-	//	if len(view.editing.Gomuks.Edits) > 0 {
-	//		// This feels kind of dangerous, but I think it works
-	//		msgContent = view.editing.Gomuks.Edits[len(view.editing.Gomuks.Edits)-1].Content.AsMessage().NewContent
-	//	}
-	//	text := msgContent.Body
-	//	if len(msgContent.FormattedBody) > 0 && (!view.config.Preferences.DisableMarkdown || !view.config.Preferences.DisableHTML) {
-	//		if view.config.Preferences.DisableMarkdown {
-	//			text = msgContent.FormattedBody
-	//		} else {
-	//			text = editHTMLParser.Parse(msgContent.FormattedBody, make(format.Context))
-	//		}
-	//	}
-	//	if msgContent.MsgType == event.MsgEmote {
-	//		text = "/me " + text
-	//	}
-	//	view.input.SetText(text)
-	//}
-	//view.status.SetText(view.GetStatus())
-	//view.input.SetCursorOffset(-1)
+	if evt == nil {
+		view.editing = nil
+		view.SetInputText(view.editMoveText)
+		view.editMoveText = ""
+		return
+	}
+	if view.editing == nil {
+		// Park the current draft; it comes back when editing is cancelled.
+		view.editMoveText = view.GetInputText()
+	}
+	view.editing = evt
+	view.replying = nil
+	content := evt.GetMautrixContent().AsMessage()
+	// If the message was already edited, start from the latest edit's text.
+	if evt.LastEditRowID != nil {
+		if edit := view.Room.GetEventByRowID(*evt.LastEditRowID); edit != nil {
+			if newContent := edit.GetMautrixContent().AsMessage().NewContent; newContent != nil {
+				content = newContent
+			}
+		}
+	}
+	view.SetInputText(content.Body)
+	view.input.Focus()
 }
 
 type findFilter func(evt *database.Event) bool
@@ -931,6 +923,11 @@ func (view *RoomView) SendMessage(msgtype event.MessageType, text string) {
 	if view.replying != nil {
 		relatesTo = (&event.RelatesTo{}).SetReplyTo(view.replying.ID)
 		view.replying = nil
+	} else if view.editing != nil {
+		// The backend wraps the text into m.new_content for replace relations.
+		relatesTo = &event.RelatesTo{Type: event.RelReplace, EventID: view.editing.ID}
+		view.editing = nil
+		view.editMoveText = ""
 	}
 	err := view.parent.matrix.SendMessage(context.TODO(), &jsoncmd.SendMessageParams{
 		RoomID:      view.Room.ID,
