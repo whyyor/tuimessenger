@@ -31,14 +31,17 @@ import (
 )
 
 const (
-	CmdReply  = "reply"
-	CmdReact  = "react"
-	CmdRedact = "redact"
-	CmdQuit   = "quit"
-	CmdEdit   = "edit"
-	CmdCopy   = "copy"
-	CmdUpload = "upload"
-	CmdPaste  = "paste"
+	CmdReply    = "reply"
+	CmdReact    = "react"
+	CmdRedact   = "redact"
+	CmdQuit     = "quit"
+	CmdEdit     = "edit"
+	CmdCopy     = "copy"
+	CmdUpload   = "upload"
+	CmdPaste    = "paste"
+	CmdPlay     = "play"
+	CmdOpen     = "open"
+	CmdDownload = "download"
 )
 
 var LocalCommands = []*cmdschema.EventContent{{
@@ -96,6 +99,16 @@ var LocalCommands = []*cmdschema.EventContent{{
 }, {
 	Command:     CmdPaste,
 	Description: event.MakeExtensibleText("Send the image from the clipboard"),
+}, {
+	Command:     CmdPlay,
+	Aliases:     []string{"voice"},
+	Description: event.MakeExtensibleText("Play a voice note or other media"),
+}, {
+	Command:     CmdOpen,
+	Description: event.MakeExtensibleText("Open a media message with the system handler"),
+}, {
+	Command:     CmdDownload,
+	Description: event.MakeExtensibleText("Save a media message to Downloads"),
 }, {
 	Command:     CmdQuit,
 	Description: event.MakeExtensibleText("Quit gomuks terminal"),
@@ -174,6 +187,12 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 		view.StartSelecting(SelectEdit, "")
 	case CmdCopy:
 		view.StartSelecting(SelectCopy, gjson.GetBytes(cmd.Arguments, "register").Str)
+	case CmdPlay:
+		view.StartSelecting(SelectPlay, "")
+	case CmdOpen:
+		view.StartSelecting(SelectOpen, "")
+	case CmdDownload:
+		view.StartSelecting(SelectDownload, "")
 	case CmdUpload:
 		go view.UploadFile(gjson.GetBytes(cmd.Arguments, "path").Str)
 	case CmdPaste:

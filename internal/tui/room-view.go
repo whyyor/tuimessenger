@@ -180,6 +180,7 @@ const (
 	SelectEdit     SelectReason = "edit"
 	SelectDownload SelectReason = "download"
 	SelectOpen     SelectReason = "open"
+	SelectPlay     SelectReason = "play"
 	SelectCopy     SelectReason = "copy"
 )
 
@@ -218,17 +219,18 @@ func (view *RoomView) OnSelect(message *messages.UIMessage) {
 		go view.SendReaction(message.ID, view.selectContent)
 	case SelectRedact:
 		go view.Redact(message.ID, view.selectContent)
+	case SelectPlay:
+		if fm, ok := message.Renderer.(*messages.FileMessage); ok {
+			go view.PlayMedia(fm)
+		} else {
+			view.AddServiceMessage("That message has no media to play")
+		}
 	case SelectDownload, SelectOpen:
-		//msg, ok := message.Renderer.(*messages.FileMessage)
-		//if ok {
-		//	path := ""
-		//	if len(view.selectContent) > 0 {
-		//		path = view.selectContent
-		//	} else if view.selectReason == SelectDownload {
-		//		path = msg.Body
-		//	}
-		//	go view.Download(msg.URL, msg.IsEncrypted, path, view.selectReason == SelectOpen)
-		//}
+		if fm, ok := message.Renderer.(*messages.FileMessage); ok {
+			go view.SaveOrOpenMedia(fm, view.selectReason == SelectOpen)
+		} else {
+			view.AddServiceMessage("That message has no media")
+		}
 	case SelectCopy:
 		go view.CopyToClipboard(message.Renderer.PlainText(), view.selectContent)
 	}
