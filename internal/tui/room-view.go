@@ -421,6 +421,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 	}
 
 	switch view.config.Keybindings.Room[kb] {
+	case "select":
+		// Visual mode with reply as the default action: pick a message with
+		// j/k, Enter replies to it, Escape backs out.
+		view.StartSelecting(SelectReply, "")
+		return true
 	case "clear":
 		// First Escape clears reply/edit/select context; with nothing left to
 		// clear, it closes the room back to the sidebar-only launch state.
