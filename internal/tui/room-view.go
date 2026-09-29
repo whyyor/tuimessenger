@@ -404,6 +404,12 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		Mod: event.Modifiers(),
 	}
 
+	// Ctrl+m marks the room read. It arrives as RS (0x1e) via a Ghostty
+	// keybind, because ctrl+m is byte-identical to Enter in legacy encoding.
+	if event.Key() == tcell.KeyCtrlCarat {
+		view.MarkReadExplicit()
+		return true
+	}
 	// Ctrl+; toggles visual mode. The terminal sends US (0x1f) for it via a
 	// Ghostty keybind, since ctrl+semicolon has no legacy encoding and tcell
 	// cannot parse the CSI-u sequence it would otherwise produce.
@@ -457,16 +463,7 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		view.StartSelecting(SelectReply, "")
 		return true
 	case "mark_read":
-		// Explicit, so no at-the-bottom guard like the automatic mark on
-		// room focus: send the receipt for the newest message regardless.
-		if req := view.Room.GetMarkAsReadParams(); req != nil {
-			go func() {
-				defer debug.Recover()
-				if err := view.parent.matrix.MarkRead(context.TODO(), req); err != nil {
-					debug.Print("Failed to mark read:", err)
-				}
-			}()
-		}
+		view.MarkReadExplicit()
 		return true
 	case "clear":
 		// First Escape clears reply/edit/select context; with nothing left to
@@ -557,6 +554,19 @@ func (view *RoomView) SetCompletions(completions []string) {
 //	Newline:        "\n",
 //	HorizontalLine: "\n---\n",
 //}
+
+// MarkReadExplicit sends a read receipt for the newest message. Explicit, so
+// no at-the-bottom guard like the automatic mark on room focus.
+func (view *RoomView) MarkReadExplicit() {
+	if req := view.Room.GetMarkAsReadParams(); req != nil {
+		go func() {
+			defer debug.Recover()
+			if err := view.parent.matrix.MarkRead(context.TODO(), req); err != nil {
+				debug.Print("Failed to mark read:", err)
+			}
+		}()
+	}
+}
 
 func (view *RoomView) SetEditing(evt *database.Event) {
 	if evt == nil {
