@@ -456,6 +456,18 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		// j/k, Enter replies to it, Escape backs out.
 		view.StartSelecting(SelectReply, "")
 		return true
+	case "mark_read":
+		// Explicit, so no at-the-bottom guard like the automatic mark on
+		// room focus: send the receipt for the newest message regardless.
+		if req := view.Room.GetMarkAsReadParams(); req != nil {
+			go func() {
+				defer debug.Recover()
+				if err := view.parent.matrix.MarkRead(context.TODO(), req); err != nil {
+					debug.Print("Failed to mark read:", err)
+				}
+			}()
+		}
+		return true
 	case "clear":
 		// First Escape clears reply/edit/select context; with nothing left to
 		// clear, it closes the room back to the sidebar-only launch state.

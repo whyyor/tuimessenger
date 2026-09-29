@@ -41,6 +41,7 @@ visual:
 room:
     'Escape': clear
     'Alt+v': select
+    'Alt+m': mark_read
     'Ctrl+p': scroll_up
     'Ctrl+n': scroll_down
     'Ctrl+u': scroll_up
