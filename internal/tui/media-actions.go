@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"maunium.net/go/mautrix/event"
+
 	"go.mau.fi/gomuks/tui/debug"
 	"go.mau.fi/gomuks/tui/messages"
 )
@@ -52,21 +54,31 @@ func (view *RoomView) fetchMediaToFile(msg *messages.FileMessage, dir string) (s
 		name = msg.URL.FileID
 	}
 	if filepath.Ext(name) == "" {
-		// Bridged voice notes are ogg/opus and often come with a bare body.
-		name += ".ogg"
+		// Bridged media often comes with a bare body: voice notes are
+		// ogg/opus, videos mp4.
+		if msg.Type == event.MsgVideo {
+			name += ".mp4"
+		} else {
+			name += ".ogg"
+		}
 	}
 	path := filepath.Join(dir, filepath.Base(name))
 	return path, os.WriteFile(path, data, 0600)
 }
 
-// PlayMedia downloads an audio or video message and plays it with a local
-// player, stopping any previous playback first.
+// PlayMedia downloads an audio or video message and plays it. Audio plays in
+// the background; video takes over the terminal via mpv's kitty-graphics
+// output while the TUI is suspended, and returns on quit.
 func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 	defer debug.Recover()
 	path, err := view.fetchMediaToFile(msg, os.TempDir())
 	if err != nil {
 		view.AddServiceMessage("Failed to fetch media: %v", err)
 		view.parent.parent.Render()
+		return
+	}
+	if msg.Type == event.MsgVideo {
+		view.playVideoInTerminal(path)
 		return
 	}
 	cmd := mediaPlayerCommand(path)
@@ -92,6 +104,30 @@ func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 		_ = cmd.Wait()
 		_ = os.Remove(path)
 	}()
+}
+
+// playVideoInTerminal suspends the TUI and hands the terminal to mpv with
+// its kitty-graphics output, so the video renders inside the terminal with
+// mpv's own controls: space pauses, arrows seek, q returns to the chat.
+// tcell and mpv cannot share the tty, which is why the TUI must step aside.
+func (view *RoomView) playVideoInTerminal(path string) {
+	mpv, err := exec.LookPath("mpv")
+	if err != nil {
+		// No in-terminal player; hand the file to the system instead.
+		_ = exec.Command("open", path).Start()
+		return
+	}
+	StopPlayback()
+	view.parent.parent.app.Suspend(func() {
+		print("\033[2J\033[0;0H")
+		cmd := exec.Command(mpv, "--vo=kitty", "--really-quiet", path)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		_ = cmd.Run()
+		_ = os.Remove(path)
+	})
+	view.parent.parent.Render()
 }
 
 // SaveOrOpenMedia downloads a media message to ~/Downloads, optionally
