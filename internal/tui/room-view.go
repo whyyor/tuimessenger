@@ -681,6 +681,44 @@ type completion struct {
 	id          string
 }
 
+// completeMention completes @name at the cursor into a matrix.to markdown
+// pill, which the backend renders as a real mention (and the bridge as a
+// WhatsApp @mention).
+func (view *RoomView) completeMention(str, text string, at int) {
+	token := strings.ToLower(str[at+1:])
+	if strings.ContainsAny(token, " \n") {
+		return
+	}
+	var matches []completion
+	for _, member := range view.Room.GetMembers() {
+		name := member.Displayname
+		if name == "" {
+			name = member.UserID.Localpart()
+		}
+		if strings.HasPrefix(strings.ToLower(name), token) ||
+			strings.HasPrefix(strings.ToLower(member.UserID.Localpart()), token) {
+			matches = append(matches, completion{name, string(member.UserID)})
+			if len(matches) > 10 {
+				return // too ambiguous to be useful
+			}
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return
+	case 1:
+		pill := fmt.Sprintf("[%s](https://matrix.to/#/%s) ", matches[0].displayName, matches[0].id)
+		view.input.SetTextAndMoveCursor(str[:at] + pill + text[len(str):])
+		view.SetCompletions(nil)
+	default:
+		display := make([]string, len(matches))
+		for i, m := range matches {
+			display[i] = "@" + m.displayName
+		}
+		view.SetCompletions(display)
+	}
+}
+
 func (view *RoomView) AutocompleteUser(existingText string) (completions []completion) {
 	textWithoutPrefix := strings.TrimPrefix(existingText, "@")
 	for _, user := range view.Room.GetMembers() {
@@ -795,6 +833,11 @@ func (view *RoomView) InputTabComplete(text string, cursorOffset int) {
 		return
 	}
 	str := runewidth.Truncate(text, cursorOffset, "")
+	// An @ after the last : means we're completing a mention, not an emoji.
+	if at := strings.LastIndexByte(str, '@'); at > strings.LastIndexByte(str, ':') {
+		view.completeMention(str, text, at)
+		return
+	}
 	colon := strings.LastIndexByte(str, ':')
 	if colon == -1 || !emoji.IsValidToken(str[colon+1:]) {
 		return
