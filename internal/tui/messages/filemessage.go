@@ -37,8 +37,9 @@ import (
 )
 
 type FileMessage struct {
-	Type event.MessageType
-	Body string
+	Type     event.MessageType
+	Body     string
+	MimeType string
 
 	URL         id.ContentURI
 	IsEncrypted bool
@@ -66,9 +67,14 @@ func NewFileMessage(room *store.RoomStore, matrix *client.GomuksClient, evt *dat
 	} else {
 		url = content.URL.ParseOrIgnore()
 	}
+	mimeType := ""
+	if content.Info != nil {
+		mimeType = content.Info.MimeType
+	}
 	return newUIMessage(room, evt, content, "", &FileMessage{
 		Type:        content.MsgType,
 		Body:        content.Body,
+		MimeType:    mimeType,
 		URL:         url,
 		IsEncrypted: isEncrypted,
 		eventID:     evt.ID,
@@ -81,6 +87,7 @@ func (msg *FileMessage) Clone() MessageRenderer {
 	copy(data, msg.imageData)
 	return &FileMessage{
 		Body:        msg.Body,
+		MimeType:    msg.MimeType,
 		URL:         msg.URL,
 		IsEncrypted: msg.IsEncrypted,
 		imageData:   data,
