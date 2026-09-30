@@ -450,6 +450,18 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 					view.OnSelect(msgView.GetSelected())
 					return true
 				}
+				// WhatsApp's quick-react bar on the digit keys.
+				quickReactions := map[rune]string{
+					'1': "👍", '2': "❤️", '3': "😂", '4': "😮", '5': "😢", '6': "🙏",
+				}
+				if key, ok := quickReactions[event.Rune()]; ok {
+					if selected := msgView.GetSelected(); selected != nil {
+						go view.SendReaction(selected.ID, key)
+					}
+					view.StopSelecting()
+					view.input.Focus()
+					return true
+				}
 			}
 			return false
 		}
@@ -964,7 +976,8 @@ func (view *RoomView) Redact(eventID id.EventID, reason string) {
 
 func (view *RoomView) SendReaction(eventID id.EventID, reaction string) {
 	defer debug.Recover()
-	reaction = variationselector.Add(strings.TrimSpace(reaction))
+	// :shortcode: works here too; Replace already adds variation selectors.
+	reaction = variationselector.Add(emoji.Replace(strings.TrimSpace(reaction)))
 	debug.Print("Reacting to", eventID, "in", view.Room.ID, "with", reaction)
 	contentJSON, _ := json.Marshal(&event.ReactionEventContent{RelatesTo: event.RelatesTo{
 		Type:    event.RelAnnotation,
