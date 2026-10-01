@@ -23,6 +23,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/zyedidia/clipboard"
@@ -137,6 +138,11 @@ func (ui *GomuksTUI) Run() {
 	if ui.gmx != nil {
 		go ui.Connect()
 	}
+	go func() {
+		// The screen exists shortly after Start; mouse off once it does.
+		time.Sleep(250 * time.Millisecond)
+		ui.DisableMouse()
+	}()
 	exerrors.PanicIfNotNil(ui.app.Start())
 }
 
@@ -153,6 +159,16 @@ func (ui *GomuksTUI) Connect() {
 	err := rpcClient.ConnectWithRetry(ui.ctx)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		exerrors.PanicIfNotNil(err)
+	}
+}
+
+// DisableMouse turns off terminal mouse reporting so native drag-to-select
+// works on message text; this is a keyboard-driven client. mauview enables
+// the mouse on every screen it creates, so this must be reapplied after
+// startup and after every Suspend.
+func (ui *GomuksTUI) DisableMouse() {
+	if screen := ui.app.Screen(); screen != nil {
+		screen.DisableMouse()
 	}
 }
 

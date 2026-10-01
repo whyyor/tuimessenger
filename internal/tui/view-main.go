@@ -219,6 +219,7 @@ func (view *MainView) ShowBare(roomView *RoomView) {
 		_, _, _ = reader.ReadRune()
 		print("\033[2J\033[0;0H")
 	})
+	view.parent.DisableMouse()
 }
 
 func (view *MainView) OpenSyncingModal() *SyncingModal {
