@@ -137,7 +137,12 @@ func (msg *FileMessage) DownloadPreview(uiMsg *UIMessage) {
 		// Pre-encode a display-sized preview off the render thread; both the
 		// kitty and the half-block path render from it so HD originals are
 		// decoded at full resolution exactly once.
-		if pngData, err := encodeToPNG(data); err == nil {
+		pngData, err := encodeToPNG(data)
+		if err != nil {
+			// Animated webp and friends: let ffmpeg take the first frame.
+			pngData, err = ffmpegFirstFramePNG(data)
+		}
+		if err == nil {
 			msg.kittyPNG = pngData
 		} else {
 			debug.Print("Failed to prepare image preview:", err)

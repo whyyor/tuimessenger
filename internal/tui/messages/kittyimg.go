@@ -8,8 +8,11 @@ import (
 	"image"
 	"image/png"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"go.mau.fi/gomuks/tui/debug"
 )
@@ -154,6 +157,32 @@ func kittyEnsurePlaced(img *kittyImage, pngData []byte, cols, rows int) bool {
 // original would push tens of megabytes of base64 through the tty and stall
 // the render thread.
 const previewMaxDim = 1024
+
+// ffmpegFirstFramePNG extracts the first frame of media Go cannot decode,
+// notably the animated webp that WhatsApp animated stickers use: the
+// x/image/webp decoder only handles still images.
+func ffmpegFirstFramePNG(data []byte) ([]byte, error) {
+	ffmpeg, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		return nil, err
+	}
+	in := filepath.Join(os.TempDir(), fmt.Sprintf("gomuks-frame-%d", time.Now().UnixNano()))
+	out := in + ".png"
+	defer os.Remove(in)
+	defer os.Remove(out)
+	if err = os.WriteFile(in, data, 0600); err != nil {
+		return nil, err
+	}
+	if err = exec.Command(ffmpeg, "-y", "-loglevel", "quiet", "-i", in, "-frames:v", "1", out).Run(); err != nil {
+		return nil, err
+	}
+	pngData, err := os.ReadFile(out)
+	if err != nil {
+		return nil, err
+	}
+	// Reuse the normal path for the size cap.
+	return encodeToPNG(pngData)
+}
 
 // encodeToPNG converts image data (webp stickers, jpeg photos) into a
 // display-sized PNG, which is also the only compressed format the kitty
