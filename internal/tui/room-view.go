@@ -450,6 +450,21 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 					view.OnSelect(msgView.GetSelected())
 					return true
 				}
+				// u copies the first URL in the selected message, which beats
+				// drag-selecting a wrapped link across the sidebar columns.
+				if event.Rune() == 'u' {
+					if selected := msgView.GetSelected(); selected != nil {
+						if url := extractURL(selected.Renderer.PlainText()); url != "" {
+							go view.CopyToClipboard(url, "clipboard")
+							view.AddServiceMessage("Copied %s", url)
+						} else {
+							view.AddServiceMessage("No URL in that message")
+						}
+					}
+					view.StopSelecting()
+					view.input.Focus()
+					return true
+				}
 				// WhatsApp's quick-react bar on the digit keys.
 				quickReactions := map[rune]string{
 					'1': "👍", '2': "❤️", '3': "😂", '4': "😮", '5': "😢", '6': "🙏",
