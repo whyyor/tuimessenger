@@ -178,7 +178,6 @@ func (view *RoomView) playVideoInTerminal(path string) {
 		_ = cmd.Run()
 		_ = os.Remove(path)
 	})
-	view.parent.parent.DisableMouse()
 	view.parent.parent.Render()
 }
 
