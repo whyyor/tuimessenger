@@ -131,8 +131,9 @@ func (b *Backend) queueInitial(ctx context.Context) {
 	if status := b.hc.SyncStatus.Load(); status != nil {
 		b.events.push(b.copyEvent(status))
 	}
-	// Like the daemon: without a verified login there are no rooms yet, and hicli sends them itself after its first sync.
-	if b.hc.IsLoggedInAndVerified() {
+	// Like the daemon: before the first sync (or without a verified login) there are no rooms yet, and hicli sends
+	// them itself after its first sync.
+	if b.hc.ShouldSendInitPayload() {
 		for payload := range b.hc.GetInitialSync(ctx, initialBatchSize, 0) {
 			b.events.push(b.copyEvent(payload))
 		}
@@ -161,7 +162,7 @@ func (b *Backend) Resync() {
 	}
 	go func() {
 		defer b.resyncing.Store(false)
-		if b.hc.IsLoggedInAndVerified() {
+		if b.hc.IsLoggedIn() && b.hc.VerificationState.IsVerified {
 			b.reconnectNetworks(ctx)
 			go b.hc.Sync() // stops the running sync loop and starts a new one
 		}

@@ -128,7 +128,7 @@ func TestResyncReconnectsOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(b.hc.Stop)
-	if !b.hc.IsLoggedInAndVerified() {
+	if !b.hc.IsLoggedIn() || !b.hc.VerificationState.IsVerified {
 		t.Fatal("hicli should be logged in and verified (no E2EE)")
 	}
 
