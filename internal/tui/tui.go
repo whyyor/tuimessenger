@@ -114,7 +114,9 @@ func (ui *GomuksTUI) Run() {
 
 	mauview.Backspace2RemovesWord = ui.Config.Backspace2RemovesWord
 	mauview.Backspace1RemovesWord = ui.Config.Backspace1RemovesWord
-	ui.app.SetAlwaysClear(ui.Config.AlwaysClearScreen)
+	// The buffered root starts every frame from a clean grid; clearing the
+	// real screen as well would make every cell look changed to tcell again.
+	ui.app.SetAlwaysClear(false)
 	_ = clipboard.Initialize()
 	ui.views = map[View]mauview.Component{
 		ViewLogin: ui.NewLoginView(),
@@ -234,7 +236,7 @@ func (ui *GomuksTUI) HandleNewPreferences() {
 }
 
 func (ui *GomuksTUI) SetView(name View) {
-	ui.app.SetRoot(ui.views[name])
+	ui.app.SetRoot(newBufferedRoot(ui.views[name]))
 }
 
 func (ui *GomuksTUI) RunExternal(executablePath string, args ...string) error {
