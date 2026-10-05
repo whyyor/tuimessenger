@@ -37,8 +37,11 @@ import (
 )
 
 type FileMessage struct {
-	Type     event.MessageType
-	Body     string
+	Type event.MessageType
+	Body string
+	// FileName is the event's filename field. When it's set, Body is a
+	// caption rather than the file name.
+	FileName string
 	MimeType string
 
 	URL         id.ContentURI
@@ -74,6 +77,7 @@ func NewFileMessage(room *store.RoomStore, matrix *client.GomuksClient, evt *dat
 	return newUIMessage(room, evt, content, "", &FileMessage{
 		Type:        content.MsgType,
 		Body:        content.Body,
+		FileName:    content.FileName,
 		MimeType:    mimeType,
 		URL:         url,
 		IsEncrypted: isEncrypted,
@@ -86,7 +90,9 @@ func (msg *FileMessage) Clone() MessageRenderer {
 	data := make([]byte, len(msg.imageData))
 	copy(data, msg.imageData)
 	return &FileMessage{
+		Type:        msg.Type,
 		Body:        msg.Body,
+		FileName:    msg.FileName,
 		MimeType:    msg.MimeType,
 		URL:         msg.URL,
 		IsEncrypted: msg.IsEncrypted,

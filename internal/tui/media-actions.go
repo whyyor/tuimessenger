@@ -1,11 +1,15 @@
 package tui
 
 import (
+	"fmt"
+	"mime"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
+	"unicode"
+	"unicode/utf8"
 
 	"maunium.net/go/mautrix/event"
 
@@ -49,25 +53,109 @@ func (view *RoomView) fetchMediaToFile(msg *messages.FileMessage, dir string) (s
 	if err != nil {
 		return "", err
 	}
-	name := strings.TrimSpace(msg.Body)
-	if name == "" {
-		name = msg.URL.FileID
-	}
-	if filepath.Ext(name) == "" {
-		name += extForMime(msg.MimeType, msg.Type)
-	}
-	path := filepath.Join(dir, filepath.Base(name))
+	name := mediaFileName(msg.FileName, msg.Body, msg.URL.FileID, msg.MimeType, msg.Type)
+	path := uniquePath(dir, name)
 	return path, os.WriteFile(path, data, 0600)
+}
+
+// maxFileNameBytes keeps names well under the 255-byte filesystem limit.
+const maxFileNameBytes = 120
+
+// mediaFileName picks an on-disk name the way the spec defines it: the
+// filename field when present (the body is then a caption, which can be a
+// whole paragraph), otherwise the body, otherwise the media ID.
+func mediaFileName(fileName, body, fileID, mimeType string, msgType event.MessageType) string {
+	name := sanitizeFileName(fileName)
+	if name == "" {
+		name = sanitizeFileName(body)
+	}
+	if name == "" {
+		name = sanitizeFileName(fileID)
+	}
+	if name == "" {
+		name = "media"
+	}
+	if fileExt(name) == "" {
+		name += extForMime(mimeType, msgType)
+	}
+	return name
+}
+
+// fileExt is filepath.Ext restricted to plausible extensions, so a caption's
+// sentence ("Check this out. Amazing") isn't mistaken for one.
+func fileExt(name string) string {
+	ext := filepath.Ext(name)
+	if len(ext) < 2 || len(ext) > 10 || strings.ContainsAny(ext, " ") {
+		return ""
+	}
+	return ext
+}
+
+// sanitizeFileName makes a name safe for disk: no path separators or control
+// characters, collapsed whitespace, no leading dots, and a bounded length
+// that keeps the extension.
+func sanitizeFileName(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r == '/' || r == '\\' || r == ':':
+			b.WriteRune('-')
+		case unicode.IsControl(r) || unicode.IsSpace(r):
+			b.WriteRune(' ')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	name = strings.TrimLeft(strings.Join(strings.Fields(b.String()), " "), ".")
+	if len(name) <= maxFileNameBytes {
+		return name
+	}
+	ext := fileExt(name)
+	stem := name[:len(name)-len(ext)]
+	limit := maxFileNameBytes - len(ext)
+	for limit > 0 && !utf8.RuneStart(stem[limit]) {
+		limit--
+	}
+	return strings.TrimSpace(stem[:limit]) + ext
+}
+
+// uniquePath returns dir/name, or "name (1).ext", "name (2).ext"… if taken,
+// so a download never overwrites an existing file.
+func uniquePath(dir, name string) string {
+	path := filepath.Join(dir, name)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return path
+	}
+	ext := filepath.Ext(name)
+	stem := strings.TrimSuffix(name, ext)
+	for i := 1; i < 1000; i++ {
+		candidate := filepath.Join(dir, fmt.Sprintf("%s (%d)%s", stem, i, ext))
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate
+		}
+	}
+	return path
 }
 
 // extForMime picks a file extension from the mimetype, falling back to a
 // guess by message type; bridges often send bare bodies.
 func extForMime(mimeType string, msgType event.MessageType) string {
+	// Drop parameters: WhatsApp voice notes are "audio/ogg; codecs=opus".
+	if base, _, err := mime.ParseMediaType(mimeType); err == nil {
+		mimeType = base
+	}
 	switch mimeType {
+	case "application/octet-stream":
+		// Means "unknown"; fall through to the message-type guess.
+		mimeType = ""
 	case "video/mp4":
 		return ".mp4"
 	case "video/quicktime":
 		return ".mov"
+	case "video/x-matroska":
+		return ".mkv"
+	case "text/plain":
+		return ".txt"
 	case "audio/ogg":
 		return ".ogg"
 	case "audio/mpeg":
@@ -81,10 +169,21 @@ func extForMime(mimeType string, msgType event.MessageType) string {
 	case "image/webp":
 		return ".webp"
 	}
-	if msgType == event.MsgVideo {
-		return ".mp4"
+	// Anything else (PDFs, documents…) from the standard MIME table; the
+	// explicit cases above avoid its odd first picks like .jfif for JPEG.
+	if exts, _ := mime.ExtensionsByType(mimeType); len(exts) > 0 {
+		return exts[0]
 	}
-	return ".ogg"
+	switch msgType {
+	case event.MsgVideo:
+		return ".mp4"
+	case event.MsgAudio:
+		return ".ogg"
+	case event.MsgImage:
+		return ".jpg"
+	}
+	// Unknown file type: no extension beats a wrong one.
+	return ""
 }
 
 // extractURL pulls the first http(s) URL out of a message body. Bridged link
