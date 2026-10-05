@@ -20,6 +20,11 @@ import (
 	"gopkg.in/toast.v1"
 )
 
+// SendFrom ignores the source network; only macOS attributes notifications.
+func SendFrom(_, title, text string, critical, sound bool) error {
+	return Send(title, text, critical, sound)
+}
+
 func Send(title, text string, critical, sound bool) error {
 	notification := toast.Notification{
 		AppID:    "gomuks",

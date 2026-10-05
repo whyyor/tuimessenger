@@ -392,7 +392,7 @@ func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNot
 			notifTitle = fmt.Sprintf("%s (%s)", notifTitle, stripped)
 		}
 	}
-	err := notification.Send(notifTitle, body, notif.Highlight, notif.Sound)
+	err := notification.SendFrom(room.BridgeID(), notifTitle, body, notif.Highlight, notif.Sound)
 	if err != nil {
 		debug.Print("Failed to send notification:", err)
 	} else {

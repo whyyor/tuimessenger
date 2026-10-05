@@ -18,25 +18,75 @@ package notification
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 )
 
-var terminalNotifierAvailable = false
-
-func init() {
-	if err := exec.Command("which", "terminal-notifier").Run(); err != nil {
-		terminalNotifierAvailable = false
-	}
-	terminalNotifierAvailable = true
-}
+var terminalNotifierAvailable = func() bool {
+	_, err := exec.LookPath("terminal-notifier")
+	return err == nil
+}()
 
 const sendScript = `on run {notifText, notifTitle}
 	display notification notifText with title "gomuks" subtitle notifTitle
 end run`
 
-func Send(title, text string, critical, sound bool) error {
+// macOS always takes a notification's icon and app name from the sending
+// bundle, so per-network icons come from per-network copies of
+// terminal-notifier built with its `make icon` target and placed here.
+var notifierDir = func() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".local", "opt", "gomuks", "notifiers")
+}()
+
+var sourceBundles = map[string]string{
+	"whatsapp":    "WhatsApp",
+	"telegram":    "Telegram",
+	"slack":       "Slack",
+	"slackgo":     "Slack",
+	"instagram":   "Instagram",
+	"instagramgo": "Instagram",
+}
+
+// notifierFor returns the terminal-notifier binary to use for a bridge: its
+// own bundle if built, else the generic gomuks bundle, else brew's copy.
+func notifierFor(source string) (path string, custom bool) {
+	if notifierDir != "" {
+		for _, name := range []string{sourceBundles[source], "gomuks"} {
+			if name == "" {
+				continue
+			}
+			bin := filepath.Join(notifierDir, name+".app", "Contents", "MacOS", "terminal-notifier")
+			if _, err := os.Stat(bin); err == nil {
+				return bin, true
+			}
+		}
+	}
 	if terminalNotifierAvailable {
-		args := []string{"-title", "gomuks", "-subtitle", title, "-message", text}
+		return "terminal-notifier", false
+	}
+	return "", false
+}
+
+func Send(title, text string, critical, sound bool) error {
+	return SendFrom("", title, text, critical, sound)
+}
+
+// SendFrom sends a notification attributed to the network it came from.
+func SendFrom(source, title, text string, critical, sound bool) error {
+	if bin, custom := notifierFor(source); bin != "" {
+		var args []string
+		if custom {
+			// The bundle's own name ("WhatsApp", "gomuks") already heads the
+			// banner, so the sender takes the title line.
+			args = []string{"-title", title, "-message", text}
+		} else {
+			args = []string{"-title", "gomuks", "-subtitle", title, "-message", text}
+		}
 		if critical {
 			args = append(args, "-timeout", "15")
 		} else {
@@ -45,10 +95,7 @@ func Send(title, text string, critical, sound bool) error {
 		if sound {
 			args = append(args, "-sound", "default")
 		}
-		//if len(iconPath) > 0 {
-		//	args = append(args, "-appIcon", iconPath)
-		//}
-		return exec.Command("terminal-notifier", args...).Run()
+		return exec.Command(bin, args...).Run()
 	}
 	cmd := exec.Command("osascript", "-", text, title)
 	if stdin, err := cmd.StdinPipe(); err != nil {

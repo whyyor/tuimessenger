@@ -6,6 +6,12 @@ import (
 	"go.mau.fi/gomuks/pkg/hicli/database"
 )
 
+// BridgeID returns the room's bridge protocol key ("whatsapp", "slackgo"…),
+// or "" for native Matrix rooms.
+func (rs *RoomStore) BridgeID() string {
+	return bridgeIDFromMeta(rs.Meta.Current())
+}
+
 // bridgeIDFromMeta derives a room's bridge protocol key from the ghost users in
 // its lazy-loading summary, e.g. "@whatsapp_15550100001:server" -> "whatsapp".
 // Heroes live in room meta, so this resolves for every room in the list, whereas
