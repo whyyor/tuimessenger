@@ -56,6 +56,9 @@ type MessageView struct {
 	prevTimeline *[]*database.Event
 	prevWidth    int
 	selected     database.EventRowID
+	// followSelection asks the next Draw to scroll the selected message into
+	// view; Draw is where msgBuffer's line layout is current.
+	followSelection bool
 }
 
 func NewMessageView(parent *RoomView) *MessageView {
@@ -82,13 +85,15 @@ func (view *MessageView) SetSelected(message *messages.UIMessage) {
 // message passing the filter, starting from the newest when nothing is
 // selected yet. Returns whether a selection was made.
 func (view *MessageView) SelectAdjacent(forward bool, allow func(*messages.UIMessage) bool) bool {
-	view.lock.RLock()
-	defer view.lock.RUnlock()
+	view.lock.Lock()
+	defer view.lock.Unlock()
 	var msgs []*messages.UIMessage
+	var firstLines []int
 	var prev *messages.UIMessage
-	for _, m := range view.msgBuffer {
+	for line, m := range view.msgBuffer {
 		if m != prev {
 			msgs = append(msgs, m)
+			firstLines = append(firstLines, line)
 			prev = m
 		}
 	}
@@ -109,12 +114,20 @@ func (view *MessageView) SelectAdjacent(forward bool, allow func(*messages.UIMes
 		step = 1
 	}
 	if idx == -1 {
-		// Nothing selected: step from beyond the appropriate end so the
-		// first candidate is the newest (backward) or oldest (forward).
 		if forward {
 			idx = -1
 		} else {
-			idx = len(msgs)
+			// Nothing selected: start from the newest message on screen, not
+			// the newest loaded, so entering visual mode while scrolled up
+			// doesn't jump the view back to the bottom.
+			bottom := bottomVisibleLine(len(view.msgBuffer), view.GetScrollOffset())
+			idx = 0
+			for i, first := range firstLines {
+				if first <= bottom {
+					idx = i
+				}
+			}
+			idx++ // the loop below steps back onto it
 		}
 	}
 	for i := idx + step; i >= 0 && i < len(msgs); i += step {
@@ -123,9 +136,59 @@ func (view *MessageView) SelectAdjacent(forward bool, allow func(*messages.UIMes
 			continue
 		}
 		view.selected = m.RowID
+		view.followSelection = true
 		return true
 	}
 	return false
+}
+
+// bottomVisibleLine is the msgBuffer index of the last line on screen.
+// ScrollOffset counts lines up from the bottom of the timeline.
+func bottomVisibleLine(total, scroll int) int {
+	return total - scroll - 1
+}
+
+// scrollForSpan returns the scroll offset that brings lines [first, last]
+// into a viewport of the given height, moving as little as possible: a span
+// above the window is aligned to the top, below it to the bottom, and an
+// already visible span leaves the scroll unchanged.
+func scrollForSpan(total, height, scroll, first, last int) int {
+	top := total - scroll - height
+	switch {
+	case first < top:
+		scroll = total - height - first
+	case last >= top+height:
+		scroll = total - 1 - last
+	}
+	if limit := total - height + PaddingAtTop; scroll > limit {
+		scroll = limit
+	}
+	if scroll < 0 {
+		scroll = 0
+	}
+	return scroll
+}
+
+// scrollToSelectedLocked applies scrollForSpan to the selected message.
+// Caller holds view.lock and has just rebuilt msgBuffer.
+func (view *MessageView) scrollToSelectedLocked(height int) {
+	if view.selected == 0 {
+		return
+	}
+	first, last := -1, -1
+	for i, m := range view.msgBuffer {
+		if m.RowID == view.selected {
+			if first == -1 {
+				first = i
+			}
+			last = i
+		}
+	}
+	if first == -1 {
+		return
+	}
+	scroll := scrollForSpan(len(view.msgBuffer), height, view.GetScrollOffset(), first, last)
+	view.ScrollOffset.Store(int32(scroll))
 }
 
 func (view *MessageView) GetSelected() *messages.UIMessage {
@@ -354,6 +417,10 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 	width, height := screen.Size()
 	view.height.Store(uint32(height))
 	view.update(width)
+	if view.followSelection {
+		view.followSelection = false
+		view.scrollToSelectedLocked(height)
+	}
 	scrollOffset := view.GetScrollOffset()
 
 	// Fill the viewport on open: if the loaded timeline is shorter than the

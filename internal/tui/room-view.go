@@ -700,7 +700,12 @@ func (view *RoomView) SelectNext() {
 }
 
 func (view *RoomView) SelectPrevious() {
-	view.MessageView().SelectAdjacent(false, view.selectionFilter())
+	if !view.MessageView().SelectAdjacent(false, view.selectionFilter()) &&
+		view.Room.HasMoreHistory() && !view.Room.Paginating.Load() {
+		// At the oldest loaded message: fetch older history so the next
+		// press keeps going up instead of stopping.
+		go view.parent.LoadHistory(view.Room.ID)
+	}
 }
 
 type completion struct {
