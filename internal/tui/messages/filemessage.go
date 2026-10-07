@@ -21,8 +21,11 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
+	"github.com/tidwall/gjson"
 	"go.mau.fi/mauview"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
@@ -43,6 +46,11 @@ type FileMessage struct {
 	// caption rather than the file name.
 	FileName string
 	MimeType string
+	// LinkURL is the post this media came from (e.g. an Instagram reel):
+	// the bridge's external_url, else the first URL in the caption. Bridged
+	// reels often attach only a thumbnail, so this is the playable source.
+	LinkURL  string
+	linkLine tstring.TString
 
 	URL         id.ContentURI
 	IsEncrypted bool
@@ -74,11 +82,16 @@ func NewFileMessage(room *store.RoomStore, matrix *client.GomuksClient, evt *dat
 	if content.Info != nil {
 		mimeType = content.Info.MimeType
 	}
+	link := gjson.GetBytes(evt.GetContent(), "external_url").Str
+	if link == "" {
+		link = FirstURL(content.Body)
+	}
 	return newUIMessage(room, evt, content, "", &FileMessage{
 		Type:        content.MsgType,
 		Body:        content.Body,
 		FileName:    content.FileName,
 		MimeType:    mimeType,
+		LinkURL:     link,
 		URL:         url,
 		IsEncrypted: isEncrypted,
 		eventID:     evt.ID,
@@ -94,6 +107,7 @@ func (msg *FileMessage) Clone() MessageRenderer {
 		Body:        msg.Body,
 		FileName:    msg.FileName,
 		MimeType:    msg.MimeType,
+		LinkURL:     msg.LinkURL,
 		URL:         msg.URL,
 		IsEncrypted: msg.IsEncrypted,
 		imageData:   data,
@@ -167,6 +181,9 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 	if width < 2 {
 		return
 	}
+	// Only image renderings get the link row; the text fallback already
+	// shows the caption, which contains the link.
+	msg.linkLine = nil
 
 	if prefs.BareMessageView || prefs.DisableImages || len(msg.imageData) == 0 {
 		url := msg.matrix.GetDownloadURL(msg.URL, msg.IsEncrypted, true)
@@ -224,6 +241,7 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 		msg.kittyCols = cols
 		msg.kittyRows = rows
 		msg.buffer = nil
+		msg.linkLine = msg.makeLinkLine(prefs, width)
 		return
 	}
 	msg.kittyRows = 0
@@ -253,16 +271,67 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 	}
 
 	msg.buffer = ansFile.Render()
+	msg.linkLine = msg.makeLinkLine(prefs, width)
+}
+
+// makeLinkLine renders the source post as a dim, clickable row under the
+// thumbnail, e.g. "▶ instagram.com/reel/AbCdEfGhIjK".
+func (msg *FileMessage) makeLinkLine(prefs config.UserPreferences, width int) tstring.TString {
+	if msg.LinkURL == "" {
+		return nil
+	}
+	label := "▶ " + shortLink(msg.LinkURL)
+	style := tcell.StyleDefault.Foreground(tcell.ColorGray)
+	if prefs.EnableInlineURLs() {
+		style = style.Url(msg.LinkURL).UrlId(msg.eventID.String() + "-link")
+	} else {
+		// Without hyperlinks the full URL has to be visible to be usable.
+		label = "▶ " + msg.LinkURL
+	}
+	if runewidth.StringWidth(label) > width-1 {
+		label = runewidth.Truncate(label, width-1, "…")
+	}
+	return tstring.NewStyleTString(label, style)
+}
+
+// shortLink drops the scheme, www., query string and trailing slash.
+func shortLink(link string) string {
+	link = strings.TrimPrefix(strings.TrimPrefix(link, "https://"), "http://")
+	link = strings.TrimPrefix(link, "www.")
+	if i := strings.IndexAny(link, "?#"); i != -1 {
+		link = link[:i]
+	}
+	return strings.TrimSuffix(link, "/")
+}
+
+// FirstURL returns the first http(s) URL in a message body. Bridged link
+// posts, like Instagram reels, carry it bracketed: "[https://…](https://…)".
+func FirstURL(body string) string {
+	idx := strings.Index(body, "http")
+	if idx == -1 {
+		return ""
+	}
+	url := body[idx:]
+	if end := strings.IndexAny(url, " ]\n)"); end != -1 {
+		url = url[:end]
+	}
+	return url
 }
 
 func (msg *FileMessage) Height() int {
+	base := len(msg.buffer)
 	if msg.kittyRows > 0 {
-		return msg.kittyRows
+		base = msg.kittyRows
 	}
-	return len(msg.buffer)
+	if msg.linkLine != nil {
+		base++
+	}
+	return base
 }
 
 func (msg *FileMessage) Draw(screen mauview.Screen, _ *UIMessage) {
+	rows := len(msg.buffer)
+	drewKitty := false
 	if msg.kittyRows > 0 {
 		img := kittyImageFor(msg.URL.String())
 		if kittyEnsurePlaced(img, msg.kittyPNG, msg.kittyCols, msg.kittyRows) {
@@ -276,11 +345,17 @@ func (msg *FileMessage) Draw(screen mauview.Screen, _ *UIMessage) {
 						[]rune{kittyRowColDiacritics[y], kittyRowColDiacritics[x]}, style)
 				}
 			}
-			return
+			rows = msg.kittyRows
+			drewKitty = true
 		}
 		// Terminal refused; fall back to text until the next recalculation.
 	}
-	for y, line := range msg.buffer {
-		line.Draw(screen, 0, y)
+	if !drewKitty {
+		for y, line := range msg.buffer {
+			line.Draw(screen, 0, y)
+		}
+	}
+	if msg.linkLine != nil {
+		msg.linkLine.Draw(screen, 0, rows)
 	}
 }

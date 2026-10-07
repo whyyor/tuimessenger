@@ -186,39 +186,20 @@ func extForMime(mimeType string, msgType event.MessageType) string {
 	return ""
 }
 
-// extractURL pulls the first http(s) URL out of a message body. Bridged link
-// posts, like Instagram reels, are an image thumbnail with the URL in the
-// body, often bracketed.
-func extractURL(body string) string {
-	idx := strings.Index(body, "http")
-	if idx == -1 {
-		return ""
-	}
-	url := body[idx:]
-	if end := strings.IndexAny(url, " ]\n"); end != -1 {
-		url = url[:end]
-	}
-	return url
-}
-
 // PlayMedia plays an audio or video message: audio in the background, video
-// in the terminal via mpv's kitty output. Bridged link posts, which arrive
-// as a thumbnail image with the URL in the body, are handed to IINA, which
-// streams them through yt-dlp.
+// in the terminal via mpv's kitty output. Bridged link posts (an Instagram
+// reel arrives as a thumbnail image plus the reel URL) play from the URL.
 func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 	defer debug.Recover()
 	isVideo := msg.Type == event.MsgVideo || strings.HasPrefix(msg.MimeType, "video/")
 	isAudio := msg.Type == event.MsgAudio || strings.HasPrefix(msg.MimeType, "audio/")
 	if !isVideo && !isAudio {
-		if url := extractURL(msg.Body); url != "" {
-			view.AddServiceMessage("Opening %s", url)
-			if err := exec.Command("open", "-a", "IINA", url).Run(); err != nil {
-				_ = exec.Command("open", url).Start()
-			}
+		if msg.LinkURL != "" {
+			view.playLink(msg.LinkURL)
 		} else {
 			view.AddServiceMessage("Nothing playable in that message")
+			view.parent.parent.Render()
 		}
-		view.parent.parent.Render()
 		return
 	}
 	path, err := view.fetchMediaToFile(msg, os.TempDir())
@@ -228,7 +209,7 @@ func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 		return
 	}
 	if isVideo {
-		view.playVideoInTerminal(path)
+		view.playVideoInTerminal(path, true)
 		return
 	}
 	cmd := mediaPlayerCommand(path)
@@ -256,26 +237,72 @@ func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 	}()
 }
 
+// playLink plays a post's video from its URL. mpv streams it in the terminal
+// (it resolves the URL with yt-dlp itself). Without mpv, yt-dlp downloads it,
+// with ffmpeg merging Instagram's separate video and audio streams, and
+// QuickTime plays the file. IINA isn't used: its bundled youtube-dl is too
+// old for Instagram.
+func (view *RoomView) playLink(url string) {
+	if _, err := exec.LookPath("mpv"); err == nil {
+		view.playVideoInTerminal(url, false)
+		return
+	}
+	ytdlp, err := exec.LookPath("yt-dlp")
+	if err != nil {
+		view.AddServiceMessage("Opening %s in the browser (install mpv or yt-dlp to play it here)", url)
+		view.parent.parent.Render()
+		_ = exec.Command("open", url).Start()
+		return
+	}
+	view.AddServiceMessage("Fetching video…")
+	view.parent.parent.Render()
+	// Prefer H.264/AAC: Instagram's best stream is VP9, which QuickTime
+	// can't play.
+	cmd := exec.Command(ytdlp, "--quiet", "--no-warnings", "--no-playlist",
+		"-S", "vcodec:h264,acodec:aac", "--merge-output-format", "mp4",
+		"-o", filepath.Join(os.TempDir(), "gomuks-%(id)s.%(ext)s"),
+		"--print", "after_move:filepath", url)
+	out, err := cmd.Output()
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	path := strings.TrimSpace(lines[len(lines)-1])
+	if err != nil || path == "" {
+		reason := err
+		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {
+			reason = fmt.Errorf("%s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		view.AddServiceMessage("Couldn't fetch the video (%v); opening it in the browser", reason)
+		view.parent.parent.Render()
+		_ = exec.Command("open", url).Start()
+		return
+	}
+	view.AddServiceMessage("Playing in QuickTime (install mpv to play inside the terminal)")
+	view.parent.parent.Render()
+	_ = exec.Command("open", path).Start()
+}
+
 // playVideoInTerminal suspends the TUI and hands the terminal to mpv with
 // its kitty-graphics output, so the video renders inside the terminal with
 // mpv's own controls: space pauses, arrows seek, q returns to the chat.
 // tcell and mpv cannot share the tty, which is why the TUI must step aside.
-func (view *RoomView) playVideoInTerminal(path string) {
+// target is a local file (deleted afterwards when isFile) or a URL.
+func (view *RoomView) playVideoInTerminal(target string, isFile bool) {
 	mpv, err := exec.LookPath("mpv")
 	if err != nil {
 		// No in-terminal player; hand the file to the system instead.
-		_ = exec.Command("open", path).Start()
+		_ = exec.Command("open", target).Start()
 		return
 	}
 	StopPlayback()
 	view.parent.parent.app.Suspend(func() {
 		print("\033[2J\033[0;0H")
-		cmd := exec.Command(mpv, "--vo=kitty", "--really-quiet", path)
+		cmd := exec.Command(mpv, "--vo=kitty", "--really-quiet", target)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		_ = cmd.Run()
-		_ = os.Remove(path)
+		if isFile {
+			_ = os.Remove(target)
+		}
 	})
 	view.parent.parent.Render()
 }

@@ -454,7 +454,7 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 				// drag-selecting a wrapped link across the sidebar columns.
 				if event.Rune() == 'u' {
 					if selected := msgView.GetSelected(); selected != nil {
-						if url := extractURL(selected.Renderer.PlainText()); url != "" {
+						if url := messages.FirstURL(selected.Renderer.PlainText()); url != "" {
 							go view.CopyToClipboard(url, "clipboard")
 							view.AddServiceMessage("Copied %s", url)
 						} else {
