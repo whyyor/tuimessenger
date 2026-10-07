@@ -23,6 +23,7 @@ import (
 	"html"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
@@ -549,7 +550,50 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 }
 
 func (view *RoomView) OnPasteEvent(event mauview.PasteEvent) bool {
+	if clip, err := clipboard.ReadAll("clipboard"); err == nil {
+		if restored, ok := restorePasteWhitespace(event.Text(), clip); ok {
+			return view.input.OnPasteEvent(restoredPaste{event, restored})
+		}
+	}
 	return view.input.OnPasteEvent(event)
+}
+
+// restoredPaste carries corrected text through mauview's normal paste path,
+// so undo and cursor handling stay as they are.
+type restoredPaste struct {
+	mauview.PasteEvent
+	text string
+}
+
+func (rp restoredPaste) Text() string {
+	return rp.text
+}
+
+// restorePasteWhitespace undoes mauview's paste assembly, which keeps only
+// printable runes and CR, so the LF line breaks and tabs Ghostty sends in a
+// bracketed paste were dropped and pasted lines ran together. A Cmd+V paste
+// is the clipboard's contents, so if the clipboard matches what arrived once
+// that whitespace is ignored, the clipboard text is the faithful version.
+func restorePasteWhitespace(received, clip string) (string, bool) {
+	clip = strings.ReplaceAll(clip, "\r\n", "\n")
+	clip = strings.ReplaceAll(clip, "\r", "\n")
+	if clip == received {
+		return "", false
+	}
+	if stripPasteWhitespace(clip) != stripPasteWhitespace(received) {
+		// Not the same paste (e.g. text dropped onto the terminal).
+		return "", false
+	}
+	return clip, true
+}
+
+func stripPasteWhitespace(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == '\t' || unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 func (view *RoomView) OnMouseEvent(event mauview.MouseEvent) bool {
