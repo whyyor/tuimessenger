@@ -340,6 +340,8 @@ func (view *MainView) SwitchRoom(roomID id.RoomID) {
 	// Voice notes belong to the room they were played from.
 	StopPlayback()
 	view.roomList.SetSelected(roomID)
+	// Safety net: wipe anything a width mismatch left behind in the old room.
+	RequestRepaint()
 	view.flex.SetFocused(view.roomView)
 	if view.currentRoom != nil {
 		view.currentRoom.Unload()

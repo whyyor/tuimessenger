@@ -2,6 +2,7 @@ package tui
 
 import (
 	"slices"
+	"sync/atomic"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
@@ -28,10 +29,25 @@ func newBufferedRoot(inner mauview.Component) *bufferedRoot {
 	return &bufferedRoot{inner: inner}
 }
 
+// repaintNext asks the next frame to repaint every cell; see RequestRepaint.
+var repaintNext atomic.Bool
+
+// RequestRepaint makes the next frame rewrite the whole terminal. The diff
+// renderer only sends changed cells, so anything the terminal drew in a
+// different place than tcell expected would otherwise stay on screen.
+func RequestRepaint() {
+	repaintNext.Store(true)
+}
+
 func (br *bufferedRoot) Draw(screen mauview.Screen) {
 	br.buf.begin(screen)
 	br.inner.Draw(&br.buf)
 	br.buf.flush(screen)
+	if repaintNext.Swap(false) {
+		if s, ok := screen.(interface{ Sync() }); ok {
+			s.Sync()
+		}
+	}
 }
 
 func (br *bufferedRoot) OnKeyEvent(event mauview.KeyEvent) bool {
@@ -140,11 +156,45 @@ func (fb *frameBuffer) SetContent(x, y int, mainc rune, combc []rune, style tcel
 	if x < 0 || y < 0 || x >= fb.w || y >= fb.h {
 		return
 	}
-	var comb []rune
-	if len(combc) > 0 {
-		comb = slices.Clone(combc)
-	}
+	mainc, comb, blankNext := terminalSafe(mainc, combc)
 	fb.cells[y*fb.w+x] = frameCell{main: mainc, comb: comb, style: style}
+	if blankNext && x+1 < fb.w {
+		fb.cells[y*fb.w+x+1] = frameCell{main: ' ', style: style}
+	}
+}
+
+// terminalSafe rewrites a cell so tcell and the terminal agree on its width.
+// tcell measures each codepoint on its own, but Ghostty joins emoji
+// sequences into one glyph: 🧍🏻‍♂️ is 5 columns to tcell and 2 on screen,
+// ⚜️ is 1 and 2. Every later cell on the row then lands off by the
+// difference, and the diff renderer never cleans up after it. Dropping ZWJ
+// and the emoji variation selector and blanking skin-tone modifiers keeps
+// each piece a separate glyph of the width tcell expects. A blanked
+// modifier was 2 columns wide, so the caller blanks the next cell too.
+func terminalSafe(mainc rune, combc []rune) (rune, []rune, bool) {
+	blankNext := false
+	switch {
+	case isSkinTone(mainc):
+		mainc, blankNext = ' ', true
+	case mainc == zwj || mainc == emojiVS:
+		mainc = ' '
+	}
+	var comb []rune
+	for _, r := range combc {
+		if r != zwj && r != emojiVS && !isSkinTone(r) {
+			comb = append(comb, r)
+		}
+	}
+	return mainc, comb, blankNext
+}
+
+const (
+	zwj     = '\u200d'
+	emojiVS = '\ufe0f'
+)
+
+func isSkinTone(r rune) bool {
+	return r >= 0x1f3fb && r <= 0x1f3ff
 }
 
 func (fb *frameBuffer) ShowCursor(x, y int) {
