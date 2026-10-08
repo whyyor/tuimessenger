@@ -219,6 +219,12 @@ func (gs *GomuksStore) ApplySync(sync *jsoncmd.SyncComplete) {
 	}
 }
 
+func (gs *GomuksStore) GetAccountData(evtType event.Type) *database.AccountData {
+	gs.lock.RLock()
+	defer gs.lock.RUnlock()
+	return gs.accountData[event.Type{Type: evtType.Type, Class: event.AccountDataEventType}]
+}
+
 func (gs *GomuksStore) GetRoom(roomID id.RoomID) *RoomStore {
 	gs.lock.RLock()
 	defer gs.lock.RUnlock()

@@ -24,8 +24,10 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
+	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
+	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/widget"
 )
@@ -37,6 +39,10 @@ type RoomList struct {
 
 	rooms    []*store.RoomListEntry
 	selected id.RoomID
+
+	// muted is parsed from pushRules, and reparsed only when sync replaces it.
+	pushRules *database.AccountData
+	muted     map[id.RoomID]bool
 
 	scrollOffset int
 	height       int
@@ -178,6 +184,14 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 	list.rooms = list.parent.matrix.ReversedRoomList.Current()
 	list.width, list.height = screen.Size()
 	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
+	if ad := list.parent.matrix.GomuksStore.GetAccountData(event.AccountDataPushRules); ad != list.pushRules {
+		list.pushRules = ad
+		list.muted = nil
+		if ad != nil {
+			list.muted = mutedRooms(ad.Content)
+		}
+	}
+	muted := list.muted
 	list.lock.Unlock()
 
 	for y, room := range roomSlice {
@@ -222,6 +236,16 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 			badge = "●"
 			if !isSelected {
 				badgeStyle = rowStyle.Foreground(ColorUnreadBadge)
+			}
+		}
+		if muted[room.RoomID] {
+			// Muted: grey count, then the bell; never red.
+			if badge != "" {
+				badge += " "
+			}
+			badge += "🔕"
+			if !isSelected {
+				badgeStyle = rowStyle.Foreground(tcell.ColorGray)
 			}
 		}
 
