@@ -16,6 +16,7 @@ main:
     'Alt+End': scroll_down
     'Alt+Enter': add_newline
     'Alt+a': next_active_room
+    'Alt+z': toggle_archive
     'Alt+l': show_bare
     'Alt+r': resync
     'Ctrl+c': force_quit

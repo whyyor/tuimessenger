@@ -32,6 +32,8 @@ type RoomListEntry struct {
 	Avatar           id.ContentURI
 	MarkedUnread     bool
 	IsInvite         bool
+	// LowPriority is the m.lowpriority tag; the TUI files these under Archive.
+	LowPriority bool
 	database.UnreadCounts
 }
 
@@ -67,7 +69,19 @@ func roomListEntryChanged(entry *jsoncmd.SyncRoom, oldMeta *database.Room) bool 
 		ptr.Val(entry.Meta.Avatar) != ptr.Val(oldMeta.Avatar) ||
 		slices.ContainsFunc(entry.Timeline, func(tuple database.TimelineRowTuple) bool {
 			return tuple.Event == entry.Meta.PreviewEventRowID
-		})
+		}) ||
+		hasTagUpdate(entry)
+}
+
+// hasTagUpdate reports whether a sync carries new m.tag data. Keys decoded
+// from JSON may lack the Class, so compare the type name only.
+func hasTagUpdate(entry *jsoncmd.SyncRoom) bool {
+	for evtType := range entry.AccountData {
+		if evtType.Type == event.AccountDataRoomTags.Type {
+			return true
+		}
+	}
+	return false
 }
 
 func (gs *GomuksStore) shouldHideRoom(entry *database.Room) bool {
@@ -110,6 +124,7 @@ func (gs *GomuksStore) makeRoomListEntry(roomStore *RoomStore) *RoomListEntry {
 		SearchName:       toSearchableString(name),
 		Avatar:           ptr.Val(meta.Avatar),
 		MarkedUnread:     ptr.Val(meta.MarkedUnread),
+		LowPriority:      roomStore.HasTag(event.RoomTagLowPriority),
 		UnreadCounts:     meta.UnreadCounts,
 	}
 	if entry.PreviewEvent != nil {
