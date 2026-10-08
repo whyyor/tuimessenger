@@ -518,26 +518,6 @@ func (rs *RoomStore) GetBotCommands() []*WrappedCommand {
 	return cache
 }
 
-func (rs *RoomStore) GetAccountData(evtType event.Type) *database.AccountData {
-	rs.lock.RLock()
-	defer rs.lock.RUnlock()
-	return rs.accountData[event.Type{Type: evtType.Type, Class: event.AccountDataEventType}]
-}
-
-// HasTag reports whether the room's m.tag account data contains tag.
-func (rs *RoomStore) HasTag(tag event.RoomTag) bool {
-	ad := rs.GetAccountData(event.AccountDataRoomTags)
-	if ad == nil {
-		return false
-	}
-	var content event.TagEventContent
-	if json.Unmarshal(ad.Content, &content) != nil {
-		return false
-	}
-	_, ok := content.Tags[tag]
-	return ok
-}
-
 func (rs *RoomStore) GetEventByRowID(rowID database.EventRowID) *database.Event {
 	rs.lock.RLock()
 	defer rs.lock.RUnlock()

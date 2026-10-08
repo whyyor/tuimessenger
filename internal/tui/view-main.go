@@ -27,7 +27,6 @@ import (
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 	"go.mau.fi/util/ptr"
-	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
@@ -257,8 +256,6 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		return view.flex.OnKeyEvent(tcell.NewEventKey(tcell.KeyEnter, '\n', event.Modifiers()|tcell.ModShift))
 	case "next_active_room":
 		view.SwitchRoom(view.roomList.NextWithActivity())
-	case "toggle_archive":
-		view.roomList.ToggleArchive()
 	case "show_bare":
 		view.ShowBare(view.currentRoom)
 	case "resync":
@@ -373,11 +370,6 @@ func (view *MainView) SwitchRoom(roomID id.RoomID) {
 
 func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNotification) {
 	if view.config.Preferences.DisableNotifications {
-		return
-	}
-	// Archived chats are muted on the server too; this covers ones archived
-	// elsewhere without muting.
-	if room.HasTag(event.RoomTagLowPriority) {
 		return
 	}
 	body := notif.Event.GetMautrixContent().AsMessage().Body

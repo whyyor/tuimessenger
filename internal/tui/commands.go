@@ -42,9 +42,6 @@ const (
 	CmdPlay     = "play"
 	CmdOpen     = "open"
 	CmdDownload = "download"
-
-	CmdArchive   = "archive"
-	CmdUnarchive = "unarchive"
 )
 
 var LocalCommands = []*cmdschema.EventContent{{
@@ -112,12 +109,6 @@ var LocalCommands = []*cmdschema.EventContent{{
 }, {
 	Command:     CmdDownload,
 	Description: event.MakeExtensibleText("Save a media message to Downloads"),
-}, {
-	Command:     CmdArchive,
-	Description: event.MakeExtensibleText("Move this chat to Archive and mute it on all devices"),
-}, {
-	Command:     CmdUnarchive,
-	Description: event.MakeExtensibleText("Move this chat out of Archive and unmute it"),
 }, {
 	Command:     CmdQuit,
 	Description: event.MakeExtensibleText("Quit gomuks terminal"),
@@ -206,10 +197,6 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 		go view.UploadFile(gjson.GetBytes(cmd.Arguments, "path").Str)
 	case CmdPaste:
 		go view.UploadClipboard()
-	case CmdArchive:
-		go view.SetArchived(true)
-	case CmdUnarchive:
-		go view.SetArchived(false)
 	case CmdQuit:
 		view.parent.parent.Stop()
 	default:

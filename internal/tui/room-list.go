@@ -17,7 +17,6 @@
 package tui
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"sync"
@@ -36,12 +35,8 @@ type RoomList struct {
 
 	parent *MainView
 
-	// rooms is what's drawn, one entry per row; a nil entry is the Archive
-	// header. See buildRoomRows.
-	rooms         []*store.RoomListEntry
-	archivedCount int
-	showArchive   bool
-	selected      id.RoomID
+	rooms    []*store.RoomListEntry
+	selected id.RoomID
 
 	scrollOffset int
 	height       int
@@ -92,10 +87,9 @@ func (list *RoomList) SelectedRoom() id.RoomID {
 func (list *RoomList) Previous() id.RoomID {
 	list.lock.RLock()
 	defer list.lock.RUnlock()
-	for i := list.index(list.selected) - 1; i >= 0; i-- {
-		if list.rooms[i] != nil {
-			return list.rooms[i].RoomID
-		}
+	idx := list.index(list.selected)
+	if idx > 0 && idx < len(list.rooms) {
+		return list.rooms[idx-1].RoomID
 	}
 	return ""
 }
@@ -103,64 +97,34 @@ func (list *RoomList) Previous() id.RoomID {
 func (list *RoomList) Next() id.RoomID {
 	list.lock.RLock()
 	defer list.lock.RUnlock()
-	// index is -1 with nothing selected, so this starts at the top.
-	for i := list.index(list.selected) + 1; i >= 0 && i < len(list.rooms); i++ {
-		if list.rooms[i] != nil {
-			return list.rooms[i].RoomID
-		}
+	if len(list.rooms) == 0 {
+		return ""
+	}
+	if list.selected == "" {
+		return list.rooms[0].RoomID
+	}
+	idx := list.index(list.selected)
+	if idx >= 0 && idx < len(list.rooms)-1 {
+		return list.rooms[idx+1].RoomID
 	}
 	return ""
 }
 
-// NextWithActivity skips archived chats: they're junk by definition.
 func (list *RoomList) NextWithActivity() id.RoomID {
 	list.lock.RLock()
 	defer list.lock.RUnlock()
 	for _, room := range list.rooms {
-		if room != nil && !room.LowPriority &&
-			(room.UnreadHighlights > 0 || room.UnreadMessages > 0 || room.MarkedUnread) {
+		if room.UnreadHighlights > 0 || room.UnreadMessages > 0 || room.MarkedUnread {
 			return room.RoomID
 		}
 	}
 	return ""
 }
 
-func (list *RoomList) ToggleArchive() {
-	list.lock.Lock()
-	list.showArchive = !list.showArchive
-	list.lock.Unlock()
-}
-
 func (list *RoomList) index(roomID id.RoomID) int {
 	return slices.IndexFunc(list.rooms, func(entry *store.RoomListEntry) bool {
-		return entry != nil && entry.RoomID == roomID
+		return entry.RoomID == roomID
 	})
-}
-
-// buildRoomRows lays out the sidebar: active chats newest first, then an
-// Archive header (nil) when any chat is archived, then the archived chats if
-// expanded. A collapsed archive still shows the open chat, so it stays
-// visible and selectable.
-func buildRoomRows(rooms []*store.RoomListEntry, expanded bool, selected id.RoomID) (rows []*store.RoomListEntry, archived int) {
-	rows = make([]*store.RoomListEntry, 0, len(rooms)+1)
-	var archivedRooms []*store.RoomListEntry
-	for _, room := range rooms {
-		if room.LowPriority {
-			archivedRooms = append(archivedRooms, room)
-		} else {
-			rows = append(rows, room)
-		}
-	}
-	if len(archivedRooms) == 0 {
-		return rows, 0
-	}
-	rows = append(rows, nil)
-	for _, room := range archivedRooms {
-		if expanded || room.RoomID == selected {
-			rows = append(rows, room)
-		}
-	}
-	return rows, len(archivedRooms)
 }
 
 func (list *RoomList) OnKeyEvent(_ mauview.KeyEvent) bool {
@@ -185,18 +149,12 @@ func (list *RoomList) OnMouseEvent(event mauview.MouseEvent) bool {
 	case tcell.Button1:
 		_, y := event.Position()
 		list.lock.RLock()
+		defer list.lock.RUnlock()
 		y += list.scrollOffset
-		if y < 0 || y >= len(list.rooms) {
-			list.lock.RUnlock()
+		if y < 0 || y > len(list.rooms) {
 			return false
 		}
-		row := list.rooms[y]
-		list.lock.RUnlock()
-		if row == nil {
-			list.ToggleArchive()
-		} else {
-			list.parent.SwitchRoom(row.RoomID)
-		}
+		list.parent.SwitchRoom(list.rooms[y].RoomID)
 		return true
 	}
 	return false
@@ -217,31 +175,17 @@ func (list *RoomList) Blur()  {}
 
 func (list *RoomList) Draw(screen mauview.Screen) {
 	list.lock.Lock()
-	list.rooms, list.archivedCount = buildRoomRows(list.parent.matrix.ReversedRoomList.Current(), list.showArchive, list.selected)
+	list.rooms = list.parent.matrix.ReversedRoomList.Current()
 	list.width, list.height = screen.Size()
 	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
-	archivedCount, showArchive := list.archivedCount, list.showArchive
 	list.lock.Unlock()
 
-	dim := tcell.StyleDefault.Foreground(tcell.ColorGray)
 	for y, room := range roomSlice {
-		if room == nil {
-			arrow := "▸"
-			if showArchive {
-				arrow = "▾"
-			}
-			widget.WriteLinePadded(screen, mauview.AlignLeft, fmt.Sprintf(" %s Archive (%d)", arrow, archivedCount), 0, y, list.width, dim)
-			continue
-		}
-		// Archived chats are muted: no bold, no red badge.
-		unread := !room.LowPriority && (room.MarkedUnread || room.UnreadNotifications > 0 || room.UnreadHighlights > 0)
+		unread := room.MarkedUnread || room.UnreadNotifications > 0 || room.UnreadHighlights > 0
 		isSelected := room.RoomID == list.selected
 		rowStyle := tcell.StyleDefault.
 			Foreground(list.mainTextColor).
 			Bold(unread)
-		if room.LowPriority {
-			rowStyle = dim
-		}
 		if isSelected {
 			rowStyle = rowStyle.
 				Foreground(list.selectedTextColor).
@@ -266,8 +210,8 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 			if room.UnreadMessages < 100 {
 				badge = strconv.Itoa(room.UnreadMessages)
 			}
-			badgeStyle = rowStyle.Bold(!room.LowPriority)
-			if !isSelected && !room.LowPriority {
+			badgeStyle = rowStyle.Bold(true)
+			if !isSelected {
 				badgeColor := ColorUnreadBadge
 				if room.UnreadHighlights > 0 {
 					badgeColor = ColorUnreadHighlight
@@ -276,7 +220,7 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 			}
 		} else if room.MarkedUnread {
 			badge = "●"
-			if !isSelected && !room.LowPriority {
+			if !isSelected {
 				badgeStyle = rowStyle.Foreground(ColorUnreadBadge)
 			}
 		}
