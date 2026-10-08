@@ -18,7 +18,6 @@ package tui
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -337,41 +336,6 @@ const (
 	SenderMessageGap   = 3
 )
 
-func getScrollbarStyle(scrollbarHere, isTop, isBottom bool) (char rune, style tcell.Style) {
-	char = '│'
-	style = tcell.StyleDefault
-	if scrollbarHere {
-		style = style.Foreground(tcell.ColorGreen)
-	}
-	if isTop {
-		if scrollbarHere {
-			char = '╥'
-		} else {
-			char = '┬'
-		}
-	} else if isBottom {
-		if scrollbarHere {
-			char = '╨'
-		} else {
-			char = '┴'
-		}
-	} else if scrollbarHere {
-		char = '║'
-	}
-	return
-}
-
-func (view *MessageView) calculateScrollBar(height int) (scrollBarHeight, scrollBarPos int) {
-	viewportHeight := float64(height)
-	contentHeight := float64(view.TotalHeight())
-
-	scrollBarHeight = int(math.Ceil(viewportHeight / (contentHeight / viewportHeight)))
-
-	scrollBarPos = height - int(math.Round(float64(view.GetScrollOffset())/contentHeight*viewportHeight))
-
-	return
-}
-
 func (view *MessageView) getIndexOffset(screen mauview.Screen, height, messageX int) (indexOffset int) {
 	indexOffset = view.TotalHeight() - view.GetScrollOffset() - height
 	if indexOffset <= -PaddingAtTop {
@@ -421,7 +385,6 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 		view.followSelection = false
 		view.scrollToSelectedLocked(height)
 	}
-	scrollOffset := view.GetScrollOffset()
 
 	// Fill the viewport on open: if the loaded timeline is shorter than the
 	// screen, keep paginating until it fills or history runs out. Manual
@@ -454,26 +417,6 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 	viewStart := 0
 	if indexOffset < 0 {
 		viewStart = -indexOffset
-	}
-
-	if !bareMode {
-		separatorX := usernameX + view.SenderWidth + SenderSeparatorGap
-		scrollBarHeight, scrollBarPos := view.calculateScrollBar(height)
-
-		for line := viewStart; line < height; line++ {
-			showScrollbar := line-viewStart >= scrollBarPos-scrollBarHeight && line-viewStart < scrollBarPos
-			// Only the scrollbar itself is drawn; a full-height separator rule
-			// is just noise next to the sender column.
-			if !showScrollbar {
-				continue
-			}
-			isTop := line == viewStart && scrollOffset+height >= view.TotalHeight()
-			isBottom := line == height-1 && scrollOffset == 0
-
-			borderChar, borderStyle := getScrollbarStyle(showScrollbar, isTop, isBottom)
-
-			screen.SetContent(separatorX, line, borderChar, nil, borderStyle)
-		}
 	}
 
 	for line := viewStart; line < height && indexOffset+line < len(view.msgBuffer); {
