@@ -243,7 +243,7 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 			if badge != "" {
 				badge += " "
 			}
-			badge += "🔕"
+			badge += "\U000f009b" // nf-md-bell_off
 			if !isSelected {
 				badgeStyle = rowStyle.Foreground(tcell.ColorGray)
 			}
