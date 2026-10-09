@@ -733,8 +733,8 @@ func (view *RoomView) SetEditing(evt *database.Event) {
 	view.replying = nil
 	content := evt.GetMautrixContent().AsMessage()
 	// If the message was already edited, start from the latest edit's text.
-	if evt.LastEditRowID != nil {
-		if edit := view.Room.GetEventByRowID(*evt.LastEditRowID); edit != nil {
+	if evt.LastEditRowID != 0 {
+		if edit := view.Room.GetEventByRowID(evt.LastEditRowID); edit != nil {
 			if newContent := edit.GetMautrixContent().AsMessage().NewContent; newContent != nil {
 				content = newContent
 			}

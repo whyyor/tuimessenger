@@ -147,7 +147,7 @@ func TestEditInSameSync(t *testing.T) {
 	if msg == nil || edit == nil {
 		t.Fatalf("both events in the sync: %v %v", msg, edit)
 	}
-	if msg.LastEditRowID == nil || *msg.LastEditRowID != edit.RowID {
+	if msg.LastEditRowID != edit.RowID {
 		t.Errorf("the message as sent to the TUI should point at its edit %d, got %v", edit.RowID, msg.LastEditRowID)
 	}
 }
@@ -166,7 +166,7 @@ func TestBundledEditIsStored(t *testing.T) {
 		t.Fatalf("the bundled edit should be stored: %v %v", edit, err)
 	}
 	msg, err := hc.DB.Event.GetByID(ctx, "!r:x", "$a:x")
-	if err != nil || msg == nil || msg.LastEditRowID == nil || *msg.LastEditRowID != edit.RowID {
+	if err != nil || msg == nil || msg.LastEditRowID != edit.RowID {
 		t.Errorf("the message should point at its bundled edit %d: %+v %v", edit.RowID, msg, err)
 	}
 }
