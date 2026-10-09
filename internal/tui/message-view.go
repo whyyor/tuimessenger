@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
@@ -55,6 +56,8 @@ type MessageView struct {
 	prevTimeline *[]*database.Event
 	prevWidth    int
 	selected     database.EventRowID
+	// clearedAt is the /clear point msgBuffer was built with.
+	clearedAt time.Time
 	// followSelection asks the next Draw to scroll the selected message into
 	// view; Draw is where msgBuffer's line layout is current.
 	followSelection bool
@@ -340,7 +343,9 @@ func (view *MessageView) getIndexOffset(screen mauview.Screen, height, messageX 
 	indexOffset = view.TotalHeight() - view.GetScrollOffset() - height
 	if indexOffset <= -PaddingAtTop {
 		message := "Scroll up to load more messages."
-		if view.parent.Room.Paginating.Load() {
+		if !view.clearedAt.IsZero() {
+			message = "Earlier history hidden. /unclear shows it."
+		} else if view.parent.Room.Paginating.Load() {
 			message = "Loading more messages..."
 		}
 		widget.WriteLineSimpleColor(screen, message, messageX, 0, tcell.ColorGreen)
@@ -501,9 +506,11 @@ func (view *MessageView) isDM() bool {
 
 func (view *MessageView) update(width int) {
 	timelinePtr := view.parent.Room.TimelineCache.Current()
-	if timelinePtr == nil || timelinePtr == view.prevTimeline && width == view.prevWidth {
+	cleared := clearedAt(view.parent.Room)
+	if timelinePtr == nil || timelinePtr == view.prevTimeline && width == view.prevWidth && cleared.Equal(view.clearedAt) {
 		return
 	}
+	view.clearedAt = cleared
 	timeline := *timelinePtr
 	var prevTimeline []*database.Event
 	if view.prevTimeline != nil {
@@ -545,6 +552,10 @@ func (view *MessageView) update(width int) {
 		if !increaseScrollOffset && scrollOffset > 0 && evt.RowID != 0 && evt.RowID == lastRowIDInPrevTimeline {
 			startIncreasingScrollOffset = true
 			prevLastEventNotFound = true
+		}
+		if hiddenByClear(evt, cleared) {
+			increaseScrollOffset = increaseScrollOffset || startIncreasingScrollOffset
+			continue
 		}
 		if evt.RenderMeta == nil {
 			evt.RenderMeta = messages.ParseEvent(view.matrix, &view.config.Preferences, view.parent.Room, evt)

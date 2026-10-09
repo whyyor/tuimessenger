@@ -45,6 +45,9 @@ const (
 
 	CmdMute   = "mute"
 	CmdUnmute = "unmute"
+
+	CmdClear   = "clear"
+	CmdUnclear = "unclear"
 )
 
 var LocalCommands = []*cmdschema.EventContent{{
@@ -118,6 +121,12 @@ var LocalCommands = []*cmdschema.EventContent{{
 }, {
 	Command:     CmdUnmute,
 	Description: event.MakeExtensibleText("Unmute this chat"),
+}, {
+	Command:     CmdClear,
+	Description: event.MakeExtensibleText("Hide this chat's history in gomuks (nothing is deleted)"),
+}, {
+	Command:     CmdUnclear,
+	Description: event.MakeExtensibleText("Show this chat's hidden history again"),
 }, {
 	Command:     CmdQuit,
 	Description: event.MakeExtensibleText("Quit gomuks terminal"),
@@ -210,6 +219,10 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 		go view.SetMuted(true)
 	case CmdUnmute:
 		go view.SetMuted(false)
+	case CmdClear:
+		go view.SetCleared(true)
+	case CmdUnclear:
+		go view.SetCleared(false)
 	case CmdQuit:
 		view.parent.parent.Stop()
 	default:

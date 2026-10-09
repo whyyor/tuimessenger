@@ -404,6 +404,12 @@ func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNot
 
 func (view *MainView) LoadHistory(roomID id.RoomID) {
 	defer debug.Recover()
+	// Every pagination path (open, scroll, fill-the-screen) comes through here.
+	if room := view.matrix.GetRoom(roomID); room != nil {
+		if tl := room.TimelineCache.Current(); tl != nil && historyExhausted(*tl, clearedAt(room)) {
+			return
+		}
+	}
 	err := view.matrix.LoadMoreHistory(context.TODO(), roomID)
 	if err != nil {
 		debug.Print("Failed to fetch history for", roomID, err)

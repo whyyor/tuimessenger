@@ -518,6 +518,12 @@ func (rs *RoomStore) GetBotCommands() []*WrappedCommand {
 	return cache
 }
 
+func (rs *RoomStore) GetAccountData(evtType event.Type) *database.AccountData {
+	rs.lock.RLock()
+	defer rs.lock.RUnlock()
+	return rs.accountData[event.Type{Type: evtType.Type, Class: event.AccountDataEventType}]
+}
+
 func (rs *RoomStore) GetEventByRowID(rowID database.EventRowID) *database.Event {
 	rs.lock.RLock()
 	defer rs.lock.RUnlock()
