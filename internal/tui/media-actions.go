@@ -53,6 +53,10 @@ func (view *RoomView) fetchMediaToFile(msg *messages.FileMessage, dir string) (s
 	if err != nil {
 		return "", err
 	}
+	// Disk cleaners (Mole) may have removed the folder since startup.
+	if err = os.MkdirAll(dir, 0700); err != nil {
+		return "", err
+	}
 	name := mediaFileName(msg.FileName, msg.Body, msg.URL.FileID, msg.MimeType, msg.Type)
 	path := uniquePath(dir, name)
 	return path, os.WriteFile(path, data, 0600)
