@@ -59,13 +59,9 @@ func (view *RoomView) SetCleared(clear bool) {
 		Type:    accountDataCleared.Type,
 		Content: raw,
 	})
-	switch {
-	case err != nil:
+	if err != nil {
 		view.AddServiceMessage("Failed to update cleared history: %v", err)
-	case clear:
-		view.AddServiceMessage("History hidden in gomuks only; nothing was deleted on WhatsApp or Beeper. /unclear shows it again.")
-	default:
-		view.AddServiceMessage("History shown again.")
+	} else if !clear {
 		go view.parent.LoadHistory(view.Room.ID)
 	}
 	view.parent.parent.Render()

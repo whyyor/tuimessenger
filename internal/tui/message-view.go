@@ -341,11 +341,10 @@ const (
 
 func (view *MessageView) getIndexOffset(screen mauview.Screen, height, messageX int) (indexOffset int) {
 	indexOffset = view.TotalHeight() - view.GetScrollOffset() - height
-	if indexOffset <= -PaddingAtTop {
+	// A cleared chat shows no hint: there's nothing more to load.
+	if indexOffset <= -PaddingAtTop && view.clearedAt.IsZero() {
 		message := "Scroll up to load more messages."
-		if !view.clearedAt.IsZero() {
-			message = "Earlier history hidden. /unclear shows it."
-		} else if view.parent.Room.Paginating.Load() {
+		if view.parent.Room.Paginating.Load() {
 			message = "Loading more messages..."
 		}
 		widget.WriteLineSimpleColor(screen, message, messageX, 0, tcell.ColorGreen)
