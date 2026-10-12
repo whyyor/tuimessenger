@@ -199,7 +199,7 @@ func (list *RoomList) Blur()  {}
 
 func (list *RoomList) Draw(screen mauview.Screen) {
 	list.lock.Lock()
-	list.rooms = list.parent.matrix.ReversedRoomList.Current()
+	list.rooms = listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected)
 	list.width, list.height = screen.Size()
 	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
 	if ad := list.parent.matrix.GomuksStore.GetAccountData(event.AccountDataPushRules); ad != list.pushRules {

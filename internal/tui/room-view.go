@@ -452,6 +452,15 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 					view.OnSelect(msgView.GetSelected())
 					return true
 				}
+				// h hides the selected message in gomuks until /unclear.
+				if event.Rune() == 'h' {
+					if selected := msgView.GetSelected(); selected != nil {
+						go view.HideMessage(selected.ID)
+					}
+					view.StopSelecting()
+					view.input.Focus()
+					return true
+				}
 				// u copies the first URL in the selected message, which beats
 				// drag-selecting a wrapped link across the sidebar columns.
 				if event.Rune() == 'u' {

@@ -32,6 +32,7 @@ import (
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/client"
+	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
 	"go.mau.fi/gomuks/tui/messages"
 	"go.mau.fi/gomuks/tui/widget"
@@ -56,8 +57,10 @@ type MessageView struct {
 	prevTimeline *[]*database.Event
 	prevWidth    int
 	selected     database.EventRowID
-	// clearedAt is the /clear point msgBuffer was built with.
+	// clearedAt is the /clear point msgBuffer was built with; clearAD is the
+	// account data it came from, replaced by sync on every change.
 	clearedAt time.Time
+	clearAD   *database.AccountData
 	// followSelection asks the next Draw to scroll the selected message into
 	// view; Draw is where msgBuffer's line layout is current.
 	followSelection bool
@@ -505,10 +508,13 @@ func (view *MessageView) isDM() bool {
 
 func (view *MessageView) update(width int) {
 	timelinePtr := view.parent.Room.TimelineCache.Current()
-	cleared := clearedAt(view.parent.Room)
-	if timelinePtr == nil || timelinePtr == view.prevTimeline && width == view.prevWidth && cleared.Equal(view.clearedAt) {
+	clearAD := view.parent.Room.GetAccountData(store.AccountDataCleared)
+	if timelinePtr == nil || timelinePtr == view.prevTimeline && width == view.prevWidth && clearAD == view.clearAD {
 		return
 	}
+	view.clearAD = clearAD
+	clearState := view.parent.Room.ClearState()
+	cleared := clearState.At()
 	view.clearedAt = cleared
 	timeline := *timelinePtr
 	var prevTimeline []*database.Event
@@ -552,7 +558,7 @@ func (view *MessageView) update(width int) {
 			startIncreasingScrollOffset = true
 			prevLastEventNotFound = true
 		}
-		if hiddenByClear(evt, cleared) {
+		if hiddenByClear(evt, cleared) || clearState.IsHidden(evt.ID) {
 			increaseScrollOffset = increaseScrollOffset || startIncreasingScrollOffset
 			continue
 		}

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"maunium.net/go/mautrix/event"
+	"maunium.net/go/mautrix/id"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
@@ -13,25 +13,9 @@ import (
 	"go.mau.fi/gomuks/tui/debug"
 )
 
-// accountDataCleared is private room account data: only this client reads
-// it, so Beeper and the bridges never act on it and nothing is deleted.
-var accountDataCleared = event.Type{Type: "com.whyyor.gomuks.cleared", Class: event.AccountDataEventType}
-
-type clearedContent struct {
-	TS int64 `json:"ts,omitempty"`
-}
-
 // clearedAt is when history was last cleared in this room, or zero.
 func clearedAt(room *store.RoomStore) time.Time {
-	ad := room.GetAccountData(accountDataCleared)
-	if ad == nil {
-		return time.Time{}
-	}
-	var content clearedContent
-	if json.Unmarshal(ad.Content, &content) != nil || content.TS == 0 {
-		return time.Time{}
-	}
-	return time.UnixMilli(content.TS)
+	return room.ClearState().At()
 }
 
 // hiddenByClear reports whether an event predates the room's clear point.
@@ -45,24 +29,54 @@ func historyExhausted(timeline []*database.Event, cleared time.Time) bool {
 	return len(timeline) > 0 && hiddenByClear(timeline[0], cleared)
 }
 
-// SetCleared hides (or shows again) this chat's history in gomuks only.
-// Account data can't be deleted, so unclearing writes an empty object.
-func (view *RoomView) SetCleared(clear bool) {
-	defer debug.Recover()
-	content := clearedContent{}
-	if clear {
-		content.TS = time.Now().UnixMilli()
+// listedRooms drops chats with nothing visible since their /clear point; a
+// new message moves SortingTimestamp past it and brings the chat back. The
+// open chat stays listed so it doesn't vanish while you're in it.
+func listedRooms(rooms []*store.RoomListEntry, open id.RoomID) []*store.RoomListEntry {
+	out := rooms[:0:0]
+	for _, room := range rooms {
+		if room.ClearedAt.IsZero() || room.SortingTimestamp.After(room.ClearedAt) || room.RoomID == open {
+			out = append(out, room)
+		}
 	}
-	raw, _ := json.Marshal(content)
-	err := view.parent.matrix.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
+	return out
+}
+
+func (view *RoomView) writeClearState(state store.ClearState) error {
+	raw, _ := json.Marshal(state)
+	return view.parent.matrix.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
 		RoomID:  view.Room.ID,
-		Type:    accountDataCleared.Type,
+		Type:    store.AccountDataCleared.Type,
 		Content: raw,
 	})
-	if err != nil {
+}
+
+// SetCleared hides this chat's history in gomuks only, keeping individually
+// hidden messages; unclearing resets both. Nothing is deleted anywhere.
+func (view *RoomView) SetCleared(clear bool) {
+	defer debug.Recover()
+	state := store.ClearState{}
+	if clear {
+		state = view.Room.ClearState()
+		state.TS = time.Now().UnixMilli()
+	}
+	if err := view.writeClearState(state); err != nil {
 		view.AddServiceMessage("Failed to update cleared history: %v", err)
 	} else if !clear {
 		go view.parent.LoadHistory(view.Room.ID)
+	}
+	view.parent.parent.Render()
+}
+
+// HideMessage hides one message in gomuks until /unclear.
+func (view *RoomView) HideMessage(evtID id.EventID) {
+	defer debug.Recover()
+	state, changed := view.Room.ClearState().WithHidden(evtID)
+	if !changed {
+		return
+	}
+	if err := view.writeClearState(state); err != nil {
+		view.AddServiceMessage("Failed to hide message: %v", err)
 	}
 	view.parent.parent.Render()
 }

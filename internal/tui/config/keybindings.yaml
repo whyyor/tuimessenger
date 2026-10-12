@@ -30,7 +30,6 @@ modal:
 
 visual:
     'Escape': clear
-    'h': clear
     'Up': select_prev
     'k': select_prev
     'Down': select_next

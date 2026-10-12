@@ -32,6 +32,8 @@ type RoomListEntry struct {
 	Avatar           id.ContentURI
 	MarkedUnread     bool
 	IsInvite         bool
+	// ClearedAt is the room's /clear point; zero if never cleared.
+	ClearedAt time.Time
 	database.UnreadCounts
 }
 
@@ -67,7 +69,19 @@ func roomListEntryChanged(entry *jsoncmd.SyncRoom, oldMeta *database.Room) bool 
 		ptr.Val(entry.Meta.Avatar) != ptr.Val(oldMeta.Avatar) ||
 		slices.ContainsFunc(entry.Timeline, func(tuple database.TimelineRowTuple) bool {
 			return tuple.Event == entry.Meta.PreviewEventRowID
-		})
+		}) ||
+		hasClearUpdate(entry)
+}
+
+// hasClearUpdate reports new /clear account data, which changes whether the
+// room is listed. JSON-decoded keys may lack the Class, so compare names.
+func hasClearUpdate(entry *jsoncmd.SyncRoom) bool {
+	for evtType := range entry.AccountData {
+		if evtType.Type == AccountDataCleared.Type {
+			return true
+		}
+	}
+	return false
 }
 
 func (gs *GomuksStore) shouldHideRoom(entry *database.Room) bool {
@@ -110,6 +124,7 @@ func (gs *GomuksStore) makeRoomListEntry(roomStore *RoomStore) *RoomListEntry {
 		SearchName:       toSearchableString(name),
 		Avatar:           ptr.Val(meta.Avatar),
 		MarkedUnread:     ptr.Val(meta.MarkedUnread),
+		ClearedAt:        roomStore.ClearState().At(),
 		UnreadCounts:     meta.UnreadCounts,
 	}
 	if entry.PreviewEvent != nil {
