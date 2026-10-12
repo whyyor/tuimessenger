@@ -277,6 +277,9 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		if view.config.Preferences.HideRoomList {
 			return view.roomView.OnKeyEvent(event)
 		}
+		if view.currentRoom == nil && view.handleBrowseKey(event) {
+			return true
+		}
 		return view.flex.OnKeyEvent(event)
 	}
 	return true
@@ -314,6 +317,29 @@ func (view *MainView) Blur() {
 	if view.focused != nil {
 		view.focused.Blur()
 	}
+}
+
+// handleBrowseKey drives the sidebar cursor while no room is open: ↓/j and
+// ↑/k move a highlight without opening (so nothing is marked read), Enter
+// opens the highlighted room, Escape drops the highlight.
+func (view *MainView) handleBrowseKey(event mauview.KeyEvent) bool {
+	if event.Modifiers() != tcell.ModNone {
+		return false
+	}
+	switch {
+	case event.Key() == tcell.KeyDown, event.Key() == tcell.KeyRune && event.Rune() == 'j':
+		view.roomList.SetSelected(view.roomList.BrowseStep(true))
+	case event.Key() == tcell.KeyUp, event.Key() == tcell.KeyRune && event.Rune() == 'k':
+		view.roomList.SetSelected(view.roomList.BrowseStep(false))
+	case event.Key() == tcell.KeyEnter && view.roomList.HasSelected():
+		view.SwitchRoom(view.roomList.SelectedRoom())
+	case event.Key() == tcell.KeyEscape && view.roomList.HasSelected():
+		view.roomList.SetSelected("")
+	default:
+		return false
+	}
+	view.parent.Render()
+	return true
 }
 
 // CloseCurrentRoom returns to the launch state: sidebar only, no room open.

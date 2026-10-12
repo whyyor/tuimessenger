@@ -116,6 +116,24 @@ func (list *RoomList) Next() id.RoomID {
 	return ""
 }
 
+// BrowseStep returns the room the browse cursor moves to: the newest room
+// when nothing is highlighted yet, otherwise one row down or up. It stays
+// put at either end.
+func (list *RoomList) BrowseStep(down bool) id.RoomID {
+	var next id.RoomID
+	if !list.HasSelected() {
+		next = list.Next()
+	} else if down {
+		next = list.Next()
+	} else {
+		next = list.Previous()
+	}
+	if next == "" {
+		return list.selected
+	}
+	return next
+}
+
 func (list *RoomList) NextWithActivity() id.RoomID {
 	list.lock.RLock()
 	defer list.lock.RUnlock()
