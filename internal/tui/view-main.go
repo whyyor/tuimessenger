@@ -52,6 +52,8 @@ type MainView struct {
 	modal mauview.Component
 
 	lastFocusTime time.Time
+	// browsing is set while ↓/↑/j/k flip through rooms; see handleBrowseKey.
+	browsing bool
 
 	matrix *client.GomuksClient
 	config *config.Config
@@ -181,6 +183,9 @@ func (view *MainView) BumpFocus(roomView *RoomView) {
 }
 
 func (view *MainView) MarkRead(roomView *RoomView) {
+	if view.browsing {
+		return
+	}
 	if roomView != nil && roomView == view.currentRoom && roomView.MessageView().GetScrollOffset() == 0 {
 		req := roomView.Room.GetMarkAsReadParams()
 		if req != nil {
@@ -228,6 +233,21 @@ func (view *MainView) OpenSyncingModal() *SyncingModal {
 }
 
 func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
+	if view.modal == nil && !view.config.Preferences.HideRoomList && (view.browsing || view.currentRoom == nil) {
+		if view.handleBrowseKey(event) {
+			return true
+		}
+		if view.browsing {
+			view.browsing = false
+			if event.Key() == tcell.KeyEscape {
+				// Leave without marking the room read.
+				view.CloseCurrentRoom()
+				return true
+			}
+			// Any other key settles on this room: BumpFocus below marks it
+			// read, then the key is handled normally (e.g. typed).
+		}
+	}
 	view.BumpFocus(view.currentRoom)
 
 	if view.modal != nil {
@@ -277,9 +297,6 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		if view.config.Preferences.HideRoomList {
 			return view.roomView.OnKeyEvent(event)
 		}
-		if view.currentRoom == nil && view.handleBrowseKey(event) {
-			return true
-		}
 		return view.flex.OnKeyEvent(event)
 	}
 	return true
@@ -288,6 +305,9 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 const WheelScrollOffsetDiff = 3
 
 func (view *MainView) OnMouseEvent(event mauview.MouseEvent) bool {
+	if !event.HasMotion() {
+		view.browsing = false
+	}
 	view.BumpFocus(view.currentRoom)
 	if view.modal != nil {
 		return view.modal.OnMouseEvent(event)
@@ -299,6 +319,10 @@ func (view *MainView) OnMouseEvent(event mauview.MouseEvent) bool {
 }
 
 func (view *MainView) OnPasteEvent(event mauview.PasteEvent) bool {
+	if view.browsing {
+		view.browsing = false
+		view.MarkRead(view.currentRoom)
+	}
 	if view.modal != nil {
 		return view.modal.OnPasteEvent(event)
 	} else if view.config.Preferences.HideRoomList {
@@ -319,24 +343,25 @@ func (view *MainView) Blur() {
 	}
 }
 
-// handleBrowseKey drives the sidebar cursor while no room is open: ↓/j and
-// ↑/k move a highlight without opening (so nothing is marked read), Enter
-// opens the highlighted room, Escape drops the highlight.
+// handleBrowseKey opens the next or previous room on ↓/j and ↑/k, starting
+// from the newest chat when no room is open. Rooms passed through aren't
+// marked read: browsing gates MarkRead until a different key settles.
 func (view *MainView) handleBrowseKey(event mauview.KeyEvent) bool {
 	if event.Modifiers() != tcell.ModNone {
 		return false
 	}
+	var down bool
 	switch {
 	case event.Key() == tcell.KeyDown, event.Key() == tcell.KeyRune && event.Rune() == 'j':
-		view.roomList.SetSelected(view.roomList.BrowseStep(true))
+		down = true
 	case event.Key() == tcell.KeyUp, event.Key() == tcell.KeyRune && event.Rune() == 'k':
-		view.roomList.SetSelected(view.roomList.BrowseStep(false))
-	case event.Key() == tcell.KeyEnter && view.roomList.HasSelected():
-		view.SwitchRoom(view.roomList.SelectedRoom())
-	case event.Key() == tcell.KeyEscape && view.roomList.HasSelected():
-		view.roomList.SetSelected("")
+		down = false
 	default:
 		return false
+	}
+	view.browsing = true
+	if next := view.roomList.BrowseStep(down); next != "" && (view.currentRoom == nil || next != view.currentRoom.Room.ID) {
+		view.SwitchRoom(next)
 	}
 	view.parent.Render()
 	return true
