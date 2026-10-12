@@ -378,6 +378,8 @@ func (view *MainView) CloseCurrentRoom() {
 	view.currentRoom = nil
 	view.roomView.SetInnerComponent(nil)
 	view.roomList.SetSelected("")
+	// Every way of closing (Escape, browse Escape) wipes leftover cells.
+	RequestRepaint()
 	view.parent.Render()
 }
 

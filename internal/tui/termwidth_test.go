@@ -2,6 +2,7 @@ package tui
 
 import (
 	"testing"
+	"unicode"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
@@ -23,6 +24,32 @@ func TestTerminalSafe(t *testing.T) {
 	// Ordinary combining marks (Devanagari vowel signs) must survive.
 	if _, c, _ := terminalSafe('र', []rune{'\u093f'}); len(c) != 1 {
 		t.Errorf("Devanagari mark dropped: %q", c)
+	}
+}
+
+// Ghostty advances zero columns for a non-spacing mark, so a cell starting
+// with one would pull the rest of the row left. Draws the real chat name and
+// checks none survive as a cell of their own and the text after keeps tcell's column.
+func TestDevanagariMarksDontShiftTheRow(t *testing.T) {
+	name := "प्रतीक सागर"
+	fb := newFakeScreen(30, 1)
+	widget.WriteLine(fb, mauview.AlignLeft, name+"X", 0, 0, 30, tcell.StyleDefault)
+
+	gotX := -1
+	for x := 0; x < 30; x++ {
+		c := fb.cells[x]
+		if unicode.Is(unicode.Mn, c.main) {
+			t.Errorf("cell %d starts with non-spacing mark %U", x, c.main)
+		}
+		if c.main == 'X' {
+			gotX = x
+		}
+	}
+	if want := 11; gotX != want {
+		t.Errorf("X at column %d, want %d", gotX, want)
+	}
+	if first := fb.cells[0]; first.main != 'प' || len(first.comb) != 1 || first.comb[0] != '\u094d' {
+		t.Errorf("virama should stack on प: got %q + %q", first.main, first.comb)
 	}
 }
 

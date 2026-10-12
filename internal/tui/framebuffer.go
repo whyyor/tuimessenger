@@ -3,6 +3,7 @@ package tui
 import (
 	"slices"
 	"sync/atomic"
+	"unicode"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
@@ -157,6 +158,14 @@ func (fb *frameBuffer) SetContent(x, y int, mainc rune, combc []rune, style tcel
 		return
 	}
 	mainc, comb, blankNext := terminalSafe(mainc, combc)
+	if x > 0 && isMismeasuredMark(mainc) {
+		// Ghostty stacks the mark on the previous letter with zero advance;
+		// put it there and leave this column blank so both agree on widths.
+		prev := &fb.cells[y*fb.w+x-1]
+		prev.comb = append(slices.Clone(prev.comb), mainc)
+		prev.comb = append(prev.comb, comb...)
+		mainc, comb = ' ', nil
+	}
 	fb.cells[y*fb.w+x] = frameCell{main: mainc, comb: comb, style: style}
 	if blankNext && x+1 < fb.w {
 		fb.cells[y*fb.w+x+1] = frameCell{main: ' ', style: style}
@@ -192,6 +201,14 @@ const (
 	zwj     = '\u200d'
 	emojiVS = '\ufe0f'
 )
+
+// isMismeasuredMark reports a non-spacing mark that go-runewidth gives a full
+// column although terminals draw it with zero width, e.g. Devanagari े ु ं ्.
+// Marks it already treats as zero-width (Latin accents) never reach a cell
+// of their own, so they're unaffected.
+func isMismeasuredMark(r rune) bool {
+	return unicode.Is(unicode.Mn, r) && runewidth.RuneWidth(r) == 1
+}
 
 func isSkinTone(r rune) bool {
 	return r >= 0x1f3fb && r <= 0x1f3ff
