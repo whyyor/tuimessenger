@@ -426,6 +426,7 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 	if view.selecting {
 		switch view.config.Keybindings.Visual[kb] {
 		case "clear":
+			RequestRepaint()
 			view.ClearAllContext()
 		case "select_prev":
 			view.SelectPrevious()
