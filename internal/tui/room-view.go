@@ -496,6 +496,8 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 	case "clear":
 		// First Escape clears reply/edit/select context; with nothing left to
 		// clear, it closes the room back to the sidebar-only launch state.
+		// Either way, wipe anything a width mismatch left on screen.
+		RequestRepaint()
 		if view.editing != nil || view.replying != nil || view.selecting {
 			view.ClearAllContext()
 		} else {
