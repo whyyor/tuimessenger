@@ -31,3 +31,29 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# ---- tuimessenger ----
+# Build output
+/tuimessenger
+/bin/
+/dist/
+
+# Runtime data (databases, sessions, media, logs) - contains account credentials
+/data/
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Local config may hold secrets (Telegram api_hash, passwords)
+config.yaml
+!config.example.yaml
+
+# Research material must never be committed
+/re-notes/
+/research/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
