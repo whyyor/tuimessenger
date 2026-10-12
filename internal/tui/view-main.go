@@ -52,7 +52,7 @@ type MainView struct {
 	modal mauview.Component
 
 	lastFocusTime time.Time
-	// browsing is set while ↓/↑/j/k flip through rooms; see handleBrowseKey.
+	// browsing is set while ↓/↑ flip through rooms; see handleBrowseKey.
 	browsing bool
 
 	matrix *client.GomuksClient
@@ -343,7 +343,7 @@ func (view *MainView) Blur() {
 	}
 }
 
-// handleBrowseKey opens the next or previous room on ↓/j and ↑/k, starting
+// handleBrowseKey opens the next or previous room on ↓ and ↑, starting
 // from the newest chat when no room is open. Rooms passed through aren't
 // marked read: browsing gates MarkRead until a different key settles.
 func (view *MainView) handleBrowseKey(event mauview.KeyEvent) bool {
@@ -351,10 +351,10 @@ func (view *MainView) handleBrowseKey(event mauview.KeyEvent) bool {
 		return false
 	}
 	var down bool
-	switch {
-	case event.Key() == tcell.KeyDown, event.Key() == tcell.KeyRune && event.Rune() == 'j':
+	switch event.Key() {
+	case tcell.KeyDown:
 		down = true
-	case event.Key() == tcell.KeyUp, event.Key() == tcell.KeyRune && event.Rune() == 'k':
+	case tcell.KeyUp:
 		down = false
 	default:
 		return false
