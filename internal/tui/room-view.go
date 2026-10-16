@@ -122,9 +122,10 @@ func NewRoomView(parent *MainView, room *store.RoomStore) *RoomView {
 
 	view.SetInputChangedFunc(parent.InputChanged)
 
+	// Default background, so the terminal's transparency shows through.
 	view.topic.
 		SetTextColor(ColorBarText).
-		SetBackgroundColor(ColorBarBackground)
+		SetBackgroundColor(tcell.ColorDefault)
 
 	// No background band: the status line is empty most of the time, and a
 	// full-width gray bar for nothing is just noise.
