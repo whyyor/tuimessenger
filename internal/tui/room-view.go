@@ -453,6 +453,16 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 					view.OnSelect(msgView.GetSelected())
 					return true
 				}
+				// Space views the selected image full screen; selection stays
+				// so the next image is one j/k + Space away.
+				if event.Rune() == ' ' {
+					if selected := msgView.GetSelected(); selected != nil {
+						if fm, ok := selected.Renderer.(*messages.FileMessage); ok && isViewableImage(fm) {
+							go view.PreviewImage(fm)
+						}
+					}
+					return true
+				}
 				// h hides the selected message in gomuks until /unclear.
 				if event.Rune() == 'h' {
 					if selected := msgView.GetSelected(); selected != nil {
