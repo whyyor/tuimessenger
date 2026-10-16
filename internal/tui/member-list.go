@@ -102,22 +102,19 @@ func (ml *MemberList) Update(data []*store.AutocompleteMemberEntry, levels *even
 
 func (ml *MemberList) Draw(screen mauview.Screen) {
 	width, _ := screen.Size()
-	// Foreground only: a green background block per row reads as a solid bar.
-	sigilStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	// Power-level sigils (~ & @ % +) aren't drawn; the list is still sorted
+	// by power level, so admins stay on top.
 	for y, member := range ml.list {
-		if member.Sigil != ' ' {
-			screen.SetCell(0, y, sigilStyle, member.Sigil)
-		}
 		if member.Membership == event.MembershipInvite {
-			widget.WriteLineSimpleColor(screen, member.Displayname, 2, y, member.Color)
-			screen.SetCell(1, y, tcell.StyleDefault, '(')
-			if sw := runewidth.StringWidth(member.Displayname); sw+2 < width {
-				screen.SetCell(sw+2, y, tcell.StyleDefault, ')')
+			widget.WriteLineSimpleColor(screen, member.Displayname, 1, y, member.Color)
+			screen.SetCell(0, y, tcell.StyleDefault, '(')
+			if sw := runewidth.StringWidth(member.Displayname); sw+1 < width {
+				screen.SetCell(sw+1, y, tcell.StyleDefault, ')')
 			} else {
 				screen.SetCell(width-1, y, tcell.StyleDefault, ')')
 			}
 		} else {
-			widget.WriteLineSimpleColor(screen, member.Displayname, 1, y, member.Color)
+			widget.WriteLineSimpleColor(screen, member.Displayname, 0, y, member.Color)
 		}
 	}
 }
