@@ -57,6 +57,8 @@ type MessageView struct {
 	prevTimeline *[]*database.Event
 	prevWidth    int
 	selected     database.EventRowID
+	// anchor is the other end of a visual-mode range (v); 0 means none.
+	anchor database.EventRowID
 	// clearedAt is the /clear point msgBuffer was built with; clearAD is the
 	// account data it came from, replaced by sync on every change.
 	clearedAt time.Time
@@ -206,6 +208,82 @@ func (view *MessageView) GetSelected() *messages.UIMessage {
 		return nil
 	}
 	return evt.RenderMeta.(*messages.UIMessage)
+}
+
+// ToggleAnchor starts a range at the selected message, or drops the range.
+func (view *MessageView) ToggleAnchor() {
+	if view.anchor != 0 {
+		view.anchor = 0
+	} else {
+		view.anchor = view.selected
+	}
+}
+
+func (view *MessageView) HasAnchor() bool {
+	return view.anchor != 0
+}
+
+func (view *MessageView) ClearAnchor() {
+	view.anchor = 0
+}
+
+// rangeLinesLocked returns the msgBuffer line span from the anchor to the
+// selection, whichever comes first, covering both messages fully.
+func (view *MessageView) rangeLinesLocked() (lo, hi int, ok bool) {
+	if view.anchor == 0 || view.selected == 0 {
+		return 0, 0, false
+	}
+	aFirst, aLast, sFirst, sLast := -1, -1, -1, -1
+	for i, m := range view.msgBuffer {
+		if m.Event == nil {
+			continue
+		}
+		if m.RowID == view.anchor {
+			if aFirst < 0 {
+				aFirst = i
+			}
+			aLast = i
+		}
+		if m.RowID == view.selected {
+			if sFirst < 0 {
+				sFirst = i
+			}
+			sLast = i
+		}
+	}
+	if aFirst < 0 || sFirst < 0 {
+		return 0, 0, false
+	}
+	return min(aFirst, sFirst), max(aLast, sLast), true
+}
+
+// RangeMessages returns the real messages in the visual-mode range, oldest
+// first, skipping service lines such as date changes.
+func (view *MessageView) RangeMessages() []*messages.UIMessage {
+	view.lock.RLock()
+	defer view.lock.RUnlock()
+	lo, hi, ok := view.rangeLinesLocked()
+	if !ok {
+		return nil
+	}
+	var out []*messages.UIMessage
+	var prev *messages.UIMessage
+	for _, m := range view.msgBuffer[lo : hi+1] {
+		if m != prev && !m.IsService {
+			out = append(out, m)
+		}
+		prev = m
+	}
+	return out
+}
+
+// formatRange renders messages one per line as "HH:MM Sender: text".
+func formatRange(msgs []*messages.UIMessage) string {
+	var buf strings.Builder
+	for _, m := range msgs {
+		fmt.Fprintf(&buf, "%s %s: %s\n", m.FormatTime(), m.GetRawSenderName(), m.PlainText())
+	}
+	return strings.TrimSuffix(buf.String(), "\n")
 }
 
 func (view *MessageView) handleMessageClick(message *messages.UIMessage, mod tcell.ModMask) bool {
@@ -428,6 +506,7 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 		viewStart = -indexOffset
 	}
 
+	rangeLo, rangeHi, inRange := view.rangeLinesLocked()
 	for line := viewStart; line < height && indexOffset+line < len(view.msgBuffer); {
 		index := indexOffset + line
 
@@ -458,7 +537,8 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 			screen.SetCell(usernameX+view.SenderWidth, line, tcell.StyleDefault.Foreground(tcell.ColorDarkRed), '*')
 		}
 
-		msg.IsSelected = view.selected != 0 && msg.RowID == view.selected
+		msg.IsSelected = view.selected != 0 && msg.RowID == view.selected ||
+			inRange && index >= rangeLo && index <= rangeHi
 		msg.Draw(mauview.NewProxyScreen(screen, messageX, line, width-messageX, msg.Height()))
 
 		// Deleted-but-witnessed messages keep their content with a marker.

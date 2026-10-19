@@ -225,6 +225,7 @@ func (view *RoomView) StopSelecting() {
 	view.selecting = false
 	view.selectContent = ""
 	view.MessageView().SetSelected(nil)
+	view.MessageView().ClearAnchor()
 }
 
 func (view *RoomView) OnSelect(message *messages.UIMessage) {
@@ -261,6 +262,7 @@ func (view *RoomView) OnSelect(message *messages.UIMessage) {
 	view.selecting = false
 	view.selectContent = ""
 	view.MessageView().SetSelected(nil)
+	view.MessageView().ClearAnchor()
 	view.input.Focus()
 }
 
@@ -454,6 +456,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		switch view.config.Keybindings.Visual[kb] {
 		case "clear":
 			RequestRepaint()
+			// First Escape drops a v range and stays in visual mode.
+			if msgView.HasAnchor() {
+				msgView.ClearAnchor()
+				return true
+			}
 			view.ClearAllContext()
 		case "select_prev":
 			view.SelectPrevious()
@@ -477,6 +484,20 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 				if reason, ok := verbs[event.Rune()]; ok {
 					view.selectReason = reason
 					view.OnSelect(msgView.GetSelected())
+					return true
+				}
+				// v anchors a range like vim's visual mode; j/k extend it.
+				if event.Rune() == 'v' {
+					msgView.ToggleAnchor()
+					return true
+				}
+				// y with a range copies every message in it.
+				if event.Rune() == 'y' && msgView.HasAnchor() {
+					msgs := msgView.RangeMessages()
+					go view.CopyToClipboard(formatRange(msgs), "clipboard")
+					view.AddServiceMessage("Copied %d messages", len(msgs))
+					view.StopSelecting()
+					view.input.Focus()
 					return true
 				}
 				// Space views the selected image full screen; selection stays
@@ -1047,6 +1068,10 @@ func (view *RoomView) InputSubmit(text string) {
 }
 
 func (view *RoomView) CopyToClipboard(text string, register string) {
+	// Visual mode's y has no /copy argument; default to the clipboard.
+	if register == "" {
+		register = "clipboard"
+	}
 	if register == "clipboard" || register == "primary" {
 		err := clipboard.WriteAll(text, register)
 		if err != nil {
