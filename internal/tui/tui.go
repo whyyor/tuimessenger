@@ -79,6 +79,13 @@ func init() {
 	mauview.Styles.PrimaryTextColor = tcell.ColorDefault
 	mauview.Styles.BorderColor = tcell.ColorDefault
 	mauview.Styles.ContrastBackgroundColor = ColorSelectionBackground
+	// Focused boxes keep the thin single line instead of switching to double.
+	mauview.Borders.HorizontalFocus = mauview.Borders.Horizontal
+	mauview.Borders.VerticalFocus = mauview.Borders.Vertical
+	mauview.Borders.TopLeftFocus = mauview.Borders.TopLeft
+	mauview.Borders.TopRightFocus = mauview.Borders.TopRight
+	mauview.Borders.BottomLeftFocus = mauview.Borders.BottomLeft
+	mauview.Borders.BottomRightFocus = mauview.Borders.BottomRight
 	if tcellDB := os.Getenv("TCELLDB"); len(tcellDB) == 0 {
 		if info, err := os.Stat("/usr/share/tcell/database"); err == nil && info.IsDir() {
 			_ = os.Setenv("TCELLDB", "/usr/share/tcell/database")

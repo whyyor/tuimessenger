@@ -92,7 +92,7 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 	fs.container = mauview.NewBox(flex).
 		SetBorder(true).
 		SetBorderStyle(tcell.StyleDefault.Foreground(ColorBorder)).
-		SetTitle("rooms").
+		SetTitle(" rooms ").
 		SetBlurCaptureFunc(func() bool {
 			fs.parent.HideModal()
 			return true
@@ -191,7 +191,6 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 	} else if fs.selected >= fs.scrollOffset+height {
 		fs.scrollOffset = fs.selected - height + 1
 	}
-	gutterStyle := tcell.StyleDefault.Foreground(ColorBorder)
 	accentStyle := tcell.StyleDefault.Foreground(ColorSelectionBackground)
 	for visRow := 0; visRow < height; visRow++ {
 		i := fs.scrollOffset + visRow
@@ -202,14 +201,15 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 		}
 		entry := fs.roomList[fs.matches[i].OriginalIndex]
 		rowStyle := tcell.StyleDefault
-		gutter := gutterStyle
 		if i == fs.selected {
-			// Subtle bar with a red gutter accent instead of a solid color row.
+			// Subtle bar with a red accent; other rows have no gutter, which
+			// next to the border read as a second frame.
 			rowStyle = rowStyle.Background(ColorBarBackground).Bold(true)
-			gutter = accentStyle.Background(ColorBarBackground)
 		}
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 0, y, width, rowStyle)
-		screen.SetContent(1, y, '▌', nil, gutter)
+		if i == fs.selected {
+			screen.SetContent(1, y, '▌', nil, accentStyle.Background(ColorBarBackground))
+		}
 		icon, iconColor := BridgeIconColor(entry.Bridge)
 		widget.WriteLine(screen, mauview.AlignLeft, icon, 3, y, 2, rowStyle.Foreground(iconColor))
 		nameMax := width - 6
