@@ -354,18 +354,13 @@ func (view *MessageView) getIndexOffset(screen mauview.Screen, height, messageX 
 	return
 }
 
-func (view *MessageView) CapturePlaintext(height int) string {
+// CapturePlaintext renders every loaded message as plain text, one line per
+// message, for the bare view.
+func (view *MessageView) CapturePlaintext() string {
 	var buf strings.Builder
-	indexOffset := view.TotalHeight() - view.GetScrollOffset() - height
 	var prevMessage *messages.UIMessage
 	view.lock.RLock()
-	for line := 0; line < height; line++ {
-		index := indexOffset + line
-		if index < 0 {
-			continue
-		}
-
-		message := view.msgBuffer[index]
+	for _, message := range view.msgBuffer {
 		if message != prevMessage {
 			var sender string
 			if len(message.GetSenderName()) > 0 {

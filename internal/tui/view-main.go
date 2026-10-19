@@ -21,6 +21,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -212,18 +214,27 @@ func (view *MainView) ShowBare(roomView *RoomView) {
 	if roomView == nil {
 		return
 	}
-	_, height := view.parent.app.Screen().Size()
+	text := roomView.MessageView().CapturePlaintext()
 	view.parent.app.Suspend(func() {
 		print("\033[2J\033[0;0H")
-		// We don't know how much space there exactly is. Too few messages looks weird,
-		// and too many messages shouldn't cause any problems, so we just show too many.
-		height *= 2
-		fmt.Println(roomView.MessageView().CapturePlaintext(height))
-		fmt.Println("Press enter to return to normal mode.")
-		reader := bufio.NewReader(os.Stdin)
-		_, _, _ = reader.ReadRune()
+		less, err := exec.LookPath("less")
+		if err != nil {
+			fmt.Println(text)
+			fmt.Println("Press enter to return to normal mode.")
+			_, _, _ = bufio.NewReader(os.Stdin).ReadRune()
+		} else {
+			// Every loaded message, opened at the newest; less reads keys from
+			// the tty. --mouse scrolls with the wheel (Shift+drag selects).
+			cmd := exec.Command(less, "+G", "--mouse", "--wheel-lines=3", "-~",
+				"-Ps j/k scroll · / search · q back ")
+			cmd.Stdin = strings.NewReader(text)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			_ = cmd.Run()
+		}
 		print("\033[2J\033[0;0H")
 	})
+	RequestRepaint()
 }
 
 func (view *MainView) OpenSyncingModal() *SyncingModal {
