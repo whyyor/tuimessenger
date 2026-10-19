@@ -61,6 +61,8 @@ type MessageView struct {
 	// account data it came from, replaced by sync on every change.
 	clearedAt time.Time
 	clearAD   *database.AccountData
+	// drawWidth is the width of the last frame, for rebuilding outside Draw.
+	drawWidth int
 	// followSelection asks the next Draw to scroll the selected message into
 	// view; Draw is where msgBuffer's line layout is current.
 	followSelection bool
@@ -359,7 +361,12 @@ func (view *MessageView) getIndexOffset(screen mauview.Screen, height, messageX 
 func (view *MessageView) CapturePlaintext() string {
 	var buf strings.Builder
 	var prevMessage *messages.UIMessage
-	view.lock.RLock()
+	view.lock.Lock()
+	// msgBuffer is otherwise only rebuilt on draw; pick up history loaded
+	// since the last frame.
+	if view.drawWidth > 0 {
+		view.update(view.drawWidth)
+	}
 	for _, message := range view.msgBuffer {
 		if message != prevMessage {
 			var sender string
@@ -372,7 +379,7 @@ func (view *MessageView) CapturePlaintext() string {
 			prevMessage = message
 		}
 	}
-	view.lock.RUnlock()
+	view.lock.Unlock()
 	return buf.String()
 }
 
@@ -381,6 +388,7 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 	defer view.lock.Unlock()
 	width, height := screen.Size()
 	view.height.Store(uint32(height))
+	view.drawWidth = width
 	view.update(width)
 	if view.followSelection {
 		view.followSelection = false

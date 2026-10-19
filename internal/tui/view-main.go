@@ -214,6 +214,39 @@ func (view *MainView) ShowBare(roomView *RoomView) {
 	if roomView == nil {
 		return
 	}
+	// Loading history can take a few round trips; keep the UI responsive.
+	go view.showBare(roomView)
+}
+
+// bareHistoryTarget is how many events Ctrl+L tries to have loaded.
+const bareHistoryTarget = 500
+
+// loadHistoryFor paginates until target events are loaded, the room's
+// history (or its /clear point) is reached, or a page fails.
+func (view *MainView) loadHistoryFor(room *store.RoomStore, target int) {
+	for range 20 {
+		tl := room.TimelineCache.Current()
+		if tl != nil && (len(*tl) >= target || historyExhausted(*tl, clearedAt(room))) {
+			return
+		}
+		if !room.HasMoreHistory() {
+			return
+		}
+		if room.Paginating.Load() {
+			// Another load (scroll, fill-screen) is running; let it finish.
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		if err := view.matrix.LoadMoreHistory(context.TODO(), room.ID); err != nil {
+			debug.Print("Failed to load history for bare view:", err)
+			return
+		}
+	}
+}
+
+func (view *MainView) showBare(roomView *RoomView) {
+	defer debug.Recover()
+	view.loadHistoryFor(roomView.Room, bareHistoryTarget)
 	text := roomView.MessageView().CapturePlaintext()
 	view.parent.app.Suspend(func() {
 		print("\033[2J\033[0;0H")
@@ -235,6 +268,7 @@ func (view *MainView) ShowBare(roomView *RoomView) {
 		print("\033[2J\033[0;0H")
 	})
 	RequestRepaint()
+	view.parent.Render()
 }
 
 func (view *MainView) OpenSyncingModal() *SyncingModal {
