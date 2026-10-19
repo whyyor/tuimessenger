@@ -213,8 +213,7 @@ func (view *MessageView) handleMessageClick(message *messages.UIMessage, mod tce
 	//	// No need to re-render
 	//	return false
 	//}
-	view.SetSelected(message)
-	view.parent.OnSelect(message)
+	view.parent.ClickSelect(message)
 	return true
 }
 

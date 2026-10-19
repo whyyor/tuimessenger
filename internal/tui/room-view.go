@@ -199,6 +199,28 @@ func (view *RoomView) StartSelecting(reason SelectReason, content string) {
 	}
 }
 
+// ClickSelect is a mouse click on a message: it enters visual mode on that
+// message, or moves the selection there, without acting; Enter or a verb key
+// acts, like after Ctrl+;. Clicking the selected message again leaves.
+func (view *RoomView) ClickSelect(message *messages.UIMessage) {
+	if message == nil || message.IsService {
+		return
+	}
+	msgView := view.MessageView()
+	if view.selecting && msgView.selected == message.RowID {
+		view.StopSelecting()
+		view.input.Focus()
+		return
+	}
+	if !view.selecting {
+		view.selecting = true
+		view.selectReason = SelectReply
+		view.selectContent = ""
+		view.input.Blur()
+	}
+	msgView.selected = message.RowID
+}
+
 func (view *RoomView) StopSelecting() {
 	view.selecting = false
 	view.selectContent = ""
