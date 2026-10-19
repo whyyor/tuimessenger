@@ -288,6 +288,15 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 			view.currentRoom.Update(view.currentRoom.Room.Meta.Current())
 		}
 	case "force_quit":
+		// Like a shell: Ctrl+C first clears typed text (Ctrl+Z restores it),
+		// and only quits from an empty input.
+		if view.currentRoom != nil && view.currentRoom.input.GetText() != "" {
+			// Clear resets cursor, selection and scroll; SetText then records
+			// the undo snapshot and fires the change callback (typing, draft).
+			view.currentRoom.input.Clear()
+			view.currentRoom.input.SetText("")
+			return true
+		}
 		view.parent.Finish()
 		return false
 	case "quit":

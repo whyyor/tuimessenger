@@ -322,7 +322,9 @@ const (
 	TopicBarHeight  = 1
 	StatusBarHeight = 1
 
-	MaxInputHeight = 5
+	MaxInputHeight = 10
+	// inputOffsetX leaves room for the composer's accent line and padding.
+	inputOffsetX = 3
 )
 
 func (view *RoomView) Draw(screen mauview.Screen) {
@@ -340,7 +342,9 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 		view.prevScreen = screen
 	}
 
-	view.input.PrepareDraw(width)
+	// Measure at the width the input is drawn with (inputScreen.Width below):
+	// wrapping wider made the box a line short, scrolling line 1 out of view.
+	view.input.PrepareDraw(width - inputOffsetX)
 	inputHeight := view.input.GetTextHeight()
 	if inputHeight > MaxInputHeight {
 		inputHeight = MaxInputHeight
@@ -372,8 +376,8 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.statusScreen.OffsetY = view.contentScreen.YEnd()
 	view.statusScreen.OffsetX = 1
 	view.statusScreen.Width = width - 1
-	view.inputScreen.OffsetX = 3
-	view.inputScreen.Width = width - 3
+	view.inputScreen.OffsetX = inputOffsetX
+	view.inputScreen.Width = width - inputOffsetX
 	view.inputScreen.OffsetY = view.statusScreen.YEnd() + 1
 	view.inputScreen.Height = inputHeight
 	// The old border column stays as blank spacing before the member list.
