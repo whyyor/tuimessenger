@@ -87,6 +87,41 @@ func (view *RoomView) SyncMutes() {
 	view.parent.parent.Render()
 }
 
+// PruneMutes deletes mute rules left behind by chats you've left or deleted.
+func (view *RoomView) PruneMutes() {
+	defer debug.Recover()
+	list := view.parent.roomList
+	list.lock.Lock()
+	muted := maps.Clone(list.mutedLocked())
+	list.lock.Unlock()
+	rooms := view.parent.matrix.ReversedRoomList.Current()
+	if len(rooms) == 0 {
+		view.AddServiceMessage("Room list not loaded yet; try again in a moment")
+		view.parent.parent.Render()
+		return
+	}
+	for _, roomID := range joinedMuted(rooms, muted) {
+		delete(muted, roomID)
+	}
+	var removed, failed, kept int
+	for roomID := range muted {
+		if view.parent.matrix.GetRoom(roomID) != nil {
+			kept++
+			continue
+		}
+		_, err := view.parent.matrix.MuteRoom(context.TODO(), &jsoncmd.MuteRoomParams{RoomID: roomID, Muted: false})
+		if err != nil {
+			debug.Print("Failed to prune mute rule for", roomID, err)
+			failed++
+		} else {
+			removed++
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	view.AddServiceMessage("Mute prune done: %d stale rules removed, %d failed, %d kept (chat still known locally)", removed, failed, kept)
+	view.parent.parent.Render()
+}
+
 func joinedMuted(rooms []*store.RoomListEntry, muted map[id.RoomID]bool) []id.RoomID {
 	var out []id.RoomID
 	for _, room := range rooms {
