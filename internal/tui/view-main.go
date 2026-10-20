@@ -168,7 +168,7 @@ func (view *MainView) drawConnDialog(screen mauview.Screen) {
 
 func (view *MainView) drawEmptyHint(screen mauview.Screen) {
 	width, height := screen.Size()
-	hint := "Ctrl+k to search rooms · Ctrl+s to show the sidebar"
+	hint := "↑↓ to browse chats · Ctrl+k to search · Ctrl+s for the sidebar"
 	x := (width - runewidth.StringWidth(hint)) / 2
 	if x < 0 {
 		x = 0
@@ -278,7 +278,7 @@ func (view *MainView) OpenSyncingModal() *SyncingModal {
 }
 
 func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
-	if view.modal == nil && !view.config.Preferences.HideRoomList && (view.browsing || view.currentRoom == nil) {
+	if view.modal == nil && (view.browsing || view.currentRoom == nil) {
 		if view.handleBrowseKey(event) {
 			return true
 		}

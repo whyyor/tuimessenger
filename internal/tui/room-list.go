@@ -120,6 +120,13 @@ func (list *RoomList) Next() id.RoomID {
 // when nothing is highlighted yet, otherwise one row down or up. It stays
 // put at either end.
 func (list *RoomList) BrowseStep(down bool) id.RoomID {
+	// rooms is otherwise only filled by Draw, which never runs while the
+	// sidebar is hidden.
+	if list.parent != nil {
+		list.lock.Lock()
+		list.rooms = listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected)
+		list.lock.Unlock()
+	}
 	var next id.RoomID
 	if !list.HasSelected() {
 		next = list.Next()
