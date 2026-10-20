@@ -78,6 +78,14 @@ func TestUnreadRooms(t *testing.T) {
 	}
 }
 
+func TestJoinedMuted(t *testing.T) {
+	rooms := []*store.RoomListEntry{{RoomID: "a"}, {RoomID: "b"}, {RoomID: "c"}}
+	got := joinedMuted(rooms, map[id.RoomID]bool{"b": true, "c": true, "left": true})
+	if len(got) != 2 || got[0] != "b" || got[1] != "c" {
+		t.Errorf("got %v, want [b c]", got)
+	}
+}
+
 func TestMuteSyncParses(t *testing.T) {
 	for _, cmd := range LocalCommands {
 		if cmd.Command != CmdMuteSync {

@@ -58,11 +58,13 @@ func (view *RoomView) SyncMutes() {
 	list.lock.Lock()
 	muted := maps.Clone(list.mutedLocked())
 	list.lock.Unlock()
-	view.AddServiceMessage("Syncing %d muted chats to their networks…", len(muted))
+	// Push rules outlive left/deleted chats; the server 404s on those.
+	joined := joinedMuted(view.parent.matrix.ReversedRoomList.Current(), muted)
+	view.AddServiceMessage("Syncing %d muted chats to their networks…", len(joined))
 	view.parent.parent.Render()
 	var synced, skipped, failed int
 	raw := json.RawMessage(`{"muted_until":-1}`)
-	for roomID := range muted {
+	for _, roomID := range joined {
 		if bridgeMuted(view.parent.matrix.GetRoom(roomID)) {
 			skipped++
 			continue
@@ -80,8 +82,19 @@ func (view *RoomView) SyncMutes() {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	view.AddServiceMessage("Mute sync done: %d synced, %d already synced, %d failed", synced, skipped, failed)
+	view.AddServiceMessage("Mute sync done: %d synced, %d already synced, %d failed (%d rules for chats you left ignored)",
+		synced, skipped, failed, len(muted)-len(joined))
 	view.parent.parent.Render()
+}
+
+func joinedMuted(rooms []*store.RoomListEntry, muted map[id.RoomID]bool) []id.RoomID {
+	var out []id.RoomID
+	for _, room := range rooms {
+		if muted[room.RoomID] {
+			out = append(out, room.RoomID)
+		}
+	}
+	return out
 }
 
 func bridgeMuted(room *store.RoomStore) bool {
