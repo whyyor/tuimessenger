@@ -48,6 +48,7 @@ const (
 
 	CmdClear   = "clear"
 	CmdUnclear = "unclear"
+	CmdCache   = "cache"
 )
 
 var LocalCommands = []*cmdschema.EventContent{{
@@ -127,6 +128,9 @@ var LocalCommands = []*cmdschema.EventContent{{
 }, {
 	Command:     CmdUnclear,
 	Description: event.MakeExtensibleText("Show this chat's hidden history again"),
+}, {
+	Command:     CmdCache,
+	Description: event.MakeExtensibleText("Delete media fetched to play or open (not ~/Downloads)"),
 }, {
 	Command:     CmdQuit,
 	Description: event.MakeExtensibleText("Quit gomuks terminal"),
@@ -223,6 +227,8 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 		go view.SetCleared(true)
 	case CmdUnclear:
 		go view.SetCleared(false)
+	case CmdCache:
+		go view.ClearMediaCache()
 	case CmdQuit:
 		view.parent.parent.Stop()
 	default:

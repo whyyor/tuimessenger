@@ -206,7 +206,13 @@ func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 		}
 		return
 	}
-	path, err := view.fetchMediaToFile(msg, os.TempDir())
+	dir, err := freshTempMediaDir()
+	if err != nil {
+		view.AddServiceMessage("Failed to prepare the media folder: %v", err)
+		view.parent.parent.Render()
+		return
+	}
+	path, err := view.fetchMediaToFile(msg, dir)
 	if err != nil {
 		view.AddServiceMessage("Failed to fetch media: %v", err)
 		view.parent.parent.Render()
@@ -260,11 +266,17 @@ func (view *RoomView) playLink(url string) {
 	}
 	view.AddServiceMessage("Fetching video…")
 	view.parent.parent.Render()
+	dir, err := freshTempMediaDir()
+	if err != nil {
+		view.AddServiceMessage("Failed to prepare the media folder: %v", err)
+		view.parent.parent.Render()
+		return
+	}
 	// Prefer H.264/AAC: Instagram's best stream is VP9, which QuickTime
 	// can't play.
 	cmd := exec.Command(ytdlp, "--quiet", "--no-warnings", "--no-playlist",
 		"-S", "vcodec:h264,acodec:aac", "--merge-output-format", "mp4",
-		"-o", filepath.Join(os.TempDir(), "gomuks-%(id)s.%(ext)s"),
+		"-o", filepath.Join(dir, "gomuks-%(id)s.%(ext)s"),
 		"--print", "after_move:filepath", url)
 	out, err := cmd.Output()
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
@@ -315,12 +327,18 @@ func (view *RoomView) playVideoInTerminal(target string, isFile bool) {
 // opening it with the system handler.
 func (view *RoomView) SaveOrOpenMedia(msg *messages.FileMessage, openIt bool) {
 	defer debug.Recover()
-	dir := os.TempDir()
-	if !openIt {
-		home, err := os.UserHomeDir()
-		if err == nil {
-			dir = filepath.Join(home, "Downloads")
+	var dir string
+	if openIt {
+		var err error
+		if dir, err = freshTempMediaDir(); err != nil {
+			view.AddServiceMessage("Failed to prepare the media folder: %v", err)
+			view.parent.parent.Render()
+			return
 		}
+	} else if home, err := os.UserHomeDir(); err == nil {
+		dir = filepath.Join(home, "Downloads")
+	} else {
+		dir = os.TempDir()
 	}
 	path, err := view.fetchMediaToFile(msg, dir)
 	if err != nil {
