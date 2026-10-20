@@ -55,9 +55,7 @@ func (view *RoomView) setBridgeMute(muted bool) error {
 func (view *RoomView) SyncMutes() {
 	defer debug.Recover()
 	list := view.parent.roomList
-	list.lock.Lock()
-	muted := maps.Clone(list.mutedLocked())
-	list.lock.Unlock()
+	muted := maps.Clone(list.mutedSet())
 	// Push rules outlive left/deleted chats; the server 404s on those.
 	joined := joinedMuted(view.parent.matrix.ReversedRoomList.Current(), muted)
 	view.AddServiceMessage("Syncing %d muted chats to their networks…", len(joined))
@@ -91,9 +89,7 @@ func (view *RoomView) SyncMutes() {
 func (view *RoomView) PruneMutes() {
 	defer debug.Recover()
 	list := view.parent.roomList
-	list.lock.Lock()
-	muted := maps.Clone(list.mutedLocked())
-	list.lock.Unlock()
+	muted := maps.Clone(list.mutedSet())
 	rooms := view.parent.matrix.ReversedRoomList.Current()
 	if len(rooms) == 0 {
 		view.AddServiceMessage("Room list not loaded yet; try again in a moment")

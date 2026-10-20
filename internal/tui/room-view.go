@@ -60,6 +60,9 @@ type RoomView struct {
 
 	userListLoaded bool
 	hasTopic       bool
+	topicName      string
+	topicDesc      string
+	topicShown     string
 	lastTypingSent time.Time
 
 	prevScreen mauview.Screen
@@ -353,6 +356,7 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	} else if inputHeight < 1 {
 		inputHeight = 1
 	}
+	view.syncTopic()
 	// The topic bar only exists when a human actually wrote a topic.
 	topicBarHeight := 0
 	if view.hasTopic {
@@ -1198,11 +1202,30 @@ func (view *RoomView) Update(meta *database.Room) {
 	if isBoilerplateTopic(topicStr) {
 		topicStr = ""
 	}
+	view.topicName = ptr.Val(meta.Name)
+	view.topicDesc = topicStr
+	view.syncTopic()
+	if meta.EncryptionEvent != nil && meta.EncryptionEvent.Algorithm == id.AlgorithmMegolmV1 {
+		view.input.SetPlaceholder("Send an encrypted message...")
+	}
+	if !view.userListLoaded && view.Room.FullMembersLoaded.Load() {
+		view.UpdateUserList()
+	}
+	view.parent.parent.NeedsRender = true
+}
+
+// syncTopic rebuilds the topic bar; run on draw so mute changes show at once.
+func (view *RoomView) syncTopic() {
+	topicStr := view.topicDesc
 	if view.config.Preferences.HideRoomList {
+		name := view.topicName
+		if view.parent.roomList.IsMuted(view.Room.ID) {
+			name += " \U000f009b" // nf-md-bell_off
+		}
 		if len(topicStr) > 0 {
-			topicStr = fmt.Sprintf("%s - %s", ptr.Val(meta.Name), topicStr)
+			topicStr = fmt.Sprintf("%s - %s", name, topicStr)
 		} else {
-			topicStr = ptr.Val(meta.Name)
+			topicStr = name
 		}
 		topicStr = strings.TrimSpace(topicStr)
 	}
@@ -1211,14 +1234,10 @@ func (view *RoomView) Update(meta *database.Room) {
 	if topicStr != "" {
 		topicStr = " " + topicStr
 	}
-	view.topic.SetText(topicStr)
-	if meta.EncryptionEvent != nil && meta.EncryptionEvent.Algorithm == id.AlgorithmMegolmV1 {
-		view.input.SetPlaceholder("Send an encrypted message...")
+	if topicStr != view.topicShown {
+		view.topicShown = topicStr
+		view.topic.SetText(topicStr)
 	}
-	if !view.userListLoaded && view.Room.FullMembersLoaded.Load() {
-		view.UpdateUserList()
-	}
-	view.parent.parent.NeedsRender = true
 }
 
 func (view *RoomView) UpdateUserList() {

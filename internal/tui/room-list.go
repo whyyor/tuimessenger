@@ -41,6 +41,8 @@ type RoomList struct {
 	selected id.RoomID
 
 	// muted is parsed from pushRules, and reparsed only when sync replaces it.
+	// mutedLock guards both; it never takes lock, so it's safe under it.
+	mutedLock sync.Mutex
 	pushRules *database.AccountData
 	muted     map[id.RoomID]bool
 
@@ -204,9 +206,11 @@ func (list *RoomList) addScrollOffset(offset int) {
 func (list *RoomList) Focus() {}
 func (list *RoomList) Blur()  {}
 
-// mutedLocked returns the muted chats, reparsing push rules only when sync
-// replaced them. Caller holds list.lock.
-func (list *RoomList) mutedLocked() map[id.RoomID]bool {
+// mutedSet returns the muted chats, reparsing push rules only when sync
+// replaced them. The map is replaced, never mutated, so callers may keep it.
+func (list *RoomList) mutedSet() map[id.RoomID]bool {
+	list.mutedLock.Lock()
+	defer list.mutedLock.Unlock()
 	if ad := list.parent.matrix.GomuksStore.GetAccountData(event.AccountDataPushRules); ad != list.pushRules {
 		list.pushRules = ad
 		list.muted = nil
@@ -217,11 +221,13 @@ func (list *RoomList) mutedLocked() map[id.RoomID]bool {
 	return list.muted
 }
 
+func (list *RoomList) IsMuted(roomID id.RoomID) bool {
+	return list.mutedSet()[roomID]
+}
+
 // UnreadRooms is the hint screen's list: see unreadRooms.
 func (list *RoomList) UnreadRooms() []*store.RoomListEntry {
-	list.lock.Lock()
-	muted := list.mutedLocked()
-	list.lock.Unlock()
+	muted := list.mutedSet()
 	return unreadRooms(listedRooms(list.parent.matrix.ReversedRoomList.Current(), ""), muted)
 }
 
@@ -243,7 +249,7 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 	list.rooms = listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected)
 	list.width, list.height = screen.Size()
 	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
-	muted := list.mutedLocked()
+	muted := list.mutedSet()
 	list.lock.Unlock()
 
 	for y, room := range roomSlice {
