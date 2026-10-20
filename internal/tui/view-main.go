@@ -174,12 +174,30 @@ const hintMaxUnread = 8
 
 func (view *MainView) drawEmptyHint(screen mauview.Screen) {
 	width, height := screen.Size()
-	hint := "↑↓ to browse chats · Ctrl+k to search · Ctrl+s for the sidebar"
 	hintY := height / 2
+	view.drawUnreadList(screen, width, hintY)
+	hint := "↑↓ to browse chats · Ctrl+k to search · Ctrl+s for the sidebar"
+	switch n := len(view.hintRows); {
+	case n == 1:
+		hint = "1 to open · ↑↓ browse · Ctrl+k search · Ctrl+s sidebar"
+	case n > 1:
+		hint = fmt.Sprintf("1–%d to open · ↑↓ browse · Ctrl+k search · Ctrl+s sidebar", n)
+	}
 	x := max(0, (width-runewidth.StringWidth(hint))/2)
 	widget.WriteLine(screen, mauview.AlignLeft, hint, x, hintY, width,
 		tcell.StyleDefault.Foreground(ColorStatusText))
-	view.drawUnreadList(screen, width, hintY)
+}
+
+// hintRoomForKey maps a bare 1–9 to the matching unread row, or "".
+func hintRoomForKey(rows []hintRow, event mauview.KeyEvent) id.RoomID {
+	if event.Key() != tcell.KeyRune || event.Modifiers() != tcell.ModNone {
+		return ""
+	}
+	idx := int(event.Rune() - '1')
+	if idx < 0 || idx >= len(rows) || idx > 8 {
+		return ""
+	}
+	return rows[idx].roomID
 }
 
 // drawUnreadList draws unread chats above the hint, newest at the top,
@@ -206,9 +224,10 @@ func (view *MainView) drawUnreadList(screen mauview.Screen, width, hintY int) {
 		return
 	}
 	dim := tcell.StyleDefault.Foreground(ColorStatusText)
-	for _, room := range rooms {
+	for i, room := range rooms {
+		widget.WriteLine(screen, mauview.AlignLeft, strconv.Itoa(i+1), x, y, 1, dim)
 		icon, iconColor := BridgeIconColor(room.Bridge)
-		widget.WriteLine(screen, mauview.AlignLeft, icon, x, y, 2, tcell.StyleDefault.Foreground(iconColor))
+		widget.WriteLine(screen, mauview.AlignLeft, icon, x+2, y, 2, tcell.StyleDefault.Foreground(iconColor))
 		badge, badgeColor := "●", ColorUnreadBadge
 		if room.UnreadMessages > 0 {
 			badge = "99+"
@@ -222,14 +241,14 @@ func (view *MainView) drawUnreadList(screen mauview.Screen, width, hintY int) {
 		badgeW := runewidth.StringWidth(badge)
 		widget.WriteLine(screen, mauview.AlignLeft, badge, x+blockW-badgeW, y, badgeW,
 			tcell.StyleDefault.Foreground(badgeColor).Bold(true))
-		nameMax := blockW - 2 - badgeW - 1
-		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(room.Name, nameMax, "…"), x+2, y, nameMax,
+		nameMax := blockW - 4 - badgeW - 1
+		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(room.Name, nameMax, "…"), x+4, y, nameMax,
 			tcell.StyleDefault.Bold(true))
 		view.hintRows = append(view.hintRows, hintRow{y: y, roomID: room.RoomID})
 		y++
 	}
 	if extra > 0 {
-		widget.WriteLine(screen, mauview.AlignLeft, fmt.Sprintf("+%d more", extra), x+2, y, blockW-2, dim)
+		widget.WriteLine(screen, mauview.AlignLeft, fmt.Sprintf("+%d more", extra), x+4, y, blockW-4, dim)
 	}
 }
 
@@ -339,6 +358,12 @@ func (view *MainView) OpenSyncingModal() *SyncingModal {
 }
 
 func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
+	if view.modal == nil && view.currentRoom == nil && view.config.Preferences.HideRoomList {
+		if roomID := hintRoomForKey(view.hintRows, event); roomID != "" {
+			view.SwitchRoom(roomID)
+			return true
+		}
+	}
 	if view.modal == nil && (view.browsing || view.currentRoom == nil) {
 		if view.handleBrowseKey(event) {
 			return true
