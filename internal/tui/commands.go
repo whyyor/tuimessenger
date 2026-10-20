@@ -43,8 +43,9 @@ const (
 	CmdOpen     = "open"
 	CmdDownload = "download"
 
-	CmdMute   = "mute"
-	CmdUnmute = "unmute"
+	CmdMute     = "mute"
+	CmdUnmute   = "unmute"
+	CmdMuteSync = "mute-sync"
 
 	CmdClear   = "clear"
 	CmdUnclear = "unclear"
@@ -122,6 +123,9 @@ var LocalCommands = []*cmdschema.EventContent{{
 }, {
 	Command:     CmdUnmute,
 	Description: event.MakeExtensibleText("Unmute this chat"),
+}, {
+	Command:     CmdMuteSync,
+	Description: event.MakeExtensibleText("Mute every muted chat on its network too (WhatsApp, Instagram, Telegram)"),
 }, {
 	Command:     CmdClear,
 	Description: event.MakeExtensibleText("Hide this chat's history in gomuks (nothing is deleted)"),
@@ -223,6 +227,8 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 		go view.SetMuted(true)
 	case CmdUnmute:
 		go view.SetMuted(false)
+	case CmdMuteSync:
+		go view.SyncMutes()
 	case CmdClear:
 		go view.SetCleared(true)
 	case CmdUnclear:

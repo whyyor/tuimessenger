@@ -3,11 +3,14 @@ package tui
 import (
 	"context"
 	"encoding/json"
+	"maps"
+	"time"
 
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/debug"
 )
 
@@ -46,6 +49,51 @@ func (view *RoomView) setBridgeMute(muted bool) error {
 		Type:    event.AccountDataBeeperMute.Type,
 		Content: raw,
 	})
+}
+
+// SyncMutes copies every push-rule mute into com.beeper.mute so bridges mute them on the network.
+func (view *RoomView) SyncMutes() {
+	defer debug.Recover()
+	list := view.parent.roomList
+	list.lock.Lock()
+	muted := maps.Clone(list.mutedLocked())
+	list.lock.Unlock()
+	view.AddServiceMessage("Syncing %d muted chats to their networks…", len(muted))
+	view.parent.parent.Render()
+	var synced, skipped, failed int
+	raw := json.RawMessage(`{"muted_until":-1}`)
+	for roomID := range muted {
+		if bridgeMuted(view.parent.matrix.GetRoom(roomID)) {
+			skipped++
+			continue
+		}
+		err := view.parent.matrix.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
+			RoomID:  roomID,
+			Type:    event.AccountDataBeeperMute.Type,
+			Content: raw,
+		})
+		if err != nil {
+			debug.Print("Failed to sync mute for", roomID, err)
+			failed++
+		} else {
+			synced++
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	view.AddServiceMessage("Mute sync done: %d synced, %d already synced, %d failed", synced, skipped, failed)
+	view.parent.parent.Render()
+}
+
+func bridgeMuted(room *store.RoomStore) bool {
+	if room == nil {
+		return false
+	}
+	ad := room.GetAccountData(event.AccountDataBeeperMute)
+	if ad == nil {
+		return false
+	}
+	var content event.BeeperMuteEventContent
+	return json.Unmarshal(ad.Content, &content) == nil && content.IsMuted()
 }
 
 // mutedRooms reads m.push_rules content into the set of muted chats: an

@@ -7,6 +7,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"maunium.net/go/mautrix/id"
 
+	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/store"
 )
@@ -75,4 +76,18 @@ func TestUnreadRooms(t *testing.T) {
 	if strings.Join(ids, ",") != "unread,marked,mention" {
 		t.Errorf("got %v, want unread, marked, mention in order", ids)
 	}
+}
+
+func TestMuteSyncParses(t *testing.T) {
+	for _, cmd := range LocalCommands {
+		if cmd.Command != CmdMuteSync {
+			continue
+		}
+		parsed, err := cmd.ParseInput(cmdspec.FakeGomuksSender, cmdSigils, "/mute-sync")
+		if err != nil || parsed == nil || parsed.MSC4391BotCommand.Command != CmdMuteSync {
+			t.Fatalf("got %+v, %v", parsed, err)
+		}
+		return
+	}
+	t.Fatal("mute-sync not registered")
 }
