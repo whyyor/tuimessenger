@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -56,6 +57,8 @@ type MainView struct {
 	lastFocusTime time.Time
 	// browsing is set while ↓/↑ flip through rooms; see handleBrowseKey.
 	browsing bool
+	// hintRows maps hint-screen unread rows to rooms for mouse clicks.
+	hintRows []hintRow
 
 	matrix *client.GomuksClient
 	config *config.Config
@@ -166,15 +169,73 @@ func (view *MainView) drawConnDialog(screen mauview.Screen) {
 	widget.WriteLine(screen, mauview.AlignLeft, text, boxX+3, boxY+1, boxWidth-6, textStyle)
 }
 
+// hintMaxUnread caps the unread list on the hint screen.
+const hintMaxUnread = 8
+
 func (view *MainView) drawEmptyHint(screen mauview.Screen) {
 	width, height := screen.Size()
 	hint := "↑↓ to browse chats · Ctrl+k to search · Ctrl+s for the sidebar"
-	x := (width - runewidth.StringWidth(hint)) / 2
-	if x < 0 {
-		x = 0
-	}
-	widget.WriteLine(screen, mauview.AlignLeft, hint, x, height/2, width,
+	hintY := height / 2
+	x := max(0, (width-runewidth.StringWidth(hint))/2)
+	widget.WriteLine(screen, mauview.AlignLeft, hint, x, hintY, width,
 		tcell.StyleDefault.Foreground(ColorStatusText))
+	view.drawUnreadList(screen, width, hintY)
+}
+
+// drawUnreadList draws unread chats above the hint, newest at the top,
+// redrawn on every sync like the sidebar. Rows are remembered for clicks.
+func (view *MainView) drawUnreadList(screen mauview.Screen, width, hintY int) {
+	view.hintRows = view.hintRows[:0]
+	rooms := view.roomList.UnreadRooms()
+	extra := 0
+	if len(rooms) > hintMaxUnread {
+		extra = len(rooms) - hintMaxUnread
+		rooms = rooms[:hintMaxUnread]
+	}
+	rowCount := len(rooms)
+	if extra > 0 {
+		rowCount++
+	}
+	if rowCount == 0 {
+		return
+	}
+	blockW := min(44, width-2)
+	x := max(0, (width-blockW)/2)
+	y := hintY - 1 - rowCount
+	if y < 0 {
+		return
+	}
+	dim := tcell.StyleDefault.Foreground(ColorStatusText)
+	for _, room := range rooms {
+		icon, iconColor := BridgeIconColor(room.Bridge)
+		widget.WriteLine(screen, mauview.AlignLeft, icon, x, y, 2, tcell.StyleDefault.Foreground(iconColor))
+		badge, badgeColor := "●", ColorUnreadBadge
+		if room.UnreadMessages > 0 {
+			badge = "99+"
+			if room.UnreadMessages < 100 {
+				badge = strconv.Itoa(room.UnreadMessages)
+			}
+		}
+		if room.UnreadHighlights > 0 {
+			badgeColor = ColorUnreadHighlight
+		}
+		badgeW := runewidth.StringWidth(badge)
+		widget.WriteLine(screen, mauview.AlignLeft, badge, x+blockW-badgeW, y, badgeW,
+			tcell.StyleDefault.Foreground(badgeColor).Bold(true))
+		nameMax := blockW - 2 - badgeW - 1
+		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(room.Name, nameMax, "…"), x+2, y, nameMax,
+			tcell.StyleDefault.Bold(true))
+		view.hintRows = append(view.hintRows, hintRow{y: y, roomID: room.RoomID})
+		y++
+	}
+	if extra > 0 {
+		widget.WriteLine(screen, mauview.AlignLeft, fmt.Sprintf("+%d more", extra), x+2, y, blockW-2, dim)
+	}
+}
+
+type hintRow struct {
+	y      int
+	roomID id.RoomID
 }
 
 func (view *MainView) BumpFocus(roomView *RoomView) {
@@ -367,6 +428,16 @@ func (view *MainView) OnMouseEvent(event mauview.MouseEvent) bool {
 		return view.modal.OnMouseEvent(event)
 	}
 	if view.config.Preferences.HideRoomList {
+		if view.currentRoom == nil && event.Buttons() == tcell.Button1 && !event.HasMotion() {
+			// A click on an unread row of the hint screen opens that chat.
+			_, y := event.Position()
+			for _, row := range view.hintRows {
+				if row.y == y {
+					view.SwitchRoom(row.roomID)
+					return true
+				}
+			}
+		}
 		return view.roomView.OnMouseEvent(event)
 	}
 	return view.flex.OnMouseEvent(event)

@@ -204,11 +204,9 @@ func (list *RoomList) addScrollOffset(offset int) {
 func (list *RoomList) Focus() {}
 func (list *RoomList) Blur()  {}
 
-func (list *RoomList) Draw(screen mauview.Screen) {
-	list.lock.Lock()
-	list.rooms = listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected)
-	list.width, list.height = screen.Size()
-	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
+// mutedLocked returns the muted chats, reparsing push rules only when sync
+// replaced them. Caller holds list.lock.
+func (list *RoomList) mutedLocked() map[id.RoomID]bool {
 	if ad := list.parent.matrix.GomuksStore.GetAccountData(event.AccountDataPushRules); ad != list.pushRules {
 		list.pushRules = ad
 		list.muted = nil
@@ -216,7 +214,36 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 			list.muted = mutedRooms(ad.Content)
 		}
 	}
-	muted := list.muted
+	return list.muted
+}
+
+// UnreadRooms is the hint screen's list: see unreadRooms.
+func (list *RoomList) UnreadRooms() []*store.RoomListEntry {
+	list.lock.Lock()
+	muted := list.mutedLocked()
+	list.lock.Unlock()
+	return unreadRooms(listedRooms(list.parent.matrix.ReversedRoomList.Current(), ""), muted)
+}
+
+// unreadRooms keeps chats with unread messages (or marked unread) that
+// aren't muted, newest first as given.
+func unreadRooms(rooms []*store.RoomListEntry, muted map[id.RoomID]bool) []*store.RoomListEntry {
+	var out []*store.RoomListEntry
+	for _, room := range rooms {
+		unread := room.UnreadMessages > 0 || room.UnreadNotifications > 0 || room.UnreadHighlights > 0 || room.MarkedUnread
+		if unread && !muted[room.RoomID] {
+			out = append(out, room)
+		}
+	}
+	return out
+}
+
+func (list *RoomList) Draw(screen mauview.Screen) {
+	list.lock.Lock()
+	list.rooms = listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected)
+	list.width, list.height = screen.Size()
+	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
+	muted := list.mutedLocked()
 	list.lock.Unlock()
 
 	for y, room := range roomSlice {

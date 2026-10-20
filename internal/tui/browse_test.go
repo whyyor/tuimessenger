@@ -1,8 +1,12 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
+	"maunium.net/go/mautrix/id"
+
+	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/store"
 )
 
@@ -30,5 +34,23 @@ func TestBrowseStep(t *testing.T) {
 	list.selected = ""
 	if got := list.BrowseStep(false); got != "newest" {
 		t.Errorf("first ↑ with nothing highlighted: got %q, want newest", got)
+	}
+}
+
+func TestUnreadRooms(t *testing.T) {
+	rooms := []*store.RoomListEntry{
+		{RoomID: "read"},
+		{RoomID: "unread", UnreadCounts: database.UnreadCounts{UnreadMessages: 3}},
+		{RoomID: "muted", UnreadCounts: database.UnreadCounts{UnreadMessages: 5}},
+		{RoomID: "marked", MarkedUnread: true},
+		{RoomID: "mention", UnreadCounts: database.UnreadCounts{UnreadHighlights: 1}},
+	}
+	got := unreadRooms(rooms, map[id.RoomID]bool{"muted": true})
+	var ids []string
+	for _, r := range got {
+		ids = append(ids, string(r.RoomID))
+	}
+	if strings.Join(ids, ",") != "unread,marked,mention" {
+		t.Errorf("got %v, want unread, marked, mention in order", ids)
 	}
 }
