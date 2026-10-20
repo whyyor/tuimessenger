@@ -179,18 +179,18 @@ func (view *MainView) drawEmptyHint(screen mauview.Screen) {
 	hint := "↑↓ to browse chats · Ctrl+k to search · Ctrl+s for the sidebar"
 	switch n := len(view.hintRows); {
 	case n == 1:
-		hint = "1 to open · ↑↓ browse · Ctrl+k search · Ctrl+s sidebar"
+		hint = "Ctrl+1 to open · ↑↓ browse · Ctrl+k search · Ctrl+s sidebar"
 	case n > 1:
-		hint = fmt.Sprintf("1–%d to open · ↑↓ browse · Ctrl+k search · Ctrl+s sidebar", n)
+		hint = fmt.Sprintf("Ctrl+1–%d to open · ↑↓ browse · Ctrl+k search · Ctrl+s sidebar", n)
 	}
 	x := max(0, (width-runewidth.StringWidth(hint))/2)
 	widget.WriteLine(screen, mauview.AlignLeft, hint, x, hintY, width,
 		tcell.StyleDefault.Foreground(ColorStatusText))
 }
 
-// hintRoomForKey maps a bare 1–9 to the matching unread row, or "".
+// hintRoomForKey maps 1–9 or Alt+1–9 (Ghostty sends Ctrl+N as Alt+N) to an unread row.
 func hintRoomForKey(rows []hintRow, event mauview.KeyEvent) id.RoomID {
-	if event.Key() != tcell.KeyRune || event.Modifiers() != tcell.ModNone {
+	if event.Key() != tcell.KeyRune || (event.Modifiers() != tcell.ModNone && event.Modifiers() != tcell.ModAlt) {
 		return ""
 	}
 	idx := int(event.Rune() - '1')

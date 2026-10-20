@@ -49,7 +49,8 @@ func TestHintRoomForKey(t *testing.T) {
 		{tcell.NewEventKey(tcell.KeyRune, '4', tcell.ModNone), ""}, // past the list
 		{tcell.NewEventKey(tcell.KeyRune, '0', tcell.ModNone), ""},
 		{tcell.NewEventKey(tcell.KeyRune, 'x', tcell.ModNone), ""},
-		{tcell.NewEventKey(tcell.KeyRune, '1', tcell.ModAlt), ""},
+		{tcell.NewEventKey(tcell.KeyRune, '2', tcell.ModAlt), "b"}, // Ghostty's Ctrl+2
+		{tcell.NewEventKey(tcell.KeyRune, '1', tcell.ModCtrl), ""},
 	}
 	for _, c := range cases {
 		if got := hintRoomForKey(rows, c.ev); got != c.want {
