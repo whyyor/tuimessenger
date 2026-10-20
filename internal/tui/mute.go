@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
@@ -19,6 +20,9 @@ func (view *RoomView) SetMuted(muted bool) {
 		name = *n
 	}
 	_, err := view.parent.matrix.MuteRoom(context.TODO(), &jsoncmd.MuteRoomParams{RoomID: view.Room.ID, Muted: muted})
+	if err == nil {
+		err = view.setBridgeMute(muted)
+	}
 	switch {
 	case err != nil:
 		view.AddServiceMessage("Failed to change mute for %s: %v", name, err)
@@ -28,6 +32,20 @@ func (view *RoomView) SetMuted(muted bool) {
 		view.AddServiceMessage("Unmuted: %s", name)
 	}
 	view.parent.parent.Render()
+}
+
+// setBridgeMute writes com.beeper.mute, which bridges relay to the network's own mute.
+func (view *RoomView) setBridgeMute(muted bool) error {
+	content := event.BeeperMuteEventContent{}
+	if muted {
+		content.MutedUntil = -1
+	}
+	raw, _ := json.Marshal(&content)
+	return view.parent.matrix.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
+		RoomID:  view.Room.ID,
+		Type:    event.AccountDataBeeperMute.Type,
+		Content: raw,
+	})
 }
 
 // mutedRooms reads m.push_rules content into the set of muted chats: an
