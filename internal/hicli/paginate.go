@@ -725,6 +725,12 @@ func (h *HiClient) SearchServer(ctx context.Context, params *jsoncmd.SearchServe
 
 func (h *HiClient) GetMentions(ctx context.Context, maxTS time.Time, unreadType database.UnreadType, limit int, roomID id.RoomID) ([]*database.Event, error) {
 	evts, err := h.DB.Event.GetMentions(ctx, maxTS, unreadType, limit, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if evts == nil {
+		evts = []*database.Event{}
+	}
 	for _, evt := range evts {
 		h.ReprocessExistingEvent(ctx, evt)
 	}
