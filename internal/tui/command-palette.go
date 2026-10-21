@@ -112,6 +112,15 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		sidebar = "Show sidebar"
 	}
 	items = append(items, cmd(sidebar, keyHint(main, "toggle_sidebar"), view.toggleSidebar))
+	layout := "Classic layout (time and name columns)"
+	if view.config.Preferences.ClassicLayout {
+		layout = "Bubble layout (mine right, theirs left)"
+	}
+	items = append(items, cmd(layout, "", func() {
+		view.config.Preferences.ClassicLayout = !view.config.Preferences.ClassicLayout
+		go view.config.Save()
+		RequestRepaint()
+	}))
 	room := view.currentRoom
 	if room != nil {
 		muted := view.roomList.IsMuted(room.Room.ID)

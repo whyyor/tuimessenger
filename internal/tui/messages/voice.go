@@ -108,6 +108,10 @@ func (msg *FileMessage) drawVoice(screen mauview.Screen) {
 	accent := tcell.StyleDefault.Foreground(ColorVoiceAccent)
 	playingID, elapsed := Playing()
 	playing := playingID != "" && playingID == msg.eventID
+	if measuring {
+		// Size the bubble for the widest (playing) form.
+		playing, elapsed = true, msg.Duration
+	}
 	levels, barStyle := msg.levels, accent
 	if msg.synthetic {
 		barStyle = dim
@@ -143,7 +147,7 @@ func (msg *FileMessage) drawVoice(screen mauview.Screen) {
 		put(waveformGlyphs[level], style)
 	}
 	tail := msg.voiceTail
-	if playing {
+	if playing && (!measuring || len(tail) < len(" · playing")) {
 		tail = " · playing"
 	}
 	for _, r := range tail {

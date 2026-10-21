@@ -78,6 +78,10 @@ type UIMessage struct {
 	IsReplyBubble      bool
 	Renderer           MessageRenderer
 	bufferedWidth      int
+	// IsDateChange marks the day separator, drawn as a centred rule.
+	IsDateChange bool
+	measured     measured
+	bufferGen    int
 }
 
 func (msg *UIMessage) GetEvent() *database.Event {
@@ -330,6 +334,7 @@ func (msg *UIMessage) CalculateBuffer(preferences config.UserPreferences, width 
 	msg.Renderer.CalculateBuffer(preferences, width, msg)
 	msg.calculateReplyBuffer(preferences, width)
 	msg.bufferedWidth = width
+	msg.bufferGen++
 }
 
 func (msg *UIMessage) DrawReply(screen mauview.Screen) mauview.Screen {

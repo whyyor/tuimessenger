@@ -70,6 +70,7 @@ func NewDateChangeMessage(room *store.RoomStore, text string) *UIMessage {
 		},
 		OverrideSenderName: "*",
 		IsService:          true,
+		IsDateChange:       true,
 		Renderer: &ExpandedTextMessage{
 			Text: tstring.NewColorTString(text, tcell.ColorGreen),
 		},

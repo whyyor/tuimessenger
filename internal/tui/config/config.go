@@ -56,6 +56,8 @@ type UserPreferences struct {
 	// graphics on supported terminals, "kitty" forces it, "ansi" forces
 	// half-block rendering.
 	ImageProtocol string `yaml:"image_protocol"`
+	// ClassicLayout keeps the timestamp/sender columns instead of bubbles.
+	ClassicLayout bool `yaml:"classic_layout"`
 }
 
 var InlineURLsProbablySupported bool

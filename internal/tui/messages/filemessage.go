@@ -395,7 +395,14 @@ func (msg *FileMessage) Draw(screen mauview.Screen, _ *UIMessage) {
 	}
 	rows := len(msg.buffer)
 	drewKitty := false
-	if msg.kittyRows > 0 {
+	if msg.kittyRows > 0 && measuring {
+		for y := 0; y < msg.kittyRows; y++ {
+			for x := 0; x < msg.kittyCols; x++ {
+				screen.SetContent(x, y, kittyPlaceholder, nil, tcell.StyleDefault)
+			}
+		}
+		rows, drewKitty = msg.kittyRows, true
+	} else if msg.kittyRows > 0 {
 		img := kittyImageFor(msg.URL.String())
 		if kittyEnsurePlaced(img, msg.kittyPNG, msg.kittyCols, msg.kittyRows) {
 			// Foreground color carries the image ID; diacritics carry the

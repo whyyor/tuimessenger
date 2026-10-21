@@ -72,6 +72,8 @@ type MessageView struct {
 	// the body column, for anchoring the reaction popup.
 	selTop, selBottom int
 	lastMessageX      int
+	// layouts is set in bubble mode: where each message in msgBuffer sits.
+	layouts map[*messages.UIMessage]*bubbleLayout
 }
 
 func NewMessageView(parent *RoomView) *MessageView {
@@ -369,7 +371,22 @@ func (view *MessageView) OnMouseEvent(event mauview.MouseEvent) bool {
 		if y != 0 && line > 0 {
 			prevMessage = view.msgBuffer[line-1]
 		}
+		lay := view.layouts[message]
+		offset := 0
+		for i := line - 1; i >= 0 && view.msgBuffer[i] == message; i-- {
+			offset++
+		}
 		view.lock.RUnlock()
+
+		if lay != nil {
+			switch {
+			case lay.service, lay.gap && offset == 0:
+				return false
+			case lay.name && offset == boolInt(lay.gap):
+				return view.handleUsernameClick(message, prevMessage)
+			}
+			return view.handleMessageClick(message, event.Modifiers())
+		}
 
 		usernameX := 0
 		if !view.config.Preferences.HideTimestamp {
@@ -502,6 +519,9 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 	if bareMode {
 		messageX = 0
 	}
+	if view.layouts != nil {
+		messageX = 2
+	}
 
 	indexOffset := view.getIndexOffset(screen, height, messageX)
 
@@ -522,6 +542,17 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 			}
 		}
 
+		if lay := view.layouts[msg]; lay != nil {
+			msg.IsSelected = view.selected != 0 && msg.RowID == view.selected ||
+				inRange && index >= rangeLo && index <= rangeHi
+			first, last := view.drawBubble(screen, msg, lay, line, width)
+			if view.selected != 0 && msg.RowID == view.selected {
+				view.selTop, view.selBottom = max(first, 0), min(last, height-1)
+				view.lastMessageX = lay.x
+			}
+			line += lay.rows
+			continue
+		}
 		if len(msg.FormatTime()) > 0 && !view.config.Preferences.HideTimestamp {
 			widget.WriteLineSimpleColor(screen, msg.FormatTime(), 0, line, msg.TimestampColor())
 		}
@@ -619,7 +650,17 @@ func (view *MessageView) update(width int) {
 	}
 	increaseScrollOffset := false
 	bare := view.config.Preferences.BareMessageView
-	if !bare {
+	fullWidth := width
+	bubbles := !bare && !view.config.Preferences.ClassicLayout
+	var layouts map[*messages.UIMessage]*bubbleLayout
+	isDM := false
+	if bubbles {
+		layouts = make(map[*messages.UIMessage]*bubbleLayout, len(timeline))
+		isDM = view.isDM()
+	}
+	var runPrev *messages.UIMessage
+	afterService := true
+	if !bare && !bubbles {
 		width -= view.SenderWidth + SenderMessageGap
 		if !view.config.Preferences.HideTimestamp {
 			width -= view.TimestampWidth + TimestampSenderGap
@@ -631,8 +672,20 @@ func (view *MessageView) update(width int) {
 		if width < 5 {
 			return
 		}
-		msg.CalculateBuffer(view.config.Preferences, width)
-		height := msg.Height()
+		var height int
+		if bubbles {
+			lay := view.layoutBubble(msg, fullWidth, isDM, runPrev, afterService)
+			layouts[msg] = lay
+			height = lay.rows
+			if msg.IsService {
+				afterService = true
+			} else {
+				runPrev, afterService = msg, false
+			}
+		} else {
+			msg.CalculateBuffer(view.config.Preferences, width)
+			height = msg.Height()
+		}
 		for i := 0; i < height; i++ {
 			newBuffer = append(newBuffer, msg)
 		}
@@ -677,6 +730,7 @@ func (view *MessageView) update(width int) {
 		view.ScrollOffset.Store(int32(newScrollOffset))
 	}
 	view.msgBuffer = newBuffer
+	view.layouts = layouts
 	view.totalHeight.Store(uint32(len(newBuffer)))
 	view.prevTimeline = timelinePtr
 }
