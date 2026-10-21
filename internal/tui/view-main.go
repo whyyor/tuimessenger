@@ -176,12 +176,12 @@ func (view *MainView) drawEmptyHint(screen mauview.Screen) {
 	width, height := screen.Size()
 	hintY := height / 2
 	view.drawUnreadList(screen, width, hintY)
-	hint := "↑↓ to browse chats · Ctrl+k to search · Ctrl+s for the sidebar"
+	hint := "↑↓ to browse chats · Ctrl+k to search · Ctrl+p for commands"
 	switch n := len(view.hintRows); {
 	case n == 1:
-		hint = "1 to open · ↑↓ browse · Ctrl+k search · Ctrl+s sidebar"
+		hint = "1 to open · ↑↓ browse · Ctrl+k search · Ctrl+p commands"
 	case n > 1:
-		hint = fmt.Sprintf("1–%d to open · ↑↓ browse · Ctrl+k search · Ctrl+s sidebar", n)
+		hint = fmt.Sprintf("1–%d to open · ↑↓ browse · Ctrl+k search · Ctrl+p commands", n)
 	}
 	x := max(0, (width-runewidth.StringWidth(hint))/2)
 	widget.WriteLine(screen, mauview.AlignLeft, hint, x, hintY, width,
@@ -413,11 +413,9 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		// Disconnect writes a close frame, so keep it off the render thread.
 		go view.parent.Resync()
 	case "toggle_sidebar":
-		view.config.Preferences.HideRoomList = !view.config.Preferences.HideRoomList
-		// The topic bar carries the room name while the sidebar is hidden.
-		if view.currentRoom != nil {
-			view.currentRoom.Update(view.currentRoom.Room.Meta.Current())
-		}
+		view.toggleSidebar()
+	case "command_palette":
+		view.ShowModal(NewCommandPalette(view))
 	case "force_quit":
 		// Like a shell: Ctrl+C first clears typed text (Ctrl+Z restores it),
 		// and only quits from an empty input.
@@ -515,6 +513,15 @@ func (view *MainView) handleBrowseKey(event mauview.KeyEvent) bool {
 	}
 	view.parent.Render()
 	return true
+}
+
+func (view *MainView) toggleSidebar() {
+	view.config.Preferences.HideRoomList = !view.config.Preferences.HideRoomList
+	// The topic bar carries the room name while the sidebar is hidden.
+	if view.currentRoom != nil {
+		view.currentRoom.Update(view.currentRoom.Room.Meta.Current())
+	}
+	RequestRepaint()
 }
 
 // CloseCurrentRoom returns to the launch state: sidebar only, no room open.
