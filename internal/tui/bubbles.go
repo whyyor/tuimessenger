@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -28,6 +27,7 @@ type bubbleLayout struct {
 	gap     bool // blank row before a new run
 	name    bool // sender row (groups, others, first of run)
 	metaRow bool // time didn't fit on the last line
+	read    bool // own message seen by someone else
 	meta    string
 	inner   int // content width inside the bar and padding
 	x       int // content column
@@ -48,7 +48,7 @@ func bubbleInnerMax(width int) int {
 	return max(limit-2, 1)
 }
 
-// bubbleMeta is "edited 16:40 ✓ seen": all the small print of a message.
+// bubbleMeta is "edited 16:40": the small print; ticks are drawn after it.
 func (view *MessageView) bubbleMeta(msg *messages.UIMessage) string {
 	var parts []string
 	switch {
@@ -58,13 +58,6 @@ func (view *MessageView) bubbleMeta(msg *messages.UIMessage) string {
 		parts = append(parts, "edited")
 	}
 	parts = append(parts, msg.FormatTime())
-	if readers := view.visibleReaders(msg); len(readers) > 0 {
-		if view.isDM() {
-			parts = append(parts, "✓ seen")
-		} else {
-			parts = append(parts, fmt.Sprintf("✓ %d", len(readers)))
-		}
-	}
 	return strings.Join(parts, " ")
 }
 
@@ -92,8 +85,12 @@ func (view *MessageView) layoutBubble(msg *messages.UIMessage, width int, isDM b
 	maxInner := bubbleInnerMax(width)
 	msg.CalculateBuffer(prefs, maxInner)
 	content, last := msg.Measure(maxInner)
+	lay.own = msg.Sender == view.parent.Room.OwnUserID()
 	lay.meta = view.bubbleMeta(msg)
 	metaW := runewidth.StringWidth(lay.meta)
+	if lay.own {
+		metaW += 1 + tickWidth
+	}
 	if last+2+metaW <= maxInner {
 		lay.inner = max(content, last+2+metaW)
 	} else {
@@ -102,7 +99,6 @@ func (view *MessageView) layoutBubble(msg *messages.UIMessage, width int, isDM b
 	}
 	lay.inner = min(max(lay.inner, 1), maxInner)
 
-	lay.own = msg.Sender == view.parent.Room.OwnUserID()
 	first := startsRun(msg, prev, afterService)
 	lay.gap = first && prev != nil && !afterService
 	lay.name = first && !lay.own && !isDM
@@ -156,9 +152,16 @@ func (view *MessageView) drawBubble(screen mauview.Screen, msg *messages.UIMessa
 	if msg.IsSelected {
 		metaStyle = metaStyle.Background(tcell.ColorDarkGreen)
 	}
-	meta := runewidth.Truncate(lay.meta, lay.inner, "")
+	end := lay.x + lay.inner
+	if lay.own {
+		tick, color := view.tickFor(msg, lay)
+		tickStyle := metaStyle.Foreground(color)
+		widget.WriteLinePadded(screen, mauview.AlignLeft, tick, end-tickWidth, metaY, tickWidth, tickStyle)
+		end -= tickWidth + 1
+	}
+	meta := runewidth.Truncate(lay.meta, max(end-lay.x, 0), "")
 	metaW := runewidth.StringWidth(meta)
-	widget.WriteLine(screen, mauview.AlignLeft, meta, lay.x+lay.inner-metaW, metaY, metaW, metaStyle)
+	widget.WriteLine(screen, mauview.AlignLeft, meta, end-metaW, metaY, metaW, metaStyle)
 	return row, row + total - 1
 }
 

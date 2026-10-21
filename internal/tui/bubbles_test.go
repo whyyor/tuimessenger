@@ -64,6 +64,8 @@ func TestBubbleLayoutSides(t *testing.T) {
 		t.Errorf("mine: %+v", lm)
 	}
 
+	// Known status: no background lookup in tests.
+	deliveries.entries[mine.ID] = &deliveryEntry{state: deliveryDelivered, checked: time.Now()}
 	sim := tcell.NewSimulationScreen("")
 	_ = sim.Init()
 	sim.SetSize(width, 6)
@@ -74,7 +76,7 @@ func TestBubbleLayoutSides(t *testing.T) {
 		" peter",
 		"┃ hello there  17:20",
 		"",
-		strings.Repeat(" ", width-11) + "hi  17:21 ┃",
+		strings.Repeat(" ", width-14) + "hi  17:21 ✓✓ ┃",
 	}
 	for i, w := range want {
 		if got[i] != w {
@@ -126,5 +128,46 @@ func TestDateRule(t *testing.T) {
 		if !strings.Contains(got, " October 20, 2026 ") || !strings.HasPrefix(got, "──") {
 			t.Errorf("got %q", got)
 		}
+	}
+}
+
+func TestMarkRead(t *testing.T) {
+	view, room := bubbleView(t)
+	now := time.Now()
+	a := textMsg(room, me, now, "a")
+	b := textMsg(room, me, now.Add(time.Second), "b")
+	reply := textMsg(room, "@peter:x", now.Add(2*time.Second), "reply")
+	c := textMsg(room, me, now.Add(3*time.Second), "c")
+	msgs := []*messages.UIMessage{a, b, reply, c}
+	layouts := map[*messages.UIMessage]*bubbleLayout{}
+	var prev *messages.UIMessage
+	for _, m := range msgs {
+		layouts[m] = view.layoutBubble(m, 60, true, prev, prev == nil)
+		prev = m
+	}
+	view.markRead(msgs, layouts)
+	if !layouts[a].read || !layouts[b].read {
+		t.Error("messages before their reply are read")
+	}
+	if layouts[c].read {
+		t.Error("c has no receipt or later reply: not read")
+	}
+}
+
+func TestParseDelivery(t *testing.T) {
+	mk := func(status string, ts int64) *database.Event {
+		return &database.Event{Content: []byte(`{"status":"` + status + `"}`), Timestamp: jsontime.UM(time.UnixMilli(ts))}
+	}
+	if got := parseDelivery(nil); got != deliverySent {
+		t.Errorf("no status: %v", got)
+	}
+	if got := parseDelivery([]*database.Event{mk("FAIL_RETRIABLE", 1), mk("SUCCESS", 2)}); got != deliveryDelivered {
+		t.Errorf("success wins: %v", got)
+	}
+	if got := parseDelivery([]*database.Event{mk("FAIL_PERMANENT", 1)}); got != deliveryFailed {
+		t.Errorf("permanent failure: %v", got)
+	}
+	if got := parseDelivery([]*database.Event{mk("FAIL_RETRIABLE", 1)}); got != deliverySent {
+		t.Errorf("retriable stays sent: %v", got)
 	}
 }

@@ -659,6 +659,7 @@ func (view *MessageView) update(width int) {
 		isDM = view.isDM()
 	}
 	var runPrev *messages.UIMessage
+	var bubbleMsgs []*messages.UIMessage
 	afterService := true
 	if !bare && !bubbles {
 		width -= view.SenderWidth + SenderMessageGap
@@ -676,6 +677,7 @@ func (view *MessageView) update(width int) {
 		if bubbles {
 			lay := view.layoutBubble(msg, fullWidth, isDM, runPrev, afterService)
 			layouts[msg] = lay
+			bubbleMsgs = append(bubbleMsgs, msg)
 			height = lay.rows
 			if msg.IsService {
 				afterService = true
@@ -728,6 +730,9 @@ func (view *MessageView) update(width int) {
 	}
 	if newScrollOffset != scrollOffset {
 		view.ScrollOffset.Store(int32(newScrollOffset))
+	}
+	if bubbles {
+		view.markRead(bubbleMsgs, layouts)
 	}
 	view.msgBuffer = newBuffer
 	view.layouts = layouts
