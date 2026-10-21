@@ -100,11 +100,12 @@ var LocalCommands = []*cmdschema.EventContent{{
 }, {
 	Command:     CmdUpload,
 	Aliases:     []string{"image", "file"},
-	Description: event.MakeExtensibleText("Upload and send a file (drag one onto the terminal to insert its path)"),
+	Description: event.MakeExtensibleText("Send files of any type (no path: open the file picker)"),
 	Parameters: []*cmdschema.Parameter{{
 		Key:         "path",
 		Schema:      cmdschema.PrimitiveTypeString.Schema(),
 		Description: event.MakeExtensibleText("Path of the file to send"),
+		Optional:    true,
 	}},
 	TailParam: "path",
 }, {
@@ -229,9 +230,9 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 	case CmdDownload:
 		view.StartSelecting(SelectDownload, "")
 	case CmdUpload:
-		go view.UploadFile(gjson.GetBytes(cmd.Arguments, "path").Str)
+		go view.SendFiles(gjson.GetBytes(cmd.Arguments, "path").Str)
 	case CmdPaste:
-		go view.UploadClipboard()
+		go view.SendClipboard()
 	case CmdMute:
 		go view.SetMuted(true)
 	case CmdUnmute:

@@ -611,6 +611,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 	// upload it instead of pasting nothing. Text pastes flow through to the
 	// input area as before.
 	if event.Key() == tcell.KeyCtrlV {
+		// Files copied in Finder come first: their name is on the clipboard as text too.
+		if files := clipboardFiles(); len(files) > 0 {
+			go view.SendClipboard()
+			return true
+		}
 		if text, _ := clipboard.ReadAll("clipboard"); strings.TrimSpace(text) == "" {
 			go view.UploadClipboard()
 			return true
@@ -642,6 +647,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 }
 
 func (view *RoomView) OnPasteEvent(event mauview.PasteEvent) bool {
+	// A dropped or pasted file path becomes "/upload <path>"; Enter sends it.
+	if view.input.GetText() == "" && droppedFiles(event.Text()) != nil {
+		view.input.SetTextAndMoveCursor("/upload " + strings.TrimSpace(event.Text()))
+		return true
+	}
 	if clip, err := clipboard.ReadAll("clipboard"); err == nil {
 		if restored, ok := restorePasteWhitespace(event.Text(), clip); ok {
 			return view.input.OnPasteEvent(restoredPaste{event, restored})
