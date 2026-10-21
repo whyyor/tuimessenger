@@ -479,6 +479,16 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 			// Verb keys: act on the selected message directly instead of
 			// backing out to type a slash command.
 			if event.Modifiers() == 0 {
+				// y with a v range copies every message in it; checked before
+				// the single-message y below, which would otherwise win.
+				if event.Rune() == 'y' && msgView.HasAnchor() {
+					msgs := msgView.RangeMessages()
+					go view.CopyToClipboard(formatRange(msgs), "clipboard")
+					view.AddServiceMessage("Copied %d messages", len(msgs))
+					view.StopSelecting()
+					view.input.Focus()
+					return true
+				}
 				verbs := map[rune]SelectReason{
 					'r': SelectReply,
 					'p': SelectPlay,
@@ -496,15 +506,6 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 				// v anchors a range like vim's visual mode; j/k extend it.
 				if event.Rune() == 'v' {
 					msgView.ToggleAnchor()
-					return true
-				}
-				// y with a range copies every message in it.
-				if event.Rune() == 'y' && msgView.HasAnchor() {
-					msgs := msgView.RangeMessages()
-					go view.CopyToClipboard(formatRange(msgs), "clipboard")
-					view.AddServiceMessage("Copied %d messages", len(msgs))
-					view.StopSelecting()
-					view.input.Focus()
 					return true
 				}
 				// Space views the selected image full screen; selection stays
@@ -1096,13 +1097,16 @@ func (view *RoomView) InputSubmit(text string) {
 	view.SetInputText("")
 }
 
+// writeClipboard is swapped out in tests.
+var writeClipboard = clipboard.WriteAll
+
 func (view *RoomView) CopyToClipboard(text string, register string) {
 	// Visual mode's y has no /copy argument; default to the clipboard.
 	if register == "" {
 		register = "clipboard"
 	}
 	if register == "clipboard" || register == "primary" {
-		err := clipboard.WriteAll(text, register)
+		err := writeClipboard(text, register)
 		if err != nil {
 			//view.AddServiceMessage(fmt.Sprintf("Clipboard unsupported: %v", err))
 			//view.parent.parent.Render()
