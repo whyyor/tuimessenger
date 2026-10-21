@@ -52,6 +52,8 @@ type FileMessage struct {
 	// reels often attach only a thumbnail, so this is the playable source.
 	LinkURL  string
 	linkLine tstring.TString
+	// captionLines is the caption wrapped under an inline image.
+	captionLines []tstring.TString
 
 	URL         id.ContentURI
 	IsEncrypted bool
@@ -231,6 +233,7 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 	// Only image renderings get the link row; the text fallback already
 	// shows the caption, which contains the link.
 	msg.linkLine = nil
+	msg.captionLines = nil
 	msg.voiceRow = false
 
 	// Reply previews keep the one-line text form.
@@ -298,6 +301,7 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 		msg.kittyRows = rows
 		msg.buffer = nil
 		msg.linkLine = msg.makeLinkLine(prefs, width)
+		msg.captionLines = msg.makeCaption(prefs, width, uiMsg)
 		return
 	}
 	msg.kittyRows = 0
@@ -328,6 +332,29 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 
 	msg.buffer = ansFile.Render()
 	msg.linkLine = msg.makeLinkLine(prefs, width)
+	msg.captionLines = msg.makeCaption(prefs, width, uiMsg)
+}
+
+// Caption is the text sent with the media: the body when a filename is set
+// separately. A caption that only repeats the link row is dropped.
+func (msg *FileMessage) Caption() string {
+	if msg.FileName == "" || msg.Body == msg.FileName {
+		return ""
+	}
+	caption := msg.Body
+	if msg.LinkURL != "" {
+		caption = strings.ReplaceAll(caption, "["+msg.LinkURL+"]("+msg.LinkURL+")", "")
+		caption = strings.ReplaceAll(caption, msg.LinkURL, "")
+	}
+	return strings.TrimSpace(caption)
+}
+
+func (msg *FileMessage) makeCaption(prefs config.UserPreferences, width int, uiMsg *UIMessage) []tstring.TString {
+	caption := msg.Caption()
+	if caption == "" {
+		return nil
+	}
+	return calculateBufferWithText(prefs, tstring.NewTString(caption), width, uiMsg)
 }
 
 // makeLinkLine renders the source post as a dim, clickable row under the
@@ -385,7 +412,7 @@ func (msg *FileMessage) Height() int {
 	if msg.linkLine != nil {
 		base++
 	}
-	return base
+	return base + len(msg.captionLines)
 }
 
 func (msg *FileMessage) Draw(screen mauview.Screen, _ *UIMessage) {
@@ -427,5 +454,9 @@ func (msg *FileMessage) Draw(screen mauview.Screen, _ *UIMessage) {
 	}
 	if msg.linkLine != nil {
 		msg.linkLine.Draw(screen, 0, rows)
+		rows++
+	}
+	for i, line := range msg.captionLines {
+		line.Draw(screen, 0, rows+i)
 	}
 }
