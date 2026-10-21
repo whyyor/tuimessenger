@@ -116,6 +116,15 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 	if view.config.Preferences.ClassicLayout {
 		layout = "Bubble layout (mine right, theirs left)"
 	}
+	styles := []string{"", "absolute", "off"}
+	labels := map[string]string{"": "relative (now, 5m, 3h)", "absolute": "absolute (22:16)", "off": "off (selected only)"}
+	cur := view.config.Preferences.TimestampStyle
+	next := styles[(slices.Index(styles, cur)+1)%len(styles)]
+	items = append(items, cmd("Timestamps: "+labels[cur]+" → "+labels[next], "", func() {
+		view.config.Preferences.TimestampStyle = next
+		go view.config.Save()
+		RequestRepaint()
+	}))
 	items = append(items, cmd(layout, "", func() {
 		view.config.Preferences.ClassicLayout = !view.config.Preferences.ClassicLayout
 		go view.config.Save()

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -57,7 +58,9 @@ func (view *MessageView) bubbleMeta(msg *messages.UIMessage) string {
 	case msg.LastEditRef != nil:
 		parts = append(parts, "edited")
 	}
-	parts = append(parts, msg.FormatTime())
+	if ts := formatBubbleTime(msg, view.config.Preferences.TimestampStyle, time.Now()); ts != "" {
+		parts = append(parts, ts)
+	}
 	return strings.Join(parts, " ")
 }
 
@@ -86,13 +89,19 @@ func (view *MessageView) layoutBubble(msg *messages.UIMessage, width int, isDM b
 	msg.CalculateBuffer(prefs, maxInner)
 	content, last := msg.Measure(maxInner)
 	lay.own = msg.Sender == view.parent.Room.OwnUserID()
+	// Selection is drawn later, but "off" timestamps depend on it now.
+	msg.IsSelected = view.selected != 0 && msg.RowID == view.selected
 	lay.meta = view.bubbleMeta(msg)
 	metaW := runewidth.StringWidth(lay.meta)
 	if lay.own {
 		metaW += 1 + tickWidth
 	}
-	if last+2+metaW <= maxInner {
-		lay.inner = max(content, last+2+metaW)
+	gap := 2
+	if metaW == 0 {
+		gap = 0
+	}
+	if last+gap+metaW <= maxInner {
+		lay.inner = max(content, last+gap+metaW)
 	} else {
 		lay.inner = max(content, metaW)
 		lay.metaRow = true
@@ -118,7 +127,7 @@ func (view *MessageView) drawBubble(screen mauview.Screen, msg *messages.UIMessa
 	dim := tcell.StyleDefault.Foreground(ColorStatusText)
 	if lay.service {
 		if msg.IsDateChange {
-			drawDateRule(screen, strings.TrimPrefix(msg.PlainText(), "Date changed to "), top, width)
+			drawDateRule(screen, dayLabel(msg.Time(), time.Now()), top, width)
 		} else {
 			msg.Draw(mauview.NewProxyScreen(screen, lay.x, top, lay.inner, msg.Height()))
 		}
@@ -163,6 +172,51 @@ func (view *MessageView) drawBubble(screen mauview.Screen, msg *messages.UIMessa
 	metaW := runewidth.StringWidth(meta)
 	widget.WriteLine(screen, mauview.AlignLeft, meta, end-metaW, metaY, metaW, metaStyle)
 	return row, row + total - 1
+}
+
+// formatRelative is faro's short age: now, 5m, 3h, 2d.
+func formatRelative(sent, now time.Time) string {
+	switch diff := now.Sub(sent); {
+	case diff < time.Minute:
+		return "now"
+	case diff < time.Hour:
+		return fmt.Sprintf("%dm", int(diff/time.Minute))
+	case diff < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(diff/time.Hour))
+	default:
+		return fmt.Sprintf("%dd", int(diff/(24*time.Hour)))
+	}
+}
+
+// formatBubbleTime applies the timestamp style; "off" shows it only when selected.
+func formatBubbleTime(msg *messages.UIMessage, style string, now time.Time) string {
+	switch style {
+	case "absolute":
+		return msg.FormatTime()
+	case "off":
+		if msg.IsSelected {
+			return msg.FormatTime()
+		}
+		return ""
+	}
+	return formatRelative(msg.Time(), now)
+}
+
+// dayLabel names a date rule: Today, Yesterday, Monday, 20 October (+ year if not this one).
+func dayLabel(day, now time.Time) string {
+	y1, m1, d1 := day.Date()
+	y2, m2, d2 := now.Date()
+	yy, ym, yd := now.AddDate(0, 0, -1).Date()
+	switch {
+	case y1 == y2 && m1 == m2 && d1 == d2:
+		return "Today"
+	case y1 == yy && m1 == ym && d1 == yd:
+		return "Yesterday"
+	case y1 == y2:
+		return day.Format("Monday, 2 January")
+	default:
+		return day.Format("Monday, 2 January 2006")
+	}
 }
 
 // dateRuleShare is the date rule's width, in percent of the pane.

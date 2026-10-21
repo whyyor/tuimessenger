@@ -75,6 +75,7 @@ func (ui *GomuksTUI) NewMainView() mauview.Component {
 		parent: ui,
 	}
 	mainView.roomList = NewRoomList(mainView)
+	go mainView.tickRelativeTimes()
 	//mainView.cmdProcessor = NewCommandProcessor(mainView)
 
 	mainView.flex.
@@ -513,6 +514,16 @@ func (view *MainView) handleBrowseKey(event mauview.KeyEvent) bool {
 	}
 	view.parent.Render()
 	return true
+}
+
+// tickRelativeTimes redraws so "now" becomes "1m", "59m" becomes "1h"…
+func (view *MainView) tickRelativeTimes() {
+	for range time.Tick(30 * time.Second) {
+		prefs := view.config.Preferences
+		if view.currentRoom != nil && !prefs.ClassicLayout && prefs.TimestampStyle == "" {
+			view.parent.Render()
+		}
+	}
 }
 
 func (view *MainView) toggleSidebar() {

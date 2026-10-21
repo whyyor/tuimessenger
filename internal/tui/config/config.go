@@ -58,6 +58,8 @@ type UserPreferences struct {
 	ImageProtocol string `yaml:"image_protocol"`
 	// ClassicLayout keeps the timestamp/sender columns instead of bubbles.
 	ClassicLayout bool `yaml:"classic_layout"`
+	// TimestampStyle for bubbles: "" (relative: now, 5m, 3h, 2d), "absolute", "off".
+	TimestampStyle string `yaml:"timestamp_style"`
 }
 
 var InlineURLsProbablySupported bool

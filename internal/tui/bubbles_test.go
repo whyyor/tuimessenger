@@ -23,7 +23,9 @@ func bubbleView(t *testing.T) (*MessageView, *store.RoomStore) {
 	gs := &store.GomuksStore{}
 	gs.UserID = me
 	room := store.NewRoomStore(gs, &database.Room{ID: "!room:beeper.com"})
-	return &MessageView{parent: &RoomView{Room: room}, config: &config.Config{}}, room
+	cfg := &config.Config{}
+	cfg.Preferences.TimestampStyle = "absolute"
+	return &MessageView{parent: &RoomView{Room: room}, config: cfg}, room
 }
 
 func textMsg(room *store.RoomStore, sender id.UserID, at time.Time, text string) *messages.UIMessage {
@@ -180,5 +182,56 @@ func TestParseDelivery(t *testing.T) {
 	}
 	if got := parseDelivery([]*database.Event{mk("FAIL_RETRIABLE", 1)}); got != deliverySent {
 		t.Errorf("retriable stays sent: %v", got)
+	}
+}
+
+func TestFormatRelative(t *testing.T) {
+	now := time.Date(2026, 10, 21, 17, 0, 0, 0, time.Local)
+	for _, c := range []struct {
+		ago  time.Duration
+		want string
+	}{
+		{30 * time.Second, "now"},
+		{5 * time.Minute, "5m"},
+		{59 * time.Minute, "59m"},
+		{3 * time.Hour, "3h"},
+		{23*time.Hour + 59*time.Minute, "23h"},
+		{50 * time.Hour, "2d"},
+	} {
+		if got := formatRelative(now.Add(-c.ago), now); got != c.want {
+			t.Errorf("%v ago: got %q, want %q", c.ago, got, c.want)
+		}
+	}
+}
+
+func TestDayLabel(t *testing.T) {
+	now := time.Date(2026, 10, 21, 0, 30, 0, 0, time.Local)
+	for _, c := range []struct {
+		day  time.Time
+		want string
+	}{
+		{time.Date(2026, 10, 21, 0, 1, 0, 0, time.Local), "Today"},
+		{time.Date(2026, 10, 20, 23, 59, 0, 0, time.Local), "Yesterday"},
+		{time.Date(2026, 10, 19, 12, 0, 0, 0, time.Local), "Monday, 19 October"},
+		{time.Date(2025, 12, 31, 12, 0, 0, 0, time.Local), "Wednesday, 31 December 2025"},
+	} {
+		if got := dayLabel(c.day, now); got != c.want {
+			t.Errorf("%v: got %q, want %q", c.day, got, c.want)
+		}
+	}
+}
+
+func TestTimestampStyleOff(t *testing.T) {
+	view, room := bubbleView(t)
+	view.config.Preferences.TimestampStyle = "off"
+	msg := textMsg(room, "@bob:x", time.Now(), "hey")
+	lay := view.layoutBubble(msg, 60, true, nil, true)
+	if lay.meta != "" || lay.inner != 3 {
+		t.Errorf("off: meta %q inner %d, want no time and a snug bubble", lay.meta, lay.inner)
+	}
+	view.selected = 7
+	msg.RowID = 7
+	if lay = view.layoutBubble(msg, 60, true, nil, true); lay.meta != msg.FormatTime() {
+		t.Errorf("off but selected should show the time, got %q", lay.meta)
 	}
 }

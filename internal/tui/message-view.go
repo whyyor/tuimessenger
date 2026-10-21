@@ -716,6 +716,8 @@ func (view *MessageView) update(width int) {
 		}
 		if !uiMsg.SameDate(prev) {
 			dateChange := messages.NewDateChangeMessage(view.parent.Room, fmt.Sprintf("Date changed to %s", uiMsg.FormatDate()))
+			// The rule's label (Today, Yesterday…) comes from the day it introduces.
+			dateChange.Timestamp = uiMsg.Timestamp
 			appendBuffer(dateChange)
 		}
 		appendBuffer(uiMsg)
