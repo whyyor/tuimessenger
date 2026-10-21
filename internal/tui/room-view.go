@@ -418,7 +418,7 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	}
 }
 
-// shouldHideUserList: the member list is off until Alt+m turns it on.
+// shouldHideUserList: the member list is off until Ctrl+b turns it on.
 func (view *RoomView) shouldHideUserList() bool {
 	return !view.config.Preferences.ShowUserList
 }

@@ -36,8 +36,8 @@ func TestUnreadCommandAndKey(t *testing.T) {
 func TestMembersListOffByDefault(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.LoadKeybindings()
-	if got := cfg.Keybindings.Main[config.Keybind{Mod: tcell.ModAlt, Key: tcell.KeyRune, Ch: 'm'}]; got != "toggle_members" {
-		t.Errorf("Alt+m is %q", got)
+	if got := keyHint(cfg.Keybindings.Main, "toggle_members"); got != "Ctrl+b" {
+		t.Errorf("members toggle is %q", got)
 	}
 	view := &RoomView{config: cfg}
 	if !view.shouldHideUserList() {
@@ -45,6 +45,6 @@ func TestMembersListOffByDefault(t *testing.T) {
 	}
 	cfg.Preferences.ShowUserList = true
 	if view.shouldHideUserList() {
-		t.Error("Alt+m should show it")
+		t.Error("Ctrl+b should show it")
 	}
 }

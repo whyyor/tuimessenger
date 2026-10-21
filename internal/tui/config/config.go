@@ -39,7 +39,7 @@ import (
 
 type UserPreferences struct {
 	HideUserList bool `yaml:"hide_user_list"`
-	// ShowUserList turns on the member list (Alt+m); off by default.
+	// ShowUserList turns on the member list (Ctrl+b); off by default.
 	ShowUserList         bool `yaml:"-"`
 	HideRoomList         bool `yaml:"hide_room_list"`
 	HideTimestamp        bool `yaml:"hide_timestamp"`
