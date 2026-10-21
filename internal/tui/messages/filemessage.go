@@ -22,6 +22,7 @@ import (
 	"image"
 	"image/color"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
@@ -65,6 +66,13 @@ type FileMessage struct {
 	kittyCols int
 	kittyRows int
 
+	// Audio: duration, 16 bar levels (made up when the bridge sent none).
+	Duration  time.Duration
+	levels    []int
+	synthetic bool
+	voiceTail string
+	voiceRow  bool
+
 	matrix *client.GomuksClient
 }
 
@@ -86,7 +94,7 @@ func NewFileMessage(room *store.RoomStore, matrix *client.GomuksClient, evt *dat
 	if link == "" {
 		link = FirstURL(content.Body)
 	}
-	return newUIMessage(room, evt, content, "", &FileMessage{
+	fm := &FileMessage{
 		Type:        content.MsgType,
 		Body:        content.Body,
 		FileName:    content.FileName,
@@ -96,7 +104,36 @@ func NewFileMessage(room *store.RoomStore, matrix *client.GomuksClient, evt *dat
 		IsEncrypted: isEncrypted,
 		eventID:     evt.ID,
 		matrix:      matrix,
-	})
+	}
+	if content.MsgType == event.MsgAudio {
+		fm.setAudio(content, evt.ID)
+	}
+	return newUIMessage(room, evt, content, "", fm)
+}
+
+func (msg *FileMessage) setAudio(content *event.MessageEventContent, eventID id.EventID) {
+	ms := 0
+	if content.Info != nil {
+		ms = content.Info.Duration
+	}
+	var wave []int
+	if content.MSC1767Audio != nil {
+		ms = max(ms, content.MSC1767Audio.Duration)
+		wave = content.MSC1767Audio.Waveform
+	}
+	msg.Duration = time.Duration(ms) * time.Millisecond
+	msg.levels = waveformLevels(wave)
+	if len(wave) == 0 {
+		msg.levels, msg.synthetic = syntheticLevels(eventID.String()), true
+	}
+	// Voice notes need no label; other audio shows its name.
+	if content.MSC3245Voice == nil {
+		name := content.FileName
+		if name == "" {
+			name = content.Body
+		}
+		msg.voiceTail = " · " + name
+	}
 }
 
 func (msg *FileMessage) Clone() MessageRenderer {
@@ -111,8 +148,18 @@ func (msg *FileMessage) Clone() MessageRenderer {
 		URL:         msg.URL,
 		IsEncrypted: msg.IsEncrypted,
 		imageData:   data,
+		eventID:     msg.eventID,
+		Duration:    msg.Duration,
+		levels:      msg.levels,
+		synthetic:   msg.synthetic,
+		voiceTail:   msg.voiceTail,
 		matrix:      msg.matrix,
 	}
+}
+
+// EventID is the message's event, used to match the playing voice note.
+func (msg *FileMessage) EventID() id.EventID {
+	return msg.eventID
 }
 
 func (msg *FileMessage) NotificationContent() string {
@@ -184,6 +231,15 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 	// Only image renderings get the link row; the text fallback already
 	// shows the caption, which contains the link.
 	msg.linkLine = nil
+	msg.voiceRow = false
+
+	// Reply previews keep the one-line text form.
+	if msg.levels != nil && !prefs.BareMessageView && !uiMsg.IsReplyBubble {
+		msg.voiceRow = true
+		msg.buffer = nil
+		msg.kittyRows = 0
+		return
+	}
 
 	if prefs.BareMessageView || prefs.DisableImages || len(msg.imageData) == 0 {
 		url := msg.matrix.GetDownloadURL(msg.URL, msg.IsEncrypted, true)
@@ -319,6 +375,9 @@ func FirstURL(body string) string {
 }
 
 func (msg *FileMessage) Height() int {
+	if msg.voiceRow {
+		return 1
+	}
 	base := len(msg.buffer)
 	if msg.kittyRows > 0 {
 		base = msg.kittyRows
@@ -330,6 +389,10 @@ func (msg *FileMessage) Height() int {
 }
 
 func (msg *FileMessage) Draw(screen mauview.Screen, _ *UIMessage) {
+	if msg.voiceRow {
+		msg.drawVoice(screen)
+		return
+	}
 	rows := len(msg.buffer)
 	drewKitty := false
 	if msg.kittyRows > 0 {

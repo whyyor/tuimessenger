@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -31,6 +32,21 @@ func StopPlayback() {
 		_ = playbackCmd.Process.Kill()
 	}
 	playbackCmd = nil
+	messages.SetPlaying("", 0)
+}
+
+// tickPlayback redraws while a voice note plays so its progress advances.
+func tickPlayback(cmd *exec.Cmd) {
+	for {
+		time.Sleep(500 * time.Millisecond)
+		playbackLock.Lock()
+		current := playbackCmd == cmd
+		playbackLock.Unlock()
+		messages.RequestRender()
+		if !current {
+			return
+		}
+	}
 }
 
 // mediaPlayerCommand finds a player able to handle ogg/opus voice notes.
@@ -197,6 +213,12 @@ func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 	defer debug.Recover()
 	isVideo := msg.Type == event.MsgVideo || strings.HasPrefix(msg.MimeType, "video/")
 	isAudio := msg.Type == event.MsgAudio || strings.HasPrefix(msg.MimeType, "audio/")
+	if playingID, _ := messages.Playing(); isAudio && playingID != "" && playingID == msg.EventID() {
+		// p on the playing note stops it.
+		StopPlayback()
+		view.parent.parent.Render()
+		return
+	}
 	if !isVideo && !isAudio {
 		if msg.LinkURL != "" {
 			view.playLink(msg.LinkURL)
@@ -235,15 +257,28 @@ func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 	playbackCmd = cmd
 	playbackLock.Unlock()
 	if err = cmd.Start(); err != nil {
+		StopPlayback()
 		view.AddServiceMessage("Failed to start playback: %v", err)
 		view.parent.parent.Render()
 		return
 	}
-	view.AddServiceMessage("Playing %s…", filepath.Base(path))
+	// The waveform row shows progress; only plain audio files get a notice.
+	messages.SetPlaying(msg.EventID(), msg.Duration)
+	if msg.Duration == 0 {
+		view.AddServiceMessage("Playing %s…", filepath.Base(path))
+	}
 	view.parent.parent.Render()
+	go tickPlayback(cmd)
 	go func() {
 		_ = cmd.Wait()
 		_ = os.Remove(path)
+		playbackLock.Lock()
+		if playbackCmd == cmd {
+			playbackCmd = nil
+			messages.SetPlaying("", 0)
+		}
+		playbackLock.Unlock()
+		messages.RequestRender()
 	}()
 }
 
