@@ -418,20 +418,9 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	}
 }
 
-// shouldHideUserList hides the member list in DMs: a 21-column panel listing
-// people the topic bar already identifies is wasted space. A single hero in
-// the lazy-loading summary means a DM; the joined count cannot be used because
-// bridge bots inflate it (a Beeper DM has three joined members). Heroes live
-// in room meta, so no state loading is needed.
+// shouldHideUserList: the member list is off until Alt+m turns it on.
 func (view *RoomView) shouldHideUserList() bool {
-	if view.config.Preferences.HideUserList {
-		return true
-	}
-	meta := view.Room.Meta.Current()
-	if meta == nil || meta.LazyLoadSummary == nil {
-		return false
-	}
-	return len(meta.LazyLoadSummary.Heroes) == 1
+	return !view.config.Preferences.ShowUserList
 }
 
 func (view *RoomView) ClearAllContext() {

@@ -112,6 +112,14 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		sidebar = "Show sidebar"
 	}
 	items = append(items, cmd(sidebar, keyHint(main, "toggle_sidebar"), view.toggleSidebar))
+	members := "Show members list"
+	if view.config.Preferences.ShowUserList {
+		members = "Hide members list"
+	}
+	items = append(items, cmd(members, keyHint(main, "toggle_members"), func() {
+		view.config.Preferences.ShowUserList = !view.config.Preferences.ShowUserList
+		RequestRepaint()
+	}))
 	layout := "Classic layout (time and name columns)"
 	if view.config.Preferences.ClassicLayout {
 		layout = "Bubble layout (mine right, theirs left)"

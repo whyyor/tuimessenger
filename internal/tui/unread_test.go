@@ -32,3 +32,19 @@ func TestUnreadCommandAndKey(t *testing.T) {
 		t.Errorf("palette hint %q", hint)
 	}
 }
+
+func TestMembersListOffByDefault(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.LoadKeybindings()
+	if got := cfg.Keybindings.Main[config.Keybind{Mod: tcell.ModAlt, Key: tcell.KeyRune, Ch: 'm'}]; got != "toggle_members" {
+		t.Errorf("Alt+m is %q", got)
+	}
+	view := &RoomView{config: cfg}
+	if !view.shouldHideUserList() {
+		t.Error("member list should start hidden")
+	}
+	cfg.Preferences.ShowUserList = true
+	if view.shouldHideUserList() {
+		t.Error("Alt+m should show it")
+	}
+}

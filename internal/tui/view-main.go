@@ -422,6 +422,9 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		go view.parent.Resync()
 	case "toggle_sidebar":
 		view.toggleSidebar()
+	case "toggle_members":
+		view.config.Preferences.ShowUserList = !view.config.Preferences.ShowUserList
+		RequestRepaint()
 	case "command_palette":
 		view.ShowModal(NewCommandPalette(view))
 	case "force_quit":

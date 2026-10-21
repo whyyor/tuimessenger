@@ -11,6 +11,7 @@ main:
     'Ctrl+s': toggle_sidebar
     'Ctrl+p': command_palette
     'Alt+u': mark_unread
+    'Alt+m': toggle_members
     'Alt+Down': next_room
     'Alt+Up': prev_room
     'Alt+k':  search_rooms
