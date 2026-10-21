@@ -573,6 +573,14 @@ func (rs *RoomStore) GetDisplayname(userID id.UserID) string {
 	return memberEvt.Displayname
 }
 
+// ForgetMarkedRead makes the next GetMarkAsReadParams send a receipt even if
+// nothing new arrived, so reading a chat marked unread clears the flag.
+func (rs *RoomStore) ForgetMarkedRead() {
+	rs.lock.Lock()
+	defer rs.lock.Unlock()
+	rs.lastMarkedRead = 0
+}
+
 func (rs *RoomStore) GetMarkAsReadParams() *jsoncmd.MarkReadParams {
 	rs.lock.RLock()
 	defer rs.lock.RUnlock()

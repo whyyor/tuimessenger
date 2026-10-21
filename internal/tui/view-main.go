@@ -359,6 +359,13 @@ func (view *MainView) OpenSyncingModal() *SyncingModal {
 }
 
 func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
+	// Before anything else: a key normally marks the open chat read.
+	if view.modal == nil && view.config.Keybindings.Main[config.Keybind{
+		Key: event.Key(), Ch: event.Rune(), Mod: event.Modifiers(),
+	}] == "mark_unread" {
+		view.MarkUnread()
+		return true
+	}
 	if view.modal == nil && view.currentRoom == nil && view.config.Preferences.HideRoomList {
 		if roomID := hintRoomForKey(view.hintRows, event); roomID != "" {
 			view.SwitchRoom(roomID)

@@ -47,6 +47,7 @@ const (
 	CmdUnmute    = "unmute"
 	CmdMuteSync  = "mute-sync"
 	CmdMutePrune = "mute-prune"
+	CmdUnread    = "unread"
 
 	CmdClear   = "clear"
 	CmdUnclear = "unclear"
@@ -128,6 +129,9 @@ var LocalCommands = []*cmdschema.EventContent{{
 }, {
 	Command:     CmdMuteSync,
 	Description: event.MakeExtensibleText("Mute every muted chat on its network too (WhatsApp, Instagram, Telegram)"),
+}, {
+	Command:     CmdUnread,
+	Description: event.MakeExtensibleText("Mark this chat unread and close it"),
 }, {
 	Command:     CmdMutePrune,
 	Description: event.MakeExtensibleText("Delete mute rules left over from chats you've left"),
@@ -234,6 +238,8 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 		go view.SetMuted(false)
 	case CmdMuteSync:
 		go view.SyncMutes()
+	case CmdUnread:
+		view.parent.MarkUnread()
 	case CmdMutePrune:
 		go view.PruneMutes()
 	case CmdClear:
