@@ -54,9 +54,11 @@ type RoomView struct {
 
 	topicScreen   *mauview.ProxyScreen
 	contentScreen *mauview.ProxyScreen
-	statusScreen  *mauview.ProxyScreen
-	inputScreen   *mauview.ProxyScreen
-	ulScreen      *mauview.ProxyScreen
+
+	picker       *ReactPicker
+	statusScreen *mauview.ProxyScreen
+	inputScreen  *mauview.ProxyScreen
+	ulScreen     *mauview.ProxyScreen
 
 	userListLoaded bool
 	hasTopic       bool
@@ -244,7 +246,12 @@ func (view *RoomView) OnSelect(message *messages.UIMessage) {
 	case SelectEdit:
 		view.SetEditing(message.Event)
 	case SelectReact:
-		go view.SendReaction(message.ID, view.selectContent)
+		if view.selectContent == "" {
+			// Bare /react: choose from the popup; selection stays meanwhile.
+			view.OpenReactPicker(message.ID)
+			return
+		}
+		go view.ToggleReaction(message.ID, view.selectContent)
 	case SelectRedact:
 		go view.Redact(message.ID, view.selectContent)
 	case SelectPlay:
@@ -395,6 +402,10 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 		view.topic.Draw(view.topicScreen)
 	}
 	view.content.Draw(view.contentScreen)
+	if view.picker != nil {
+		mv := view.content
+		view.picker.Draw(view.contentScreen, mv.lastMessageX, mv.selTop, mv.selBottom)
+	}
 	view.status.SetText(view.GetStatus())
 	view.status.Draw(view.statusScreen)
 	view.input.Draw(view.inputScreen)
@@ -431,6 +442,9 @@ func (view *RoomView) ClearAllContext() {
 }
 
 func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
+	if view.picker != nil {
+		return view.picker.OnKeyEvent(event)
+	}
 	msgView := view.MessageView()
 	kb := config.Keybind{
 		Key: event.Key(),
@@ -538,13 +552,17 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 					view.input.Focus()
 					return true
 				}
-				// WhatsApp's quick-react bar on the digit keys.
-				quickReactions := map[rune]string{
-					'1': "👍", '2': "❤️", '3': "😂", '4': "😮", '5': "😢", '6': "🙏",
-				}
-				if key, ok := quickReactions[event.Rune()]; ok {
+				// + opens the reaction popup over the selected message.
+				if event.Rune() == '+' {
 					if selected := msgView.GetSelected(); selected != nil {
-						go view.SendReaction(selected.ID, key)
+						view.OpenReactPicker(selected.ID)
+					}
+					return true
+				}
+				// WhatsApp's quick-react bar on the digit keys; same emoji again removes it.
+				if r := event.Rune(); r >= '1' && r < '1'+rune(len(quickReactions)) {
+					if selected := msgView.GetSelected(); selected != nil {
+						go view.ToggleReaction(selected.ID, quickReactions[r-'1'])
 					}
 					view.StopSelecting()
 					view.input.Focus()
@@ -671,6 +689,13 @@ func stripPasteWhitespace(s string) string {
 }
 
 func (view *RoomView) OnMouseEvent(event mauview.MouseEvent) bool {
+	if view.picker != nil {
+		if event.Buttons() == tcell.Button1 && !event.HasMotion() {
+			x, y := event.Position()
+			view.picker.OnMouseEvent(x-view.contentScreen.OffsetX, y-view.contentScreen.OffsetY)
+		}
+		return true
+	}
 	switch {
 	case view.contentScreen.IsInArea(event.Position()):
 		return view.content.OnMouseEvent(view.contentScreen.OffsetMouseEvent(event))

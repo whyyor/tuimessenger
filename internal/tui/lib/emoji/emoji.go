@@ -84,6 +84,31 @@ func Complete(prefix string, limit int) []Match {
 	return matches
 }
 
+// Search ranks prefix matches before substring matches, one row per emoji.
+func Search(query string, limit int) []Match {
+	load()
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var out []Match
+	for _, wantPrefix := range []bool{true, false} {
+		for _, code := range shortcodes {
+			e := byShortcode[code]
+			if seen[e] || strings.HasPrefix(code, query) != wantPrefix || !strings.Contains(code, query) {
+				continue
+			}
+			seen[e] = true
+			out = append(out, Match{code, e})
+			if len(out) == limit {
+				return out
+			}
+		}
+	}
+	return out
+}
+
 func isShortcodeChar(c byte) bool {
 	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ||
 		c == '_' || c == '+' || c == '-'

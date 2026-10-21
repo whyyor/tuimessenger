@@ -65,11 +65,12 @@ var LocalCommands = []*cmdschema.EventContent{{
 	TailParam: "text",
 }, {
 	Command:     CmdReact,
-	Description: event.MakeExtensibleText("React to an event"),
+	Description: event.MakeExtensibleText("React to a message (no emoji: pick from a popup)"),
 	Parameters: []*cmdschema.Parameter{{
 		Key:         "key",
 		Schema:      cmdschema.PrimitiveTypeString.Schema(),
 		Description: event.MakeExtensibleText("The emoji or other text to react with"),
+		Optional:    true,
 	}},
 }, {
 	Command:     CmdRedact,

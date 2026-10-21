@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -269,19 +270,24 @@ func (msg *UIMessage) DrawReactions(screen mauview.Screen) {
 	width, height := screen.Size()
 	screen = mauview.NewProxyScreen(screen, 0, height-1, width, 1)
 
-	x := 0
-	reactionKeys := slices.Sorted(maps.Keys(msg.Event.Reactions))
-	for _, reaction := range reactionKeys {
-		count := msg.Event.Reactions[reaction]
-		if count == 0 {
-			continue
-		}
-		_, drawn := mauview.PrintWithStyle(screen, fmt.Sprintf("%d×%s", count, reaction), x, 0, width-x, mauview.AlignLeft, tcell.StyleDefault.Foreground(mauview.Styles.PrimaryTextColor).Background(tcell.ColorDarkGreen))
-		x += drawn + 1
-		if x >= width {
-			break
+	text := FormatReactions(msg.Event.Reactions)
+	mauview.PrintWithStyle(screen, text, 0, 0, width, mauview.AlignLeft, tcell.StyleDefault.Foreground(tcell.ColorGray))
+}
+
+// FormatReactions renders "👍 2  ❤️": most-used first, counts only above one.
+func FormatReactions(reactions map[string]int) string {
+	keys := slices.Sorted(maps.Keys(reactions))
+	slices.SortStableFunc(keys, func(a, b string) int { return reactions[b] - reactions[a] })
+	var parts []string
+	for _, key := range keys {
+		switch count := reactions[key]; {
+		case count > 1:
+			parts = append(parts, fmt.Sprintf("%s %d", key, count))
+		case count == 1:
+			parts = append(parts, key)
 		}
 	}
+	return strings.Join(parts, "  ")
 }
 
 func (msg *UIMessage) Draw(screen mauview.Screen) {

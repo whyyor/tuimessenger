@@ -68,6 +68,10 @@ type MessageView struct {
 	// followSelection asks the next Draw to scroll the selected message into
 	// view; Draw is where msgBuffer's line layout is current.
 	followSelection bool
+	// Screen rows of the selected message last frame (-1: off screen) and
+	// the body column, for anchoring the reaction popup.
+	selTop, selBottom int
+	lastMessageX      int
 }
 
 func NewMessageView(parent *RoomView) *MessageView {
@@ -506,6 +510,7 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 		viewStart = -indexOffset
 	}
 
+	view.selTop, view.selBottom, view.lastMessageX = -1, -1, messageX
 	rangeLo, rangeHi, inRange := view.rangeLinesLocked()
 	for line := viewStart; line < height && indexOffset+line < len(view.msgBuffer); {
 		index := indexOffset + line
@@ -540,6 +545,9 @@ func (view *MessageView) Draw(screen mauview.Screen) {
 		msg.IsSelected = view.selected != 0 && msg.RowID == view.selected ||
 			inRange && index >= rangeLo && index <= rangeHi
 		msg.Draw(mauview.NewProxyScreen(screen, messageX, line, width-messageX, msg.Height()))
+		if view.selected != 0 && msg.RowID == view.selected {
+			view.selTop, view.selBottom = max(line, 0), min(line+msg.Height()-1, height-1)
+		}
 
 		// Deleted-but-witnessed messages keep their content with a marker.
 		if msg.RedactedBy != "" && !msg.IsService {
