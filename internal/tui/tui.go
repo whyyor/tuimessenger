@@ -151,8 +151,9 @@ func (ui *GomuksTUI) Run() {
 }
 
 func (ui *GomuksTUI) Connect() {
-	ui.gmx.ReversedRoomList.Listen(func(_ []*store.RoomListEntry) {
+	ui.gmx.ReversedRoomList.Listen(func(rooms []*store.RoomListEntry) {
 		ui.NeedsRender = true
+		clearReadNotifications(rooms)
 	})
 	ui.gmx.SendNotification = ui.MainView.NotifyMessage
 	ui.gmx.EventHandler = ui.gomuksEventHandler

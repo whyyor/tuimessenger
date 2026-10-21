@@ -78,6 +78,11 @@ func Send(title, text string, critical, sound bool) error {
 
 // SendFrom sends a notification attributed to the network it came from.
 func SendFrom(source, title, text string, critical, sound bool) error {
+	return SendTagged(source, "", title, text, critical, sound)
+}
+
+// SendTagged is SendFrom with a tag, so Remove can take the banner back.
+func SendTagged(source, tag, title, text string, critical, sound bool) error {
 	if bin, custom := notifierFor(source); bin != "" {
 		var args []string
 		if custom {
@@ -95,6 +100,9 @@ func SendFrom(source, title, text string, critical, sound bool) error {
 		if sound {
 			args = append(args, "-sound", "default")
 		}
+		if tag != "" {
+			args = append(args, "-group", tag)
+		}
 		return exec.Command(bin, args...).Run()
 	}
 	cmd := exec.Command("osascript", "-", text, title)
@@ -109,4 +117,14 @@ func SendFrom(source, title, text string, critical, sound bool) error {
 	} else {
 		return nil
 	}
+}
+
+// Remove takes back a tagged notification. It must go through the same
+// bundle that posted it: apps can only remove their own notifications.
+func Remove(source, tag string) error {
+	bin, _ := notifierFor(source)
+	if bin == "" || tag == "" {
+		return nil
+	}
+	return exec.Command(bin, "-remove", tag).Run()
 }

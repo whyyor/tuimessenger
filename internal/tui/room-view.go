@@ -727,6 +727,7 @@ func (view *RoomView) SetCompletions(completions []string) {
 // MarkReadExplicit sends a read receipt for the newest message. Explicit, so
 // no at-the-bottom guard like the automatic mark on room focus.
 func (view *RoomView) MarkReadExplicit() {
+	ClearNotifications(view.Room.ID)
 	if req := view.Room.GetMarkAsReadParams(); req != nil {
 		go func() {
 			defer debug.Recover()

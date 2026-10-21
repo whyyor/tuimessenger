@@ -270,6 +270,7 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 		return
 	}
 	if roomView != nil && roomView == view.currentRoom && roomView.MessageView().GetScrollOffset() == 0 {
+		ClearNotifications(roomView.Room.ID)
 		req := roomView.Room.GetMarkAsReadParams()
 		if req != nil {
 			go func() {
@@ -625,10 +626,12 @@ func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNot
 			notifTitle = fmt.Sprintf("%s (%s)", notifTitle, stripped)
 		}
 	}
-	err := notification.SendFrom(room.BridgeID(), notifTitle, body, notif.Highlight, notif.Sound)
+	tag := notificationTag(room.ID, notif.Event.ID)
+	err := notification.SendTagged(room.BridgeID(), tag, notifTitle, body, notif.Highlight, notif.Sound)
 	if err != nil {
 		debug.Print("Failed to send notification:", err)
 	} else {
+		trackNotification(room.ID, room.BridgeID(), tag)
 		debug.Print("Sent notification:", notifTitle, body)
 	}
 }

@@ -97,3 +97,13 @@ func Send(title, text string, critical, sound bool) error {
 	}
 	return exec.Command(notifySendPath, args...).Run()
 }
+
+// SendTagged ignores the tag: only macOS can remove notifications later.
+func SendTagged(source, _, title, text string, critical, sound bool) error {
+	return SendFrom(source, title, text, critical, sound)
+}
+
+// Remove is a no-op outside macOS.
+func Remove(_, _ string) error {
+	return nil
+}
