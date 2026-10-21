@@ -165,13 +165,18 @@ func (view *MessageView) drawBubble(screen mauview.Screen, msg *messages.UIMessa
 	return row, row + total - 1
 }
 
-// drawDateRule draws "──── October 20, 2026 ────" across the pane.
+// dateRuleShare is the date rule's width, in percent of the pane.
+const dateRuleShare = 35
+
+// drawDateRule draws a short centred "──── October 20, 2026 ────".
 func drawDateRule(screen mauview.Screen, label string, y, width int) {
 	style := tcell.StyleDefault.Foreground(ColorStatusText)
-	for x := range width {
-		screen.SetContent(x, y, '─', nil, style)
-	}
 	label = " " + strings.TrimSpace(label) + " "
 	lw := runewidth.StringWidth(label)
+	ruleW := min(max(width*dateRuleShare/100, lw+8), width)
+	start := (width - ruleW) / 2
+	for x := start; x < start+ruleW; x++ {
+		screen.SetContent(x, y, '─', nil, style)
+	}
 	widget.WriteLine(screen, mauview.AlignLeft, label, max((width-lw)/2, 0), y, width, style)
 }

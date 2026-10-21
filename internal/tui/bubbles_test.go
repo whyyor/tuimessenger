@@ -122,12 +122,23 @@ func TestBubbleInnerMax(t *testing.T) {
 func TestDateRule(t *testing.T) {
 	sim := tcell.NewSimulationScreen("")
 	_ = sim.Init()
+	sim.SetSize(200, 1)
+	drawDateRule(sim, "October 20, 2026", 0, 200)
+	got := screenText(sim, 200, 1)[0]
+	trimmed := strings.TrimLeft(got, " ")
+	ruleW := len([]rune(trimmed))
+	if ruleW != 70 || !strings.Contains(trimmed, "─ October 20, 2026 ─") {
+		t.Errorf("want a centred 70-col rule (35%% of 200), got %d: %q", ruleW, trimmed)
+	}
+	if lead := len(got) - len(trimmed); lead != 65 {
+		t.Errorf("rule should start at col 65, got %d", lead)
+	}
+	// A narrow pane still fits the label with a few dashes each side.
 	sim.SetSize(30, 1)
+	sim.Clear()
 	drawDateRule(sim, "October 20, 2026", 0, 30)
-	if got := screenText(sim, 30, 1)[0]; got != "──── October 20, 2026 ────────" && got != "───── October 20, 2026 ───────" {
-		if !strings.Contains(got, " October 20, 2026 ") || !strings.HasPrefix(got, "──") {
-			t.Errorf("got %q", got)
-		}
+	if row := strings.TrimSpace(screenText(sim, 30, 1)[0]); !strings.HasPrefix(row, "────") || !strings.HasSuffix(row, "────") {
+		t.Errorf("narrow: %q", row)
 	}
 }
 
