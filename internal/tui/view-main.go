@@ -332,16 +332,15 @@ func (view *MainView) showBare(roomView *RoomView) {
 	text := roomView.MessageView().CapturePlaintext()
 	view.parent.app.Suspend(func() {
 		print("\033[2J\033[0;0H")
-		less, err := exec.LookPath("less")
-		if err != nil {
+		less, version := findLess()
+		if less == "" {
 			fmt.Println(text)
 			fmt.Println("Press enter to return to normal mode.")
 			_, _, _ = bufio.NewReader(os.Stdin).ReadRune()
 		} else {
 			// Every loaded message, opened at the newest; less reads keys from
 			// the tty. --mouse scrolls with the wheel (Shift+drag selects).
-			cmd := exec.Command(less, "+G", "--mouse", "--wheel-lines=3", "-~",
-				"-Ps j/k scroll · / search · q back ")
+			cmd := exec.Command(less, lessArgs(version)...)
 			cmd.Stdin = strings.NewReader(text)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
