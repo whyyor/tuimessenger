@@ -188,6 +188,9 @@ func (ui *GomuksTUI) onConnStateChange(state rpc.ConnState, err error) {
 func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
 	switch evt := rawEvt.(type) {
 	case *jsoncmd.SyncComplete:
+		if mv := ui.MainView; mv != nil {
+			mv.autoRead(evt)
+		}
 		if ui.NeedsRender {
 			debug.Print("Rendering...")
 			ui.Render()

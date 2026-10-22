@@ -75,6 +75,7 @@ func (ui *GomuksTUI) NewMainView() mauview.Component {
 		parent: ui,
 	}
 	mainView.roomList = NewRoomList(mainView)
+	onFocusGained = func() { mainView.autoRead(nil) }
 	go mainView.tickRelativeTimes()
 	//mainView.cmdProcessor = NewCommandProcessor(mainView)
 
@@ -363,6 +364,7 @@ func (view *MainView) OpenSyncingModal() *SyncingModal {
 }
 
 func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
+	userAttention.touch()
 	// Before anything else: a key normally marks the open chat read.
 	if view.modal == nil && view.config.Keybindings.Main[config.Keybind{
 		Key: event.Key(), Ch: event.Rune(), Mod: event.Modifiers(),
@@ -458,6 +460,9 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 const WheelScrollOffsetDiff = 3
 
 func (view *MainView) OnMouseEvent(event mauview.MouseEvent) bool {
+	if !event.HasMotion() {
+		userAttention.touch()
+	}
 	if !event.HasMotion() {
 		view.browsing = false
 	}
