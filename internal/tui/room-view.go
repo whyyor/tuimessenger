@@ -1253,14 +1253,19 @@ func (view *RoomView) Update(meta *database.Room) {
 	if isBoilerplateTopic(topicStr) {
 		topicStr = ""
 	}
+	// Update runs as a Meta listener inside the store's ApplySync, under both
+	// the store and room locks: only record values here. The topic bar is
+	// rebuilt on draw (syncTopic), and anything that takes a lock runs after.
 	view.topicName = ptr.Val(meta.Name)
 	view.topicDesc = topicStr
-	view.syncTopic()
 	if meta.EncryptionEvent != nil && meta.EncryptionEvent.Algorithm == id.AlgorithmMegolmV1 {
 		view.input.SetPlaceholder("Send an encrypted message...")
 	}
 	if !view.userListLoaded && view.Room.FullMembersLoaded.Load() {
-		view.UpdateUserList()
+		go func() {
+			view.UpdateUserList()
+			view.parent.parent.Render()
+		}()
 	}
 	view.parent.parent.NeedsRender = true
 }

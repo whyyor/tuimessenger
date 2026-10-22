@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"go.mau.fi/mauview"
 	"go.mau.fi/util/jsontime"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
@@ -12,6 +13,7 @@ import (
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
 	"go.mau.fi/gomuks/pkg/rpc/client"
 	"go.mau.fi/gomuks/pkg/rpc/store"
+	"go.mau.fi/gomuks/tui/config"
 )
 
 func TestSeenMarkerCovers(t *testing.T) {
@@ -75,5 +77,67 @@ func TestApplyLocalSeen(t *testing.T) {
 	entry.MarkedUnread = true
 	if c := unreadCounts(gmx, entry); c.UnreadMessages != 3 {
 		t.Errorf("marked unread keeps its counts: %+v", c)
+	}
+}
+
+// Regression: the room list hook used to call GetRoom inside ApplySync,
+// which holds the store lock, freezing the whole UI on the next sync.
+func TestRoomListHookDoesNotDeadlock(t *testing.T) {
+	gs := store.NewStore()
+	gmx := &client.GomuksClient{GomuksStore: gs}
+	gs.ReversedRoomList.Listen(func(rooms []*store.RoomListEntry) {
+		onRoomListChange(gmx, rooms)
+	})
+	done := make(chan struct{})
+	go func() {
+		for range 3 {
+			gs.ApplySync(&jsoncmd.SyncComplete{Rooms: map[id.RoomID]*jsoncmd.SyncRoom{
+				// Unread, so the hook has to look the room up.
+				"!r:x": {Meta: &database.Room{ID: "!r:x", UnreadCounts: database.UnreadCounts{UnreadMessages: 1}}},
+			}})
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("ApplySync deadlocked in the room list hook")
+	}
+	// The screen's own read (Current) must not block either.
+	_ = applyLocalSeen(gmx, gs.ReversedRoomList.Current())
+}
+
+// Regression: RoomView.Update is a Meta listener called inside ApplySync with
+// the store and room locks held; it used to check mute state (store lock).
+func TestMetaUpdateUnderLockDoesNotDeadlock(t *testing.T) {
+	gs := store.NewStore()
+	gmx := &client.GomuksClient{GomuksStore: gs}
+	const roomID = "!r:x"
+	name := func(n string) *jsoncmd.SyncComplete {
+		return &jsoncmd.SyncComplete{Rooms: map[id.RoomID]*jsoncmd.SyncRoom{
+			roomID: {Meta: &database.Room{ID: roomID, Name: &n}},
+		}}
+	}
+	gs.ApplySync(name("before"))
+	cfg := &config.Config{}
+	cfg.Preferences.HideRoomList = true // header shows the name and mute bell
+	main := &MainView{matrix: gmx, config: cfg, parent: &GomuksTUI{}}
+	main.roomList = &RoomList{parent: main}
+	view := &RoomView{Room: gs.GetRoom(roomID), config: cfg, parent: main, input: mauview.NewInputArea(), topic: mauview.NewTextView()}
+	view.Room.Meta.Listen(view.Update)
+
+	done := make(chan struct{})
+	go func() { gs.ApplySync(name("after")); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("ApplySync deadlocked in RoomView.Update")
+	}
+	if view.topicName != "after" {
+		t.Errorf("topic name %q, want after", view.topicName)
+	}
+	view.syncTopic() // the draw-time half still works
+	if !view.hasTopic {
+		t.Error("header should show the name with the sidebar hidden")
 	}
 }

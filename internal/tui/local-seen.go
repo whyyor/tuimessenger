@@ -119,3 +119,10 @@ func (view *MainView) markSeenLocally(room *store.RoomStore, req *jsoncmd.MarkRe
 	}
 	view.parent.Render()
 }
+
+// onRoomListChange runs inside the store's ApplySync, which holds its lock:
+// anything that looks rooms up (GetRoom) must happen after it returns.
+func onRoomListChange(gmx *client.GomuksClient, rooms []*store.RoomListEntry) {
+	// A closure: `go f(g())` would still evaluate g() right here, under the lock.
+	go func() { clearReadNotifications(applyLocalSeen(gmx, rooms)) }()
+}
