@@ -141,6 +141,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 	room := view.currentRoom
 	if room != nil {
 		muted := view.roomList.IsMuted(room.Room.ID)
+		privacy := chatPrivacy(room.Room)
 		cleared := !clearedAt(room.Room).IsZero()
 		muteTitle, muteCmd := "Mute this chat", "/mute"
 		if muted {
@@ -154,6 +155,10 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 			cmd("Open chat in pager", keyHint(main, "show_bare"), func() { view.ShowBare(room) }),
 			cmd("Mark chat read", "Ctrl+m", room.MarkReadExplicit),
 			cmd("Mark chat unread", keyHint(main, "mark_unread"), view.MarkUnread),
+			cmd("Share typing in this chat: "+onOff(privacy.Typing)+" → "+onOff(!privacy.Typing), "/typing",
+				func() { go room.SetPrivacy(func(p *ChatPrivacy) { p.Typing = !p.Typing }) }),
+			cmd("Share seen in this chat: "+onOff(privacy.ReadReceipts)+" → "+onOff(!privacy.ReadReceipts), "/seen",
+				func() { go room.SetPrivacy(func(p *ChatPrivacy) { p.ReadReceipts = !p.ReadReceipts }) }),
 			cmd(muteTitle, muteCmd, func() { go room.SetMuted(!muted) }),
 			cmd(clearTitle, clearCmd, func() { go room.SetCleared(!cleared) }),
 			cmd("Attach files…", "/upload", func() { go room.AttachPicked() }),

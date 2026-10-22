@@ -203,6 +203,7 @@ func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
 			ui.Render()
 		}
 	case *jsoncmd.Typing:
+		debug.Print("Typing in", evt.RoomID, evt.UserIDs)
 		// Typing arrives outside sync batches, so nothing else repaints for
 		// it. Only the open room's status line shows it; every bridged room
 		// emits typing, so rendering for all of them would be constant churn.

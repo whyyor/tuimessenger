@@ -42,6 +42,7 @@ import (
 	"go.mau.fi/gomuks/tui/debug"
 	"go.mau.fi/gomuks/tui/lib/emoji"
 	"go.mau.fi/gomuks/tui/messages"
+	"go.mau.fi/gomuks/tui/widget"
 )
 
 type RoomView struct {
@@ -302,27 +303,7 @@ func (view *RoomView) GetStatus() string {
 		}
 	}
 
-	// Display names, not raw bridge user IDs, and never our own echo.
-	var typingNames []string
-	ownUserID := view.Room.OwnUserID()
-	for _, userID := range view.Room.Typing.Current() {
-		if userID == ownUserID {
-			continue
-		}
-		typingNames = append(typingNames, view.Room.GetDisplayname(userID))
-	}
-	if len(typingNames) > 0 {
-		buf.WriteString("Typing: ")
-		for i, name := range typingNames {
-			if i > 0 && i == len(typingNames)-1 {
-				buf.WriteString(" and ")
-			} else if i > 0 {
-				buf.WriteString(", ")
-			}
-			buf.WriteString(name)
-		}
-		buf.WriteString(" - ")
-	}
+	// Typing is drawn in the composer's top row instead (see drawTyping).
 
 	return strings.TrimSuffix(buf.String(), " - ")
 }
@@ -411,8 +392,13 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.status.SetText(view.GetStatus())
 	view.status.Draw(view.statusScreen)
 	view.input.Draw(view.inputScreen)
-	// Chips sit in the composer's top padding row.
-	view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
+	// The composer's top padding row: attached files, else who's typing.
+	if len(view.Attachments()) > 0 {
+		view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
+	} else if text := typingText(view.typingNames()); text != "" {
+		widget.WriteLine(screen, mauview.AlignLeft, "✎ "+text, inputOffsetX, view.statusScreen.YEnd(),
+			width-inputOffsetX-1, tcell.StyleDefault.Foreground(ColorStatusText).Italic(true))
+	}
 	barStyle := tcell.StyleDefault.Foreground(ColorComposerBar)
 	for y := view.statusScreen.YEnd(); y < view.statusScreen.YEnd()+composerHeight; y++ {
 		screen.SetContent(1, y, '│', nil, barStyle)
@@ -743,6 +729,7 @@ func (view *RoomView) SetCompletions(completions []string) {
 func (view *RoomView) MarkReadExplicit() {
 	ClearNotifications(view.Room.ID)
 	if req := view.Room.GetMarkAsReadParams(); req != nil {
+		req.ReceiptType = receiptTypeFor(view.Room)
 		go func() {
 			defer debug.Recover()
 			if err := view.parent.matrix.MarkRead(context.TODO(), req); err != nil {

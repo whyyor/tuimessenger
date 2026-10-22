@@ -273,6 +273,9 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 		ClearNotifications(roomView.Room.ID)
 		req := roomView.Room.GetMarkAsReadParams()
 		if req != nil {
+			req.ReceiptType = receiptTypeFor(roomView.Room)
+		}
+		if req != nil {
 			go func() {
 				defer debug.Recover()
 				err := view.matrix.MarkRead(context.TODO(), req)
@@ -285,7 +288,8 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 }
 
 func (view *MainView) InputChanged(roomView *RoomView, text string) {
-	if roomView.config.Preferences.DisableTypingNotifs {
+	// Typing stays hidden unless this chat opted in (/typing on).
+	if !chatPrivacy(roomView.Room).Typing {
 		return
 	}
 	// Commands aren't worth announcing to the other side.

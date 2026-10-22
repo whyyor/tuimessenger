@@ -48,6 +48,8 @@ const (
 	CmdMuteSync  = "mute-sync"
 	CmdMutePrune = "mute-prune"
 	CmdUnread    = "unread"
+	CmdTyping    = "typing"
+	CmdSeen      = "seen"
 
 	CmdClear   = "clear"
 	CmdUnclear = "unclear"
@@ -130,6 +132,24 @@ var LocalCommands = []*cmdschema.EventContent{{
 }, {
 	Command:     CmdMuteSync,
 	Description: event.MakeExtensibleText("Mute every muted chat on its network too (WhatsApp, Instagram, Telegram)"),
+}, {
+	Command:     CmdTyping,
+	Description: event.MakeExtensibleText("Share your typing in this chat: on, off, or toggle"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:      "state",
+		Schema:   cmdschema.Enum("on", "off"),
+		Optional: true,
+	}},
+	TailParam: "state",
+}, {
+	Command:     CmdSeen,
+	Description: event.MakeExtensibleText("Share \"seen\" (read receipts) in this chat: on, off, or toggle"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:      "state",
+		Schema:   cmdschema.Enum("on", "off"),
+		Optional: true,
+	}},
+	TailParam: "state",
 }, {
 	Command:     CmdUnread,
 	Description: event.MakeExtensibleText("Mark this chat unread and close it"),
@@ -239,6 +259,12 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 		go view.SetMuted(false)
 	case CmdMuteSync:
 		go view.SyncMutes()
+	case CmdTyping:
+		state := gjson.GetBytes(cmd.Arguments, "state").Str
+		go view.SetPrivacy(func(p *ChatPrivacy) { p.Typing = parseToggle(state, p.Typing) })
+	case CmdSeen:
+		state := gjson.GetBytes(cmd.Arguments, "state").Str
+		go view.SetPrivacy(func(p *ChatPrivacy) { p.ReadReceipts = parseToggle(state, p.ReadReceipts) })
 	case CmdUnread:
 		view.parent.MarkUnread()
 	case CmdMutePrune:
