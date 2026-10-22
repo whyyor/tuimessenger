@@ -9,6 +9,7 @@ import (
 	"go.mau.fi/util/jsontime"
 	"maunium.net/go/mautrix/id"
 
+	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/store"
 	"go.mau.fi/gomuks/tui/config"
@@ -233,5 +234,38 @@ func TestTimestampStyleOff(t *testing.T) {
 	msg.RowID = 7
 	if lay = view.layoutBubble(msg, 60, true, nil, true); lay.meta != msg.FormatTime() {
 		t.Errorf("off but selected should show the time, got %q", lay.meta)
+	}
+}
+
+// Regression: a gomuks notice ("Seen in this chat: on") or a bridge bot's
+// message after yours made gomuks show blue ticks nobody had earned.
+func TestMarkReadIgnoresGomuksAndBots(t *testing.T) {
+	view, room := bubbleView(t)
+	now := time.Now()
+	mine := textMsg(room, me, now, "hsr")
+	notice := textMsg(room, cmdspec.FakeGomuksSender, now.Add(time.Second), "Seen in this chat: on")
+	notice.ID = "$gomuks-internal-abc"
+	bot := textMsg(room, "@instagramgobot:beeper.local", now.Add(2*time.Second), "bridge notice")
+	layout := func(msgs ...*messages.UIMessage) map[*messages.UIMessage]*bubbleLayout {
+		out := map[*messages.UIMessage]*bubbleLayout{}
+		var prev *messages.UIMessage
+		for _, m := range msgs {
+			out[m] = view.layoutBubble(m, 60, true, prev, prev == nil)
+			prev = m
+		}
+		return out
+	}
+	msgs := []*messages.UIMessage{mine, notice, bot}
+	layouts := layout(msgs...)
+	view.markRead(msgs, layouts)
+	if layouts[mine].read {
+		t.Error("a gomuks notice or bot message is not the other person reading")
+	}
+	reply := textMsg(room, "@instagramgo_100000000000003:beeper.local", now.Add(3*time.Second), "haan")
+	msgs = append(msgs, reply)
+	layouts = layout(msgs...)
+	view.markRead(msgs, layouts)
+	if !layouts[mine].read {
+		t.Error("a real reply means they read it")
 	}
 }

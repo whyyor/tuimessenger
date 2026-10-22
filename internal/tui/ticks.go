@@ -11,6 +11,7 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
+	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
 	"go.mau.fi/gomuks/tui/debug"
@@ -131,10 +132,14 @@ func (view *MessageView) markRead(msgs []*messages.UIMessage, layouts map[*messa
 			continue
 		}
 		if !lay.own {
-			read = true
+			// Only a real person replying means they read it: not gomuks'
+			// own notices (/seen, Muted…), not bridge bots, not local echoes.
+			if isPeer(msg.Sender, own) && strings.HasPrefix(string(msg.ID), "$") {
+				read = true
+			}
 		} else if !read {
 			for _, user := range view.parent.Room.ReceiptUsersAt(msg.ID) {
-				if user != own && !strings.HasSuffix(user.Localpart(), "bot") {
+				if isPeer(user, own) {
 					read = true
 					break
 				}
@@ -144,6 +149,11 @@ func (view *MessageView) markRead(msgs []*messages.UIMessage, layouts map[*messa
 			lay.read = read
 		}
 	}
+}
+
+// isPeer is another human in the chat: not us, not gomuks, not a bridge bot.
+func isPeer(user, own id.UserID) bool {
+	return user != own && user != cmdspec.FakeGomuksSender && !strings.HasSuffix(user.Localpart(), "bot")
 }
 
 // tickFor picks the glyphs and colour for one of our messages.
