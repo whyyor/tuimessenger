@@ -64,3 +64,21 @@ func TestTypingNotSentByDefault(t *testing.T) {
 		t.Error("typing went out in a chat that didn't opt in")
 	}
 }
+
+func TestCtrlMAlwaysSendsPublicRead(t *testing.T) {
+	_, room := bubbleView(t)
+	room.ApplySync(&jsoncmd.SyncRoom{
+		Events:   []*database.Event{{RowID: 1, ID: "$m:x", RoomID: room.ID, Sender: "@kunal:x", Type: "m.room.message"}},
+		Timeline: []database.TimelineRowTuple{{Timeline: 1, Event: 1}},
+	})
+	// Chat without /seen: automatic reads stay private…
+	if receiptTypeFor(room) != event.ReceiptTypeReadPrivate {
+		t.Fatal("precondition: /seen off")
+	}
+	_ = room.GetMarkAsReadParams() // opening the chat already read it
+	// …but Ctrl+m sends a public read anyway, even for an already-read message.
+	req := explicitReadParams(room)
+	if req == nil || req.ReceiptType != event.ReceiptTypeRead || req.EventID != "$m:x" {
+		t.Errorf("Ctrl+m: got %+v, want public m.read on $m:x", req)
+	}
+}

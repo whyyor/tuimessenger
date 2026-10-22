@@ -153,7 +153,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		}
 		items = append(items,
 			cmd("Open chat in pager", keyHint(main, "show_bare"), func() { view.ShowBare(room) }),
-			cmd("Mark chat read", "Ctrl+m", room.MarkReadExplicit),
+			cmd("Mark chat seen (sends blue ticks)", "Ctrl+m", room.MarkReadExplicit),
 			cmd("Mark chat unread", keyHint(main, "mark_unread"), view.MarkUnread),
 			cmd("Share typing in this chat: "+onOff(privacy.Typing)+" → "+onOff(!privacy.Typing), "/typing",
 				func() { go room.SetPrivacy(func(p *ChatPrivacy) { p.Typing = !p.Typing }) }),

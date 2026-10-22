@@ -730,13 +730,20 @@ func (view *RoomView) SetCompletions(completions []string) {
 
 // MarkReadExplicit sends a read receipt for the newest message. Explicit, so
 // no at-the-bottom guard like the automatic mark on room focus.
+// explicitReadParams is Ctrl+m: always a fresh, public read ("seen"),
+// whatever /seen says; that only governs automatic reads.
+func explicitReadParams(room *store.RoomStore) *jsoncmd.MarkReadParams {
+	room.ForgetMarkedRead()
+	req := room.GetMarkAsReadParams()
+	if req != nil {
+		req.ReceiptType = event.ReceiptTypeRead
+	}
+	return req
+}
+
 func (view *RoomView) MarkReadExplicit() {
 	ClearNotifications(view.Room.ID)
-	// Ctrl+m always re-sends, even if this message was marked read already:
-	// it clears a marked-unread flag and upgrades a private read after /seen on.
-	view.Room.ForgetMarkedRead()
-	if req := view.Room.GetMarkAsReadParams(); req != nil {
-		req.ReceiptType = receiptTypeFor(view.Room)
+	if req := explicitReadParams(view.Room); req != nil {
 		go func() {
 			defer debug.Recover()
 			if err := view.parent.matrix.MarkRead(context.TODO(), req); err != nil {
