@@ -50,15 +50,15 @@ type fakePaste struct {
 
 func (f fakePaste) Text() string { return f.text }
 
-func TestPastedPathBecomesUpload(t *testing.T) {
+func TestPastedPathBecomesChip(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "notes.txt")
 	if err := os.WriteFile(file, []byte("x"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	view := &RoomView{input: mauview.NewInputArea()}
 	view.OnPasteEvent(fakePaste{text: file})
-	if got := view.input.GetText(); got != "/upload "+file {
-		t.Errorf("got %q", got)
+	if got := view.Attachments(); len(got) != 1 || got[0].path != file || view.input.GetText() != "" {
+		t.Errorf("chips %+v, text %q", got, view.input.GetText())
 	}
 }
 

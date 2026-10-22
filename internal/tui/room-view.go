@@ -55,7 +55,9 @@ type RoomView struct {
 	topicScreen   *mauview.ProxyScreen
 	contentScreen *mauview.ProxyScreen
 
-	picker       *ReactPicker
+	picker *ReactPicker
+	// attached are files waiting to be sent with the next Enter.
+	attached     attachmentList
 	statusScreen *mauview.ProxyScreen
 	inputScreen  *mauview.ProxyScreen
 	ulScreen     *mauview.ProxyScreen
@@ -409,6 +411,8 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.status.SetText(view.GetStatus())
 	view.status.Draw(view.statusScreen)
 	view.input.Draw(view.inputScreen)
+	// Chips sit in the composer's top padding row.
+	view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
 	barStyle := tcell.StyleDefault.Foreground(ColorComposerBar)
 	for y := view.statusScreen.YEnd(); y < view.statusScreen.YEnd()+composerHeight; y++ {
 		screen.SetContent(1, y, '│', nil, barStyle)
@@ -578,6 +582,10 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		// clear, it closes the room back to the sidebar-only launch state.
 		// Either way, wipe anything a width mismatch left on screen.
 		RequestRepaint()
+		// Escape drops attached files before anything else.
+		if view.ClearAttachments() {
+			return true
+		}
 		if view.editing != nil || view.replying != nil || view.selecting {
 			view.ClearAllContext()
 		} else {
@@ -603,11 +611,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 	if event.Key() == tcell.KeyCtrlV {
 		// Files copied in Finder come first: their name is on the clipboard as text too.
 		if files := clipboardFiles(); len(files) > 0 {
-			go view.SendClipboard()
+			view.AttachFiles(files...)
 			return true
 		}
 		if text, _ := clipboard.ReadAll("clipboard"); strings.TrimSpace(text) == "" {
-			go view.UploadClipboard()
+			go view.AttachClipboard()
 			return true
 		}
 	}
@@ -615,6 +623,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 	// parse the CSI-u encoding Ghostty would otherwise send). Insert a newline.
 	if event.Key() == tcell.KeyLF {
 		return view.input.OnKeyEvent(tcell.NewEventKey(tcell.KeyEnter, '\n', tcell.ModShift))
+	}
+	// Backspace on an empty composer takes back the last attached file.
+	if (event.Key() == tcell.KeyBackspace || event.Key() == tcell.KeyBackspace2) &&
+		event.Modifiers() == 0 && view.input.GetText() == "" && view.RemoveLastAttachment() {
+		return true
 	}
 	// macOS-native editing: Option (Alt) operates on words. InputArea ignores
 	// modifiers on backspace and gates word-motion behind Ctrl, so re-dispatch
@@ -637,9 +650,9 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 }
 
 func (view *RoomView) OnPasteEvent(event mauview.PasteEvent) bool {
-	// A dropped or pasted file path becomes "/upload <path>"; Enter sends it.
-	if view.input.GetText() == "" && droppedFiles(event.Text()) != nil {
-		view.input.SetTextAndMoveCursor("/upload " + strings.TrimSpace(event.Text()))
+	// Dropped or pasted file paths become attachment chips.
+	if paths := droppedFiles(event.Text()); paths != nil {
+		view.AttachFiles(paths...)
 		return true
 	}
 	if clip, err := clipboard.ReadAll("clipboard"); err == nil {
@@ -1079,6 +1092,14 @@ func (view *RoomView) SendTyping(typing bool) {
 
 func (view *RoomView) InputSubmit(text string) {
 	view.SendTyping(false)
+	// With chips attached, Enter sends them; the text becomes the caption.
+	// Commands still run, and an edit in progress isn't a caption.
+	if len(view.Attachments()) > 0 && view.editing == nil && !strings.HasPrefix(text, "/") {
+		view.SendAttachments(text)
+		view.editMoveText = ""
+		view.SetInputText("")
+		return
+	}
 	if len(text) == 0 {
 		return
 	} else if cmd, err := view.ParseCommand(text); err != nil {

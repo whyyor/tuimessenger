@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"maunium.net/go/mautrix/event"
+
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
 	"go.mau.fi/gomuks/pkg/rpc"
 	"go.mau.fi/gomuks/tui/debug"
@@ -143,18 +145,14 @@ func pickFiles() ([]string, error) {
 	return paths, nil
 }
 
-// SendFiles is /upload: no argument opens the file picker; otherwise one
-// path, or several as a terminal drop escapes them.
+// SendFiles is /upload: no argument opens the file picker to attach files;
+// with paths (one, or several as a terminal drop escapes them) it sends now.
 func (view *RoomView) SendFiles(arg string) {
 	defer debug.Recover()
 	var paths []string
 	if strings.TrimSpace(arg) == "" {
-		var err error
-		if paths, err = pickFiles(); err != nil {
-			view.AddServiceMessage("Couldn't open the file picker: %v", err)
-			view.parent.parent.Render()
-			return
-		}
+		view.AttachPicked()
+		return
 	} else if paths = droppedFiles(arg); paths == nil {
 		view.AddServiceMessage("No such file: %s", cleanDroppedPath(arg))
 		view.parent.parent.Render()
@@ -169,6 +167,12 @@ func (view *RoomView) SendFiles(arg string) {
 // picks image, video, audio or plain file from the content, thumbnails and,
 // for encrypted rooms, encrypts it.
 func (view *RoomView) UploadFile(path string) {
+	view.uploadAndSend(path, "", nil)
+}
+
+// uploadAndSend uploads one file and sends it, with an optional caption
+// (markdown, like messages) and reply.
+func (view *RoomView) uploadAndSend(path, caption string, relatesTo *event.RelatesTo) {
 	defer debug.Recover()
 	path = cleanDroppedPath(path)
 	file, err := os.Open(path)
@@ -195,40 +199,11 @@ func (view *RoomView) UploadFile(path string) {
 	err = view.parent.matrix.SendMessage(context.TODO(), &jsoncmd.SendMessageParams{
 		RoomID:      view.Room.ID,
 		BaseContent: content,
+		Text:        caption,
+		RelatesTo:   relatesTo,
 	})
 	if err != nil {
 		view.AddServiceMessage("Failed to send %s: %v", name, err)
 	}
 	view.parent.parent.Render()
-}
-
-// SendClipboard sends files copied in Finder, else a copied image.
-func (view *RoomView) SendClipboard() {
-	if files := clipboardFiles(); len(files) > 0 {
-		for _, path := range files {
-			view.UploadFile(path)
-		}
-		return
-	}
-	view.UploadClipboard()
-}
-
-// UploadClipboard extracts an image from the macOS clipboard via pngpaste
-// and sends it.
-func (view *RoomView) UploadClipboard() {
-	defer debug.Recover()
-	pngpaste, err := exec.LookPath("pngpaste")
-	if err != nil {
-		view.AddServiceMessage("pngpaste not found; cannot read images from the clipboard")
-		view.parent.parent.Render()
-		return
-	}
-	tmp := filepath.Join(os.TempDir(), "gomuks-clipboard.png")
-	defer os.Remove(tmp)
-	if out, err := exec.Command(pngpaste, tmp).CombinedOutput(); err != nil {
-		view.AddServiceMessage("No image in clipboard: %s", strings.TrimSpace(string(out)))
-		view.parent.parent.Render()
-		return
-	}
-	view.UploadFile(tmp)
 }
