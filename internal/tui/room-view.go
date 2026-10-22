@@ -498,13 +498,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 					msgView.ToggleAnchor()
 					return true
 				}
-				// Space views the selected image full screen; selection stays
-				// so the next image is one j/k + Space away.
+				// Space views, plays or opens the selected message (images, voice,
+				// video, files, links); selection stays for the next one.
 				if event.Rune() == ' ' {
 					if selected := msgView.GetSelected(); selected != nil {
-						if fm, ok := selected.Renderer.(*messages.FileMessage); ok && isViewableImage(fm) {
-							go view.PreviewImage(fm)
-						}
+						view.OpenSelected(selected)
 					}
 					return true
 				}
