@@ -40,23 +40,6 @@ func TestParseToggle(t *testing.T) {
 	}
 }
 
-func TestTypingText(t *testing.T) {
-	for _, c := range []struct {
-		names []string
-		want  string
-	}{
-		{nil, ""},
-		{[]string{"Peter"}, "Peter is typing…"},
-		{[]string{"Peter", "Zoe"}, "Peter and Zoe are typing…"},
-		{[]string{"A", "B", "C"}, "A, B and C are typing…"},
-		{[]string{"A", "B", "C", "D", "E"}, "A, B and 3 others are typing…"},
-	} {
-		if got := typingText(c.names); got != c.want {
-			t.Errorf("%v: got %q", c.names, got)
-		}
-	}
-}
-
 func TestTypingAndSeenCommandsParse(t *testing.T) {
 	for _, input := range []string{"/typing", "/typing on", "/seen off", "/seen"} {
 		ok := false

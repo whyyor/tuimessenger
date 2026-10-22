@@ -3,7 +3,6 @@ package tui
 import (
 	"context"
 	"encoding/json"
-	"strconv"
 	"strings"
 
 	"maunium.net/go/mautrix/event"
@@ -88,22 +87,6 @@ func (view *RoomView) SetPrivacy(update func(*ChatPrivacy)) {
 		view.AddServiceMessage("This chat shares typing: %s · seen: %s", onOff(p.Typing), onOff(p.ReadReceipts))
 	}
 	view.requestRender()
-}
-
-// typingText is "Peter is typing…", "Peter and Zoe are typing…" or
-// "Peter, Zoe and 2 others are typing…".
-func typingText(names []string) string {
-	switch len(names) {
-	case 0:
-		return ""
-	case 1:
-		return names[0] + " is typing…"
-	case 2:
-		return names[0] + " and " + names[1] + " are typing…"
-	case 3:
-		return names[0] + ", " + names[1] + " and " + names[2] + " are typing…"
-	}
-	return names[0] + ", " + names[1] + " and " + strconv.Itoa(len(names)-2) + " others are typing…"
 }
 
 // typingNames is who's typing in the room, by display name, minus us.

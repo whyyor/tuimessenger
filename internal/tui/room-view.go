@@ -42,7 +42,6 @@ import (
 	"go.mau.fi/gomuks/tui/debug"
 	"go.mau.fi/gomuks/tui/lib/emoji"
 	"go.mau.fi/gomuks/tui/messages"
-	"go.mau.fi/gomuks/tui/widget"
 )
 
 type RoomView struct {
@@ -303,7 +302,19 @@ func (view *RoomView) GetStatus() string {
 		}
 	}
 
-	// Typing is drawn in the composer's top row instead (see drawTyping).
+	// Display names, not raw bridge user IDs, and never our own echo.
+	if names := view.typingNames(); len(names) > 0 {
+		buf.WriteString("Typing: ")
+		for i, name := range names {
+			if i > 0 && i == len(names)-1 {
+				buf.WriteString(" and ")
+			} else if i > 0 {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(name)
+		}
+		buf.WriteString(" - ")
+	}
 
 	return strings.TrimSuffix(buf.String(), " - ")
 }
@@ -392,13 +403,8 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.status.SetText(view.GetStatus())
 	view.status.Draw(view.statusScreen)
 	view.input.Draw(view.inputScreen)
-	// The composer's top padding row: attached files, else who's typing.
-	if len(view.Attachments()) > 0 {
-		view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
-	} else if text := typingText(view.typingNames()); text != "" {
-		widget.WriteLine(screen, mauview.AlignLeft, "✎ "+text, inputOffsetX, view.statusScreen.YEnd(),
-			width-inputOffsetX-1, tcell.StyleDefault.Foreground(ColorStatusText).Italic(true))
-	}
+	// Attached files sit in the composer's top padding row.
+	view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
 	barStyle := tcell.StyleDefault.Foreground(ColorComposerBar)
 	for y := view.statusScreen.YEnd(); y < view.statusScreen.YEnd()+composerHeight; y++ {
 		screen.SetContent(1, y, '│', nil, barStyle)
