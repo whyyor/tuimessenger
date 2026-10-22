@@ -732,6 +732,9 @@ func (view *RoomView) SetCompletions(completions []string) {
 // no at-the-bottom guard like the automatic mark on room focus.
 func (view *RoomView) MarkReadExplicit() {
 	ClearNotifications(view.Room.ID)
+	// Ctrl+m always re-sends, even if this message was marked read already:
+	// it clears a marked-unread flag and upgrades a private read after /seen on.
+	view.Room.ForgetMarkedRead()
 	if req := view.Room.GetMarkAsReadParams(); req != nil {
 		req.ReceiptType = receiptTypeFor(view.Room)
 		go func() {
