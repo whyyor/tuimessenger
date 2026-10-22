@@ -30,6 +30,7 @@ import (
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 	"go.mau.fi/util/ptr"
+	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
@@ -273,8 +274,13 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 	if roomView != nil && roomView == view.currentRoom && roomView.MessageView().GetScrollOffset() == 0 {
 		ClearNotifications(roomView.Room.ID)
 		req := roomView.Room.GetMarkAsReadParams()
+		if req != nil && receiptTypeFor(roomView.Room) != event.ReceiptTypeRead {
+			// /seen off: no receipt at all, so a later Ctrl+m can still bridge one.
+			go view.markSeenLocally(roomView.Room, req)
+			return
+		}
 		if req != nil {
-			req.ReceiptType = receiptTypeFor(roomView.Room)
+			req.ReceiptType = event.ReceiptTypeRead
 		}
 		if req != nil {
 			go func() {

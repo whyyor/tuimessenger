@@ -126,7 +126,7 @@ func (list *RoomList) BrowseStep(down bool) id.RoomID {
 	// sidebar is hidden.
 	if list.parent != nil {
 		list.lock.Lock()
-		list.rooms = listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected)
+		list.rooms = applyLocalSeen(list.parent.matrix, listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected))
 		list.lock.Unlock()
 	}
 	var next id.RoomID
@@ -228,7 +228,7 @@ func (list *RoomList) IsMuted(roomID id.RoomID) bool {
 // UnreadRooms is the hint screen's list: see unreadRooms.
 func (list *RoomList) UnreadRooms() []*store.RoomListEntry {
 	muted := list.mutedSet()
-	return unreadRooms(listedRooms(list.parent.matrix.ReversedRoomList.Current(), ""), muted)
+	return unreadRooms(applyLocalSeen(list.parent.matrix, listedRooms(list.parent.matrix.ReversedRoomList.Current(), "")), muted)
 }
 
 // unreadRooms keeps chats with unread messages (or marked unread) that
@@ -246,7 +246,7 @@ func unreadRooms(rooms []*store.RoomListEntry, muted map[id.RoomID]bool) []*stor
 
 func (list *RoomList) Draw(screen mauview.Screen) {
 	list.lock.Lock()
-	list.rooms = listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected)
+	list.rooms = applyLocalSeen(list.parent.matrix, listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected))
 	list.width, list.height = screen.Size()
 	roomSlice := list.rooms[min(len(list.rooms), list.scrollOffset):min(len(list.rooms), list.scrollOffset+list.height)]
 	muted := list.mutedSet()

@@ -143,7 +143,7 @@ var LocalCommands = []*cmdschema.EventContent{{
 	TailParam: "state",
 }, {
 	Command:     CmdSeen,
-	Description: event.MakeExtensibleText("Share \"seen\" (read receipts) in this chat: on, off, or toggle"),
+	Description: event.MakeExtensibleText("Seen in this chat: on sends blue ticks as you read; off keeps reads in gomuks until Ctrl+m"),
 	Parameters: []*cmdschema.Parameter{{
 		Key:      "state",
 		Schema:   cmdschema.Enum("on", "off"),

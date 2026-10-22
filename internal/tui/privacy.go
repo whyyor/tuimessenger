@@ -75,16 +75,16 @@ func (view *RoomView) SetPrivacy(update func(*ChatPrivacy)) {
 	case err != nil:
 		view.AddServiceMessage("Failed to save chat privacy: %v", err)
 	case p.Typing != before.Typing:
-		view.AddServiceMessage("Typing in this chat: %s", map[bool]string{true: "shared", false: "hidden"}[p.Typing])
+		view.AddServiceMessage("Typing in this chat: %s", onOff(p.Typing))
 		if !p.Typing {
 			view.SendTyping(false)
 		}
 	case p.ReadReceipts != before.ReadReceipts:
-		view.AddServiceMessage("Seen in this chat: %s", map[bool]string{true: "shared", false: "hidden"}[p.ReadReceipts])
+		view.AddServiceMessage("Seen in this chat: %s", onOff(p.ReadReceipts))
 		// Re-send the read position so the new receipt type takes effect.
 		view.Room.ForgetMarkedRead()
 	default:
-		view.AddServiceMessage("This chat shares typing: %s · seen: %s", onOff(p.Typing), onOff(p.ReadReceipts))
+		view.AddServiceMessage("Typing in this chat: %s · seen: %s", onOff(p.Typing), onOff(p.ReadReceipts))
 	}
 	view.requestRender()
 }

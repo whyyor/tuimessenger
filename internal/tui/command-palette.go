@@ -185,7 +185,7 @@ func (p *CommandPalette) chatItems() []*paletteItem {
 	view := p.parent
 	muted := view.roomList.mutedSet()
 	var items []*paletteItem
-	for _, room := range view.matrix.ReversedRoomList.Current() {
+	for _, room := range applyLocalSeen(view.matrix, view.matrix.ReversedRoomList.Current()) {
 		icon, color := BridgeIconColor(room.Bridge)
 		var notes []string
 		if room.UnreadMessages > 0 {
