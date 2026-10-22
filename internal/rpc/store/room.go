@@ -573,6 +573,16 @@ func (rs *RoomStore) GetDisplayname(userID id.UserID) string {
 	return memberEvt.Displayname
 }
 
+// isReadableEvent limits read receipts to messages people see: a receipt on
+// a bridge's hidden com.beeper.message_send_status isn't tied to a message.
+func isReadableEvent(evt *database.Event) bool {
+	switch evt.GetType().Type {
+	case event.EventMessage.Type, event.EventSticker.Type, event.EventEncrypted.Type:
+		return true
+	}
+	return false
+}
+
 // ForgetMarkedRead makes the next GetMarkAsReadParams send a receipt even if
 // nothing new arrived, so reading a chat marked unread clears the flag.
 func (rs *RoomStore) ForgetMarkedRead() {
@@ -594,7 +604,7 @@ func (rs *RoomStore) GetMarkAsReadParams() *jsoncmd.MarkReadParams {
 			break
 		}
 		evt, ok := rs.eventsByRowID[tuple.Event]
-		if ok && strings.HasPrefix(evt.ID.String(), "$") && evt.Sender != cmdspec.FakeGomuksSender {
+		if ok && strings.HasPrefix(evt.ID.String(), "$") && evt.Sender != cmdspec.FakeGomuksSender && isReadableEvent(evt) {
 			readEvt = evt
 			rs.lastMarkedRead = tuple.Event
 			break

@@ -302,6 +302,23 @@ Loop:
 	return h.send(ctx, roomID, evtType, &event.Content{Parsed: content, Raw: extra}, origText, unencrypted, false, false, ts)
 }
 
+// readMarkerRequests splits a mark-read: public receipts go through
+// /receipt, because Beeper only forwards those to bridges (WhatsApp blue
+// ticks, phone read state); m.read inside /read_markers is stored but never
+// bridged. Private receipts and the fully-read marker stay in /read_markers.
+func readMarkerRequests(eventID id.EventID, receiptType event.ReceiptType) (sendPublic bool, markers *mautrix.ReqSetReadMarkers, err error) {
+	markers = &mautrix.ReqSetReadMarkers{FullyRead: eventID}
+	switch receiptType {
+	case event.ReceiptTypeRead:
+		sendPublic = true
+	case event.ReceiptTypeReadPrivate:
+		markers.ReadPrivate = eventID
+	default:
+		return false, nil, fmt.Errorf("invalid receipt type: %v", receiptType)
+	}
+	return sendPublic, markers, nil
+}
+
 func (h *HiClient) MarkRead(ctx context.Context, roomID id.RoomID, eventID id.EventID, receiptType event.ReceiptType) error {
 	room, err := h.DB.Room.Get(ctx, roomID)
 	if err != nil {
@@ -309,15 +326,15 @@ func (h *HiClient) MarkRead(ctx context.Context, roomID id.RoomID, eventID id.Ev
 	} else if room == nil {
 		return fmt.Errorf("unknown room")
 	}
-	content := &mautrix.ReqSetReadMarkers{
-		FullyRead: eventID,
+	sendPublic, content, err := readMarkerRequests(eventID, receiptType)
+	if err != nil {
+		return err
 	}
-	if receiptType == event.ReceiptTypeRead {
-		content.Read = eventID
-	} else if receiptType == event.ReceiptTypeReadPrivate {
-		content.ReadPrivate = eventID
-	} else {
-		return fmt.Errorf("invalid receipt type: %v", receiptType)
+	if sendPublic {
+		err = h.Client.SendReceipt(ctx, roomID, eventID, event.ReceiptTypeRead, struct{}{})
+		if err != nil {
+			return fmt.Errorf("failed to send read receipt: %w", err)
+		}
 	}
 	err = h.Client.SetReadMarkers(ctx, roomID, content)
 	if err != nil {
