@@ -92,3 +92,39 @@ func TestNoReadHintWhenLastMessageIsMine(t *testing.T) {
 		t.Error("our reply is the newest message: no hint")
 	}
 }
+
+func TestNoReadHintWhenWeReacted(t *testing.T) {
+	view, room := bubbleView(t)
+	rv := &RoomView{Room: room, config: view.config}
+	ours := map[id.EventID]bool{"$liked:x": true}
+	orig := lookupOwnReaction
+	lookupOwnReaction = func(_ *RoomView, evtID id.EventID) bool { return ours[evtID] }
+	defer func() { lookupOwnReaction = orig }()
+
+	theirs := &database.Event{RowID: 1, TimelineRowID: 1, ID: "$liked:x", RoomID: room.ID,
+		Sender: "@whatsapp_lid-1:beeper.local", Type: "m.room.message",
+		Timestamp: jsontime.UM(time.Now()), Reactions: map[string]int{"👍": 1}}
+	room.ApplySync(&jsoncmd.SyncRoom{
+		Events:   []*database.Event{theirs},
+		Timeline: []database.TimelineRowTuple{{Timeline: 1, Event: 1}},
+	})
+	if !rv.needsReadHint() {
+		t.Fatal("until the lookup answers, the hint stays")
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for rv.needsReadHint() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if rv.needsReadHint() {
+		t.Error("we reacted to their newest message: no hint")
+	}
+	// Someone else's reaction doesn't count.
+	ours["$liked:x"] = false
+	theirs.Reactions = map[string]int{"👍": 1, "❤️": 1}
+	time.Sleep(50 * time.Millisecond)
+	_ = rv.needsReadHint()
+	time.Sleep(50 * time.Millisecond)
+	if !rv.needsReadHint() {
+		t.Error("only their reactions: the hint comes back")
+	}
+}

@@ -60,12 +60,12 @@ func notePublicReceipts(room *store.RoomStore, receipts map[id.EventID][]*databa
 	}
 }
 
-// newestPeerMessage is the timestamp (ms) of the other side's latest message,
-// or 0 if the newest message is ours: replying shows we've seen it.
-func newestPeerMessage(room *store.RoomStore) int64 {
+// newestPeerMessage is the other side's latest message, or nil if the newest
+// message is ours: replying shows we've seen it.
+func newestPeerMessage(room *store.RoomStore) *database.Event {
 	tl := room.TimelineCache.Current()
 	if tl == nil {
-		return 0
+		return nil
 	}
 	own := room.OwnUserID()
 	for i := len(*tl) - 1; i >= 0; i-- {
@@ -80,22 +80,76 @@ func newestPeerMessage(room *store.RoomStore) int64 {
 		}
 		switch {
 		case evt.Sender == own:
-			return 0
+			return nil
 		case isPeer(evt.Sender, own):
-			return evt.Timestamp.UnixMilli()
+			return evt
 		}
 	}
-	return 0
+	return nil
 }
 
-// needsReadHint: /seen-off chat whose newest message from them hasn't had a
-// public read yet. /seen-on chats read publicly by themselves.
+// reactedTo caches whether we reacted to a message, keyed by its reaction
+// total so a new reaction (ours from any device) triggers a fresh check.
+var reactedTo = struct {
+	sync.Mutex
+	byEvent map[id.EventID]reactionCheck
+}{byEvent: make(map[id.EventID]reactionCheck)}
+
+type reactionCheck struct {
+	total    int
+	mine     bool
+	inFlight bool
+}
+
+func reactionTotal(evt *database.Event) int {
+	total := 0
+	for _, n := range evt.Reactions {
+		total += n
+	}
+	return total
+}
+
+// lookupOwnReaction is swapped out in tests.
+var lookupOwnReaction = func(view *RoomView, evtID id.EventID) bool {
+	return len(view.OwnReactions(evtID)) > 0
+}
+
+// weReactedTo answers from the cache, starting a background lookup when the
+// message's reactions changed; until then it says no (hint stays).
+func (view *RoomView) weReactedTo(evt *database.Event) bool {
+	total := reactionTotal(evt)
+	if total == 0 {
+		return false
+	}
+	reactedTo.Lock()
+	check, ok := reactedTo.byEvent[evt.ID]
+	stale := !ok || check.total != total
+	if stale && !check.inFlight {
+		reactedTo.byEvent[evt.ID] = reactionCheck{total: total, mine: check.mine, inFlight: true}
+		go func() {
+			mine := lookupOwnReaction(view, evt.ID)
+			reactedTo.Lock()
+			reactedTo.byEvent[evt.ID] = reactionCheck{total: total, mine: mine}
+			reactedTo.Unlock()
+			view.requestRender()
+		}()
+	}
+	reactedTo.Unlock()
+	return ok && check.mine && !stale
+}
+
+// needsReadHint: /seen-off chat whose newest message is theirs, without a
+// public read or our reaction. /seen-on chats read publicly by themselves.
 func (view *RoomView) needsReadHint() bool {
 	if receiptTypeFor(view.Room) == event.ReceiptTypeRead {
 		return false
 	}
 	newest := newestPeerMessage(view.Room)
-	return newest > 0 && newest > publicReadAt(view.Room.ID)
+	if newest == nil || newest.Timestamp.UnixMilli() <= publicReadAt(view.Room.ID) {
+		return false
+	}
+	// Reacting to it shows we've seen it, just like replying.
+	return !view.weReactedTo(newest)
 }
 
 // drawReadHint centres the hint in the status row.
