@@ -61,3 +61,25 @@ func TestImageShowsCaptionBelow(t *testing.T) {
 		t.Errorf("caption row: %q", row.String())
 	}
 }
+
+func TestStickerDrawnSmall(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 512, 512))
+	var buf bytes.Buffer
+	_ = png.Encode(&buf, img)
+	size := func(sticker bool) (int, int) {
+		fm := &FileMessage{imageData: buf.Bytes(), IsSticker: sticker}
+		ui := &UIMessage{Event: &database.Event{}, Renderer: fm}
+		ui.CalculateBuffer(config.UserPreferences{ImageProtocol: "ansi"}, 100)
+		w := 0
+		for _, line := range fm.buffer {
+			w = max(w, len(line))
+		}
+		return w, len(fm.buffer)
+	}
+	pw, ph := size(false)
+	sw, sh := size(true)
+	if sw > stickerMaxCols || sh > stickerMaxRows || sw >= pw || sh >= ph {
+		t.Errorf("sticker %dx%d should fit %dx%d and be smaller than a photo %dx%d",
+			sw, sh, stickerMaxCols, stickerMaxRows, pw, ph)
+	}
+}

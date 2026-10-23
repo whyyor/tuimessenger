@@ -68,6 +68,9 @@ type FileMessage struct {
 	kittyCols int
 	kittyRows int
 
+	// IsSticker draws it small, like chat apps do, instead of photo-sized.
+	IsSticker bool
+
 	// Audio: duration, 16 bar levels (made up when the bridge sent none).
 	Duration  time.Duration
 	levels    []int
@@ -151,6 +154,7 @@ func (msg *FileMessage) Clone() MessageRenderer {
 		IsEncrypted: msg.IsEncrypted,
 		imageData:   data,
 		eventID:     msg.eventID,
+		IsSticker:   msg.IsSticker,
 		Duration:    msg.Duration,
 		levels:      msg.levels,
 		synthetic:   msg.synthetic,
@@ -276,14 +280,11 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 	// bubbles keep the text fallback; a virtual placement has one geometry
 	// per image, and the bubble preview would fight the full-size one.
 	if len(msg.kittyPNG) > 0 && !uiMsg.IsReplyBubble && kittyUsable(prefs.ImageProtocol) {
-		maxCols := width - 2
-		if maxCols > 48 {
-			maxCols = 48
-		}
+		limitCols, maxRows := msg.imageLimits()
+		maxCols := min(width-2, limitCols)
 		cols := maxCols
 		// A cell is roughly twice as tall as wide.
 		rows := (img.Height*cols + img.Width) / (img.Width * 2)
-		const maxRows = 16
 		if rows > maxRows {
 			rows = maxRows
 			cols = rows * 2 * img.Width / img.Height
@@ -307,11 +308,9 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 	msg.kittyRows = 0
 	// Fit into a bounding box: each terminal row is two pixels tall, so a
 	// 16-row cap means 32 pixels of height. Never upscale.
-	maxCols := width - 2
-	if maxCols > 48 {
-		maxCols = 48
-	}
-	const maxRowsPx = 32
+	limitCols, limitRows := msg.imageLimits()
+	maxCols := min(width-2, limitCols)
+	maxRowsPx := limitRows * 2
 	pxWidth := img.Width
 	if pxWidth > maxCols {
 		pxWidth = maxCols
@@ -355,6 +354,20 @@ func (msg *FileMessage) makeCaption(prefs config.UserPreferences, width int, uiM
 		return nil
 	}
 	return calculateBufferWithText(prefs, tstring.NewTString(caption), width, uiMsg)
+}
+
+// Image size caps in cells: photos up to 48×16; stickers about 150px square,
+// their usual size in chat apps.
+const (
+	photoMaxCols, photoMaxRows     = 48, 16
+	stickerMaxCols, stickerMaxRows = 16, 8
+)
+
+func (msg *FileMessage) imageLimits() (cols, rows int) {
+	if msg.IsSticker {
+		return stickerMaxCols, stickerMaxRows
+	}
+	return photoMaxCols, photoMaxRows
 }
 
 // makeLinkLine renders the source post as a dim, clickable row under the
