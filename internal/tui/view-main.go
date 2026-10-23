@@ -597,6 +597,7 @@ func (view *MainView) SwitchRoom(roomID id.RoomID) {
 	view.roomView.SetInnerComponent(currentRoom)
 	view.roomView.Focus()
 	view.MarkRead(currentRoom)
+	go view.loadReceipts(roomData)
 	if len(ptr.Val(roomData.TimelineCache.Current())) < 50 {
 		go view.LoadHistory(roomID)
 	}

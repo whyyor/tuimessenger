@@ -243,6 +243,31 @@ func (rs *RoomStore) ApplySync(sync *jsoncmd.SyncRoom) {
 	}
 }
 
+// LoadedEventIDs lists the server event IDs of the timeline in memory,
+// newest last, at most limit of them.
+func (rs *RoomStore) LoadedEventIDs(limit int) []id.EventID {
+	rs.lock.RLock()
+	defer rs.lock.RUnlock()
+	var ids []id.EventID
+	for i := len(rs.timeline) - 1; i >= 0 && len(ids) < limit; i-- {
+		if evt, ok := rs.eventsByRowID[rs.timeline[i].Event]; ok && strings.HasPrefix(evt.ID.String(), "$") {
+			ids = append(ids, evt.ID)
+		}
+	}
+	slices.Reverse(ids)
+	return ids
+}
+
+// ApplyFetchedReceipts merges receipts loaded with GetReceipts: sync drops
+// receipts for events that weren't in memory yet, so opening a chat refills.
+func (rs *RoomStore) ApplyFetchedReceipts(receipts map[id.EventID][]*database.Receipt) {
+	rs.lock.Lock()
+	defer rs.lock.Unlock()
+	if rs.applyReceiptsLocked(receipts) {
+		rs.notifyTimelineWatchers()
+	}
+}
+
 func (rs *RoomStore) ApplyTyping(typing []id.UserID) {
 	rs.Typing.Emit(typing)
 }
