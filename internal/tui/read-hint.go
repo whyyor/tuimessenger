@@ -90,13 +90,13 @@ func (view *RoomView) needsReadHint() bool {
 	return newest > 0 && newest > publicReadAt(view.Room.ID)
 }
 
-// drawReadHint puts the hint at the right end of the status row.
+// drawReadHint centres the hint in the status row.
 func (view *RoomView) drawReadHint(screen mauview.Screen, y, width int) {
 	if !view.needsReadHint() {
 		return
 	}
 	w := runewidth.StringWidth(readHint)
-	x := width - w - 1
+	x := (width - w) / 2
 	if x < runewidth.StringWidth(view.GetStatus())+3 {
 		return // the status line (typing, replying…) needs the room
 	}

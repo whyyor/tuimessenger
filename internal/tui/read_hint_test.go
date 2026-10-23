@@ -40,8 +40,9 @@ func TestReadHint(t *testing.T) {
 	_ = sim.Init()
 	sim.SetSize(60, 1)
 	rv.drawReadHint(sim, 0, 60)
-	if row := screenText(sim, 60, 1)[0]; !strings.HasSuffix(row, readHint) {
-		t.Errorf("hint should sit at the right end: %q", row)
+	row := screenText(sim, 60, 1)[0]
+	if lead := len(row) - len(strings.TrimLeft(row, " ")); lead != (60-len(readHint))/2 || strings.TrimSpace(row) != readHint {
+		t.Errorf("hint should be centred: %q", row)
 	}
 
 	// A private read changes nothing; our public receipt (Ctrl+m, any device) hides it.
