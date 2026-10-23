@@ -60,7 +60,8 @@ func notePublicReceipts(room *store.RoomStore, receipts map[id.EventID][]*databa
 	}
 }
 
-// newestPeerMessage is the timestamp (ms) of the other side's latest message.
+// newestPeerMessage is the timestamp (ms) of the other side's latest message,
+// or 0 if the newest message is ours: replying shows we've seen it.
 func newestPeerMessage(room *store.RoomStore) int64 {
 	tl := room.TimelineCache.Current()
 	if tl == nil {
@@ -69,11 +70,18 @@ func newestPeerMessage(room *store.RoomStore) int64 {
 	own := room.OwnUserID()
 	for i := len(*tl) - 1; i >= 0; i-- {
 		evt := (*tl)[i]
-		if evt == nil || !strings.HasPrefix(string(evt.ID), "$") || !isPeer(evt.Sender, own) {
+		if evt == nil || !strings.HasPrefix(string(evt.ID), "$") {
 			continue
 		}
 		switch evt.GetType().Type {
 		case event.EventMessage.Type, event.EventSticker.Type:
+		default:
+			continue
+		}
+		switch {
+		case evt.Sender == own:
+			return 0
+		case isPeer(evt.Sender, own):
 			return evt.Timestamp.UnixMilli()
 		}
 	}
