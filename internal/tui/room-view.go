@@ -484,6 +484,13 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 				// the single-message y below, which would otherwise win.
 				if event.Rune() == 'y' && msgView.HasAnchor() {
 					msgs := msgView.RangeMessages()
+					if len(msgs) == 1 && isSticker(msgs[0]) {
+						// A range of just a sticker: copy it to re-send.
+						view.CopySticker(msgs[0])
+						view.StopSelecting()
+						view.input.Focus()
+						return true
+					}
 					go view.CopyToClipboard(formatRange(msgs), "clipboard")
 					view.AddServiceMessage("Copied %d messages", len(msgs))
 					view.StopSelecting()

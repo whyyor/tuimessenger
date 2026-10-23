@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -111,5 +112,13 @@ func TestCopyPasteSendSticker(t *testing.T) {
 	// Unknown tokens are just text.
 	if _, ok := stickerFromToken(stickerTokenPrefix + "$nope"); ok {
 		t.Error("an unknown token isn't a sticker")
+	}
+}
+
+func TestRangeCopyHidesStickerLink(t *testing.T) {
+	sticker := &messages.UIMessage{Event: &database.Event{ID: "$stk:x", Type: event.EventSticker.Type,
+		Content: json.RawMessage(receivedSticker)}, Renderer: &messages.FileMessage{Body: "Sticker"}, OverrideSenderName: "Nadia"}
+	if got := formatRange([]*messages.UIMessage{sticker}); !strings.HasSuffix(got, "Nadia: [sticker]") {
+		t.Errorf("range copy should say [sticker], not a localhost link: %q", got)
 	}
 }
