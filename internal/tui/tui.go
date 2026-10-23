@@ -188,6 +188,14 @@ func (ui *GomuksTUI) onConnStateChange(state rpc.ConnState, err error) {
 func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
 	switch evt := rawEvt.(type) {
 	case *jsoncmd.SyncComplete:
+		// Our own public reads from any device hide the Ctrl+m hint.
+		for roomID, sr := range evt.Rooms {
+			if len(sr.Receipts) > 0 {
+				if room := ui.gmx.GetRoom(roomID); room != nil {
+					notePublicReceipts(room, sr.Receipts)
+				}
+			}
+		}
 		if mv := ui.MainView; mv != nil {
 			mv.autoRead(evt)
 		}

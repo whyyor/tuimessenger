@@ -402,6 +402,7 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	}
 	view.status.SetText(view.GetStatus())
 	view.status.Draw(view.statusScreen)
+	view.drawReadHint(screen, view.statusScreen.OffsetY, width)
 	view.input.Draw(view.inputScreen)
 	// Attached files sit in the composer's top padding row.
 	view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
@@ -748,7 +749,10 @@ func (view *RoomView) MarkReadExplicit() {
 			defer debug.Recover()
 			if err := view.parent.matrix.MarkRead(context.TODO(), req); err != nil {
 				debug.Print("Failed to mark read:", err)
+				return
 			}
+			notePublicReadOf(view.Room, req.EventID)
+			view.requestRender()
 		}()
 	}
 }

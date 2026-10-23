@@ -25,5 +25,6 @@ func (view *MainView) loadReceipts(room *store.RoomStore) {
 		return
 	}
 	room.ApplyFetchedReceipts(receipts)
+	notePublicReceipts(room, receipts)
 	view.parent.Render()
 }

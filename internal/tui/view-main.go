@@ -288,6 +288,8 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 				err := view.matrix.MarkRead(context.TODO(), req)
 				if err != nil {
 					debug.Print("Failed to mark read for", roomView.Room.ID, err)
+				} else {
+					notePublicReadOf(roomView.Room, req.EventID)
 				}
 			}()
 		}
