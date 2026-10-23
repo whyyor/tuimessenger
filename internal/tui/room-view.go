@@ -269,7 +269,11 @@ func (view *RoomView) OnSelect(message *messages.UIMessage) {
 			view.AddServiceMessage("That message has no media")
 		}
 	case SelectCopy:
-		go view.CopyToClipboard(message.Renderer.PlainText(), view.selectContent)
+		if isSticker(message) {
+			view.CopySticker(message)
+		} else {
+			go view.CopyToClipboard(message.Renderer.PlainText(), view.selectContent)
+		}
 	}
 	view.selecting = false
 	view.selectContent = ""
@@ -600,6 +604,12 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 	// upload it instead of pasting nothing. Text pastes flow through to the
 	// input area as before.
 	if event.Key() == tcell.KeyCtrlV {
+		if text, _ := clipboard.ReadAll("clipboard"); text != "" {
+			if raw, ok := stickerFromToken(text); ok {
+				view.AttachSticker(raw)
+				return true
+			}
+		}
 		// Files copied in Finder come first: their name is on the clipboard as text too.
 		if files := clipboardFiles(); len(files) > 0 {
 			view.AttachFiles(files...)
@@ -641,6 +651,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 }
 
 func (view *RoomView) OnPasteEvent(event mauview.PasteEvent) bool {
+	// A copied sticker's token becomes a sticker chip.
+	if raw, ok := stickerFromToken(event.Text()); ok {
+		view.AttachSticker(raw)
+		return true
+	}
 	// Dropped or pasted file paths become attachment chips.
 	if paths := droppedFiles(event.Text()); paths != nil {
 		view.AttachFiles(paths...)

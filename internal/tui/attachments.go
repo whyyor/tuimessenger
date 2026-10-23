@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,10 +26,15 @@ import (
 type pendingFile struct {
 	path string
 	temp bool
+	// sticker is a copied sticker's content; sent as m.sticker, no upload.
+	sticker json.RawMessage
 }
 
 // sendFile uploads and sends one file; swapped out in tests.
 var sendFile = (*RoomView).uploadAndSend
+
+// sendText sends a plain message; swapped out in tests.
+var sendText = func(view *RoomView, text string) { view.SendMessage(event.MsgText, text) }
 
 func (view *RoomView) requestRender() {
 	if view.parent != nil && view.parent.parent != nil {
@@ -123,12 +129,25 @@ func (view *RoomView) SendAttachments(caption string) {
 	go func() {
 		defer debug.Recover()
 		defer dropTemp(items)
+		// The caption and reply ride on the first file; stickers can't
+		// carry a caption, so with only stickers it follows as text.
+		captionOn := slices.IndexFunc(items, func(a pendingFile) bool { return a.sticker == nil })
 		for i, a := range items {
+			var rel *event.RelatesTo
 			if i == 0 {
-				sendFile(view, a.path, caption, relatesTo)
-			} else {
-				sendFile(view, a.path, "", nil)
+				rel = relatesTo
 			}
+			switch {
+			case a.sticker != nil:
+				sendSticker(view, a.sticker, rel)
+			case i == captionOn:
+				sendFile(view, a.path, caption, rel)
+			default:
+				sendFile(view, a.path, "", rel)
+			}
+		}
+		if captionOn == -1 && caption != "" {
+			sendText(view, caption)
 		}
 	}()
 }
@@ -202,6 +221,9 @@ func attachmentChips(items []pendingFile, width int) (chips []string, more int) 
 	for i, a := range items {
 		name := runewidth.Truncate(filepath.Base(a.path), chipNameMax, "…")
 		chip := "[" + fileIcon(a.path) + " " + name + "]"
+		if a.sticker != nil {
+			chip = "[\uf118 sticker]" // nf-fa-smile_o
+		}
 		w := runewidth.StringWidth(chip) + 1
 		rest := len(items) - i - 1
 		reserve := 0
