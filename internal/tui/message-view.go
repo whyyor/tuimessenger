@@ -287,10 +287,10 @@ func (view *MessageView) RangeMessages() []*messages.UIMessage {
 func formatRange(msgs []*messages.UIMessage) string {
 	var buf strings.Builder
 	for _, m := range msgs {
-		text := m.PlainText()
-		if isSticker(m) {
-			// Its plain text is a localhost media link, useless to anyone else.
-			text = "[sticker]"
+		// A sticker's plain text is a localhost media link, useless to anyone else.
+		text := "[sticker]"
+		if !isSticker(m) {
+			text = m.PlainText()
 		}
 		fmt.Fprintf(&buf, "%s %s: %s\n", m.FormatTime(), m.GetRawSenderName(), text)
 	}
