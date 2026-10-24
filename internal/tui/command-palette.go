@@ -152,6 +152,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 			clearTitle, clearCmd = "Show cleared history", "/unclear"
 		}
 		items = append(items,
+			cmd("Search this chat", "Ctrl+f", room.OpenSearch),
 			cmd("Open chat in pager", keyHint(main, "show_bare"), func() { view.ShowBare(room) }),
 			cmd("Mark chat seen (sends blue ticks)", "Ctrl+m", room.MarkReadExplicit),
 			cmd("Mark chat unread", keyHint(main, "mark_unread"), view.MarkUnread),

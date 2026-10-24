@@ -57,7 +57,9 @@ type RoomView struct {
 
 	picker *ReactPicker
 	// attached are files waiting to be sent with the next Enter.
-	attached     attachmentList
+	attached attachmentList
+	// search is Ctrl+f's in-chat search, nil when closed.
+	search       *chatSearch
 	statusScreen *mauview.ProxyScreen
 	inputScreen  *mauview.ProxyScreen
 	ulScreen     *mauview.ProxyScreen
@@ -408,8 +410,12 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.status.Draw(view.statusScreen)
 	view.drawReadHint(screen, view.statusScreen.OffsetY, width)
 	view.input.Draw(view.inputScreen)
-	// Attached files sit in the composer's top padding row.
-	view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
+	// The composer's top padding row: the search line, else attached files.
+	if view.search != nil {
+		view.drawSearch(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
+	} else {
+		view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
+	}
 	barStyle := tcell.StyleDefault.Foreground(ColorComposerBar)
 	for y := view.statusScreen.YEnd(); y < view.statusScreen.YEnd()+composerHeight; y++ {
 		screen.SetContent(1, y, '│', nil, barStyle)
@@ -434,6 +440,9 @@ func (view *RoomView) ClearAllContext() {
 func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 	if view.picker != nil {
 		return view.picker.OnKeyEvent(event)
+	}
+	if view.search != nil {
+		return view.onSearchKey(event)
 	}
 	msgView := view.MessageView()
 	kb := config.Keybind{
@@ -578,6 +587,9 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		return true
 	case "mark_read":
 		view.MarkReadExplicit()
+		return true
+	case "search":
+		view.OpenSearch()
 		return true
 	case "clear":
 		// First Escape clears reply/edit/select context; with nothing left to

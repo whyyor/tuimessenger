@@ -43,6 +43,7 @@ visual:
 room:
     'Escape': clear
     'Alt+v': select
+    'Ctrl+f': search
     'Ctrl+n': scroll_down
     'Ctrl+u': scroll_up
     'Ctrl+d': scroll_down
