@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
 	"go.mau.fi/util/dbutil"
 	_ "go.mau.fi/util/dbutil/litestream" // registers the SQLite drivers (needs cgo)
 	"maunium.net/go/mautrix/bridgev2"
@@ -24,10 +25,15 @@ import (
 	"github.com/whyyor/tuimessenger/internal/bridges"
 	"github.com/whyyor/tuimessenger/internal/login"
 	"github.com/whyyor/tuimessenger/internal/matrixconn"
+	"github.com/whyyor/tuimessenger/internal/media"
+	"github.com/whyyor/tuimessenger/internal/store"
 )
 
-// ownerMXID is "you" inside the bridge. There is only one user.
-const ownerMXID = id.UserID("@me:tuimessenger.localhost")
+// serverName is the name of our pretend Matrix server; ownerMXID is "you", the only user.
+const (
+	serverName = "tuimessenger.localhost"
+	ownerMXID  = id.UserID("@me:" + serverName)
+)
 
 func main() {
 	network := flag.String("network", "", "network to run, one of: "+strings.Join(bridges.Available(), ", "))
@@ -66,8 +72,18 @@ func run(ctx context.Context, log zerolog.Logger, name, dataDir string, addLogin
 	}
 	defer db.Close()
 
+	st, err := store.Open(ctx, filepath.Join(dataDir, "store.db"), log)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	med, err := media.New(filepath.Join(dataDir, "media"))
+	if err != nil {
+		return err
+	}
+
 	log = log.With().Str("network", name).Logger()
-	matrix := matrixconn.NewLogging(log, name, ownerMXID)
+	matrix := matrixconn.New(log, st, med, name, serverName, ownerMXID)
 	br := bridgev2.NewBridge(networkid.BridgeID(name), db, log, &network.Config, matrix, network.Connector, commands.NewProcessor)
 	if err := br.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start bridge: %w", err)
@@ -126,6 +142,8 @@ func newLogger(debug bool) zerolog.Logger {
 	if debug {
 		level = zerolog.DebugLevel
 	}
-	return zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.TimeOnly}).
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.TimeOnly}).
 		Level(level).With().Timestamp().Logger()
+	zlog.Logger = logger // some libraries log through zerolog's global logger
+	return logger
 }

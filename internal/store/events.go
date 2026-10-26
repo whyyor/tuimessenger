@@ -93,8 +93,25 @@ func (s *Store) GetStateOfType(ctx context.Context, roomID id.RoomID, evtType ev
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return scanEvents(rows)
+}
 
+// GetStateByKey returns a state event of one type and key from every room, e.g. one user's memberships.
+func (s *Store) GetStateByKey(ctx context.Context, evtType event.Type, stateKey string) ([]*Event, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT `+prefixed("e.", eventColumns)+`
+		FROM local_current_state AS s JOIN local_events AS e ON e.event_id = s.event_id
+		WHERE s.type = $1 AND s.state_key = $2
+		ORDER BY e.pos`,
+		evtType.Type, stateKey)
+	if err != nil {
+		return nil, err
+	}
+	return scanEvents(rows)
+}
+
+func scanEvents(rows dbutil.Rows) ([]*Event, error) {
+	defer rows.Close()
 	var events []*Event
 	for rows.Next() {
 		evt, err := scanEvent(rows)
