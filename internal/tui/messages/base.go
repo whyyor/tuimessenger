@@ -318,9 +318,9 @@ func (msg *UIMessage) Draw(screen mauview.Screen) {
 	}
 }
 
-// Selection colours: a warm highlight with dark text (set by the UI theme).
+// Selection colours: a violet highlight with dark text (Kanagawa oniViolet).
 var (
-	SelectionBackground = tcell.NewHexColor(0xe6c384)
+	SelectionBackground = tcell.NewHexColor(0x957fb8)
 	SelectionForeground = tcell.NewHexColor(0x1f1f28)
 )
 
