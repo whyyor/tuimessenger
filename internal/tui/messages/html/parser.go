@@ -224,9 +224,18 @@ func (parser *htmlParser) linkToEntity(node *html.Node) Entity {
 	if matrixURI != nil && (matrixURI.Sigil1 == '@' || matrixURI.Sigil1 == '#') && matrixURI.Sigil2 == 0 {
 		text := NewTextEntity(matrixURI.PrimaryIdentifier())
 		if matrixURI.Sigil1 == '@' {
-			if member := parser.room.GetMember(matrixURI.UserID()); member != nil {
+			userID := matrixURI.UserID()
+			// The member list's name, else the name the sender's client put
+			// in the link (bridges do), else the raw ID.
+			if member := parser.room.GetMember(userID); member != nil && member.Displayname != "" {
 				text.Text = member.Displayname
-				text.Style = text.Style.Foreground(widget.GetHashColor(matrixURI.UserID()))
+			} else if linkText := strings.TrimSpace(entity.PlainText()); linkText != "" && linkText != href {
+				text.Text = linkText
+			}
+			// Their colour, as on their bubble's name and bar.
+			text.Style = text.Style.Foreground(widget.GetHashColor(userID))
+			if userID == parser.room.OwnUserID() {
+				text.Style = text.Style.Foreground(tcell.NewHexColor(0xe6c384)).Bold(true)
 			}
 			entity.Children = []Entity{text}
 		} else if matrixURI.Sigil1 == '#' {
