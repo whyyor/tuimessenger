@@ -17,8 +17,8 @@ var (
 	ColorPillViolet = tcell.NewHexColor(0xa8a9eb)
 	// ColorOnPill is dark text on a coloured block.
 	ColorOnPill = tcell.NewHexColor(0x1f1f28)
-	// ColorHighlight is the warm selected-row background (tabiew's cream).
-	ColorHighlight = tcell.NewHexColor(0xe6c384)
+	// ColorHighlight is the selected-row background: tabiew's Kanagawa Wave.
+	ColorHighlight = tcell.NewHexColor(0xa8a073)
 )
 
 // pillWidth is how many cells drawPill uses.
