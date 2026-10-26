@@ -320,9 +320,9 @@ func (msg *UIMessage) Draw(screen mauview.Screen) {
 
 // Selection colours: a warm highlight with dark text (set by the UI theme).
 var (
-	// Pastel pink (Kanagawa sakura) with white text, solid like tabiew's.
-	// Pastel purple #9d7cd8 is the other favourite.
-	SelectionBackground = tcell.NewHexColor(0xd27e99)
+	// A brighter soft pink (between sakura #d27e99 and Monokai #f92672) with
+	// white text, solid like tabiew's. Pastel purple #9d7cd8 is the other favourite.
+	SelectionBackground = tcell.NewHexColor(0xe0608f)
 	SelectionForeground = tcell.ColorWhite
 )
 
