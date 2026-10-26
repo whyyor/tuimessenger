@@ -154,12 +154,12 @@ func (view *MessageView) drawBubble(screen mauview.Screen, msg *messages.UIMessa
 	if lay.metaRow {
 		metaY = row + h
 		if msg.IsSelected {
-			widget.WriteLinePadded(screen, mauview.AlignLeft, "", lay.x, metaY, lay.inner, tcell.StyleDefault.Background(tcell.ColorDarkGreen))
+			widget.WriteLinePadded(screen, mauview.AlignLeft, "", lay.x, metaY, lay.inner, tcell.StyleDefault.Background(messages.SelectionBackground))
 		}
 	}
 	metaStyle := dim
 	if msg.IsSelected {
-		metaStyle = metaStyle.Background(tcell.ColorDarkGreen)
+		metaStyle = metaStyle.Background(messages.SelectionBackground).Foreground(messages.SelectionForeground)
 	}
 	end := lay.x + lay.inner
 	if lay.own {

@@ -206,7 +206,8 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 			// next to the border read as a second frame.
 			rowStyle = rowStyle.Background(ColorBarBackground).Bold(true)
 		}
-		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 0, y, width, rowStyle)
+		// The bar starts at the red accent: no strip of it left of the ▌.
+		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 1, y, width-1, rowStyle)
 		if i == fs.selected {
 			screen.SetContent(1, y, '▌', nil, accentStyle.Background(ColorBarBackground))
 		}

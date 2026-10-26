@@ -4,7 +4,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 	"maunium.net/go/mautrix/event"
@@ -12,7 +11,6 @@ import (
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/rpc/store"
-	"go.mau.fi/gomuks/tui/widget"
 )
 
 const readHint = "ctrl+m mark as read"
@@ -157,11 +155,11 @@ func (view *RoomView) drawReadHint(screen mauview.Screen, y, width int) {
 	if !view.needsReadHint() {
 		return
 	}
-	w := runewidth.StringWidth(readHint)
+	hint := []pill{{icon: "\uf00c", label: readHint, color: ColorPillYellow, dim: true}}
+	w := pillsWidth(hint)
 	x := (width - w) / 2
 	if x < runewidth.StringWidth(view.GetStatus())+3 {
 		return // the status line (typing, replying…) needs the room
 	}
-	widget.WriteLine(screen, mauview.AlignLeft, readHint, x, y, w,
-		tcell.StyleDefault.Foreground(ColorBorder))
+	drawPills(screen, x, y, hint)
 }

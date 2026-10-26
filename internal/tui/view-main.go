@@ -159,10 +159,10 @@ func (view *MainView) drawConnDialog(screen mauview.Screen) {
 	for y := boxY; y < boxY+3; y++ {
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", boxX, y, boxWidth, tcell.StyleDefault)
 	}
-	screen.SetContent(boxX, boxY, '┌', nil, borderStyle)
-	screen.SetContent(boxX+boxWidth-1, boxY, '┐', nil, borderStyle)
-	screen.SetContent(boxX, boxY+2, '└', nil, borderStyle)
-	screen.SetContent(boxX+boxWidth-1, boxY+2, '┘', nil, borderStyle)
+	screen.SetContent(boxX, boxY, '╭', nil, borderStyle)
+	screen.SetContent(boxX+boxWidth-1, boxY, '╮', nil, borderStyle)
+	screen.SetContent(boxX, boxY+2, '╰', nil, borderStyle)
+	screen.SetContent(boxX+boxWidth-1, boxY+2, '╯', nil, borderStyle)
 	for x := boxX + 1; x < boxX+boxWidth-1; x++ {
 		screen.SetContent(x, boxY, '─', nil, borderStyle)
 		screen.SetContent(x, boxY+2, '─', nil, borderStyle)

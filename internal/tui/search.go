@@ -378,20 +378,49 @@ func (s *chatSearch) status() string {
 	return strings.Join(append(parts, "esc"), " · ")
 }
 
-// drawSearch draws "/ query_   2 of 7 · ↑↓ older/newer · ⏎ select · esc".
+// searchPills is the right side of the search line: state, then key hints.
+func (s *chatSearch) searchPills() (state []pill, keys []pill) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch {
+	case len(s.query) == 0:
+		state = []pill{{icon: "\uf002", label: "search this chat", color: ColorPillBlue}}
+	case len(s.matches) == 0 && s.busy:
+		state = []pill{{icon: "\uf021", label: "searching…", color: ColorPillBlue}}
+	case len(s.matches) == 0:
+		state = []pill{{icon: "\uf05e", label: "no matches", color: ColorPillPink}}
+	default:
+		// Count from the newest: 1 of 7 is the latest match.
+		state = []pill{{icon: "\uf0c9", label: fmt.Sprintf("%d of %d", len(s.matches)-s.cur, len(s.matches)), color: ColorPillGreen}}
+		if s.loading {
+			state = append(state, pill{icon: "\uf021", label: "loading older…", color: ColorPillBlue})
+		} else {
+			keys = append(keys, pill{icon: "↑↓", label: "older/newer", color: ColorPillYellow, dim: true},
+				pill{icon: "⏎", label: "select", color: ColorPillYellow, dim: true})
+		}
+	}
+	keys = append(keys, pill{icon: "esc", label: "close", color: ColorPillYellow, dim: true})
+	return state, keys
+}
+
+// drawSearch draws "[] query_        [≡] 2 of 7 [↑↓] older/newer [⏎] select [esc] close".
 func (view *RoomView) drawSearch(screen mauview.Screen, x, y, width int) {
 	s := view.search
 	view.refreshSearch(s, false) // history may have loaded meanwhile
-	accent := tcell.StyleDefault.Foreground(ColorComposerBar).Bold(true)
-	dim := tcell.StyleDefault.Foreground(ColorStatusText)
 	widget.WriteLinePadded(screen, mauview.AlignLeft, "", x, y, width, tcell.StyleDefault)
-	widget.WriteLine(screen, mauview.AlignLeft, "/ ", x, y, 2, accent)
+	qx := x + drawPill(screen, x, y, "\uf002", "", ColorPillPink) + 1
 	query := string(s.query)
-	widget.WriteLine(screen, mauview.AlignLeft, query, x+2, y, width-2, tcell.StyleDefault)
-	screen.ShowCursor(x+2+runewidth.StringWidth(query), y)
-	status := s.status()
-	sw := runewidth.StringWidth(status)
-	if sx := x + width - sw; sx > x+2+runewidth.StringWidth(query)+2 {
-		widget.WriteLine(screen, mauview.AlignLeft, status, sx, y, sw, dim)
+	widget.WriteLine(screen, mauview.AlignLeft, query, qx, y, max(width-(qx-x), 0), tcell.StyleDefault.Foreground(ColorPillPink))
+	cursorX := qx + runewidth.StringWidth(query)
+	screen.ShowCursor(cursorX, y)
+
+	state, keys := s.searchPills()
+	// Drop key hints from the left until everything fits after the query.
+	for len(keys) > 0 && x+width-pillsWidth(append(append([]pill{}, state...), keys...)) <= cursorX+2 {
+		keys = keys[1:]
+	}
+	right := append(append([]pill{}, state...), keys...)
+	if rx := x + width - pillsWidth(right); rx > cursorX+2 {
+		drawPills(screen, rx, y, right)
 	}
 }

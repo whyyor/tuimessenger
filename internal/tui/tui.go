@@ -79,7 +79,9 @@ func init() {
 	mauview.Styles.PrimaryTextColor = tcell.ColorDefault
 	mauview.Styles.BorderColor = tcell.ColorDefault
 	mauview.Styles.ContrastBackgroundColor = ColorSelectionBackground
-	// Focused boxes keep the thin single line instead of switching to double.
+	// Rounded corners, and focused boxes keep the thin line (no double).
+	mauview.Borders.TopLeft, mauview.Borders.TopRight = '╭', '╮'
+	mauview.Borders.BottomLeft, mauview.Borders.BottomRight = '╰', '╯'
 	mauview.Borders.HorizontalFocus = mauview.Borders.Horizontal
 	mauview.Borders.VerticalFocus = mauview.Borders.Vertical
 	mauview.Borders.TopLeftFocus = mauview.Borders.TopLeft

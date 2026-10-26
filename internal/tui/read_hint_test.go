@@ -41,8 +41,14 @@ func TestReadHint(t *testing.T) {
 	sim.SetSize(60, 1)
 	rv.drawReadHint(sim, 0, 60)
 	row := screenText(sim, 60, 1)[0]
-	if lead := len(row) - len(strings.TrimLeft(row, " ")); lead != (60-len(readHint))/2 || strings.TrimSpace(row) != readHint {
-		t.Errorf("hint should be centred: %q", row)
+	w := pillsWidth([]pill{{icon: "\uf00c", label: readHint}})
+	start := (60 - w) / 2
+	if !strings.HasSuffix(strings.TrimRight(row, " "), readHint) || len([]rune(row)) < start+w {
+		t.Errorf("hint pill should be centred: %q", row)
+	}
+	// The pill's icon block starts at the centred column.
+	if _, _, style, _ := sim.GetContent(start, 0); func() bool { _, bg, _ := style.Decompose(); return bg != ColorPillYellow }() {
+		t.Errorf("no yellow icon block at column %d: %q", start, row)
 	}
 
 	// A private read changes nothing; our public receipt (Ctrl+m, any device) hides it.

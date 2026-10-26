@@ -191,7 +191,7 @@ func (p *ReactPicker) Draw(screen mauview.Screen, anchorX, top, bottom int) {
 	default:
 		p.y = max(0, height-p.h)
 	}
-	drawThinBox(screen, p.x, p.y, p.w, p.h, " React ")
+	drawThinBox(screen, p.x, p.y, p.w, p.h, " \uf118 React ")
 	for i, row := range rows {
 		cx := p.x + 1
 		for _, cell := range row {
@@ -222,8 +222,8 @@ func (p *ReactPicker) quickRow() []pickerCell {
 	for i, key := range quickReactions {
 		style, numStyle := tcell.StyleDefault, dim
 		if i == p.sel {
-			style = style.Background(ColorBarBackground).Bold(true)
-			numStyle = numStyle.Background(ColorBarBackground)
+			style = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnPill).Bold(true)
+			numStyle = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnPill)
 		}
 		if p.isOwn(key) {
 			style = style.Underline(true)
@@ -247,14 +247,15 @@ func (p *ReactPicker) searchRows() [][]pickerCell {
 	end := min(len(p.results), p.scroll+pickerMaxResults)
 	for i := p.scroll; i < end; i++ {
 		m := p.results[i]
-		marker, codeStyle, style := "   ", dim, tcell.StyleDefault
+		marker, markerStyle, codeStyle, style := "   ", accent, dim, tcell.StyleDefault
 		if i == p.sel {
-			marker, codeStyle = " › ", tcell.StyleDefault.Bold(true)
+			markerStyle = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnPill)
+			marker, codeStyle, style = " › ", markerStyle.Bold(true), markerStyle
 		}
 		if p.isOwn(m.Emoji) {
 			style = style.Underline(true)
 		}
-		rows = append(rows, []pickerCell{{marker, accent}, {m.Emoji, style}, {" :" + m.Shortcode + ":", codeStyle}})
+		rows = append(rows, []pickerCell{{marker, markerStyle}, {m.Emoji, style}, {" :" + m.Shortcode + ":", codeStyle}})
 	}
 	return rows
 }
@@ -273,11 +274,11 @@ func drawThinBox(screen mauview.Screen, x, y, w, h int, title string) {
 		screen.SetContent(x, row, '│', nil, border)
 		screen.SetContent(x+w-1, row, '│', nil, border)
 	}
-	screen.SetContent(x, y, '┌', nil, border)
-	screen.SetContent(x+w-1, y, '┐', nil, border)
-	screen.SetContent(x, y+h-1, '└', nil, border)
-	screen.SetContent(x+w-1, y+h-1, '┘', nil, border)
+	screen.SetContent(x, y, '╭', nil, border)
+	screen.SetContent(x+w-1, y, '╮', nil, border)
+	screen.SetContent(x, y+h-1, '╰', nil, border)
+	screen.SetContent(x+w-1, y+h-1, '╯', nil, border)
 	if title != "" && w > 4 {
-		widget.WriteLine(screen, mauview.AlignLeft, title, x+2, y, w-4, tcell.StyleDefault.Foreground(ColorStatusText))
+		widget.WriteLine(screen, mauview.AlignLeft, title, x+2, y, w-4, tcell.StyleDefault.Foreground(ColorPillYellow))
 	}
 }

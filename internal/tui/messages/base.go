@@ -304,13 +304,25 @@ func (msg *UIMessage) Draw(screen mauview.Screen) {
 			for y := 0; y < h; y++ {
 				mainc, combc, style, _ := screen.GetContent(x, y)
 				_, bg, _ := style.Decompose()
-				if bg == tcell.ColorDefault {
-					screen.SetContent(x, y, mainc, combc, style.Background(tcell.ColorDarkGreen))
+				if bg != tcell.ColorDefault {
+					continue
 				}
+				style = style.Background(SelectionBackground)
+				// Kitty image cells carry the image ID in their colour.
+				if mainc != kittyPlaceholder {
+					style = style.Foreground(SelectionForeground)
+				}
+				screen.SetContent(x, y, mainc, combc, style)
 			}
 		}
 	}
 }
+
+// Selection colours: a warm highlight with dark text (set by the UI theme).
+var (
+	SelectionBackground = tcell.NewHexColor(0xe6c384)
+	SelectionForeground = tcell.NewHexColor(0x1f1f28)
+)
 
 func (msg *UIMessage) Clone() *UIMessage {
 	clone := *msg

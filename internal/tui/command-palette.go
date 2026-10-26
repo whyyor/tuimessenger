@@ -423,7 +423,7 @@ func (p *CommandPalette) Draw(screen mauview.Screen) {
 	p.listH = max(1, min(len(p.rows), maxList))
 	p.h = p.listH + 4
 	p.listY = p.y + 3
-	drawThinBox(screen, p.x, p.y, p.w, p.h, " Command palette ")
+	drawThinBox(screen, p.x, p.y, p.w, p.h, " \uf120 Command palette ")
 
 	inner := p.w - 2
 	accent := tcell.StyleDefault.Foreground(ColorComposerBar).Bold(true)
@@ -467,22 +467,25 @@ func (p *CommandPalette) drawRow(screen mauview.Screen, row paletteRow, selected
 	}
 	base := tcell.StyleDefault
 	if selected {
-		base = base.Background(ColorBarBackground)
+		base = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnPill)
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x, y, width, base)
-		screen.SetContent(x, y, '▌', nil, base.Foreground(ColorSelectionBackground))
 	}
 	item := row.item
 	detailW := runewidth.StringWidth(item.detail)
 	if detailW > 0 {
 		detailStyle := dim
 		if selected {
-			detailStyle = detailStyle.Background(ColorBarBackground)
+			detailStyle = base
 		}
 		widget.WriteLine(screen, mauview.AlignLeft, item.detail, x+width-detailW-1, y, detailW, detailStyle)
 	}
 	titleX := x + 2
 	if item.icon != "" {
-		widget.WriteLine(screen, mauview.AlignLeft, item.icon, titleX, y, 2, base.Foreground(item.iconColor))
+		iconStyle := base.Foreground(item.iconColor)
+		if selected {
+			iconStyle = base
+		}
+		widget.WriteLine(screen, mauview.AlignLeft, item.icon, titleX, y, 2, iconStyle)
 		titleX += 2
 	}
 	titleMax := x + width - titleX - detailW - 2
