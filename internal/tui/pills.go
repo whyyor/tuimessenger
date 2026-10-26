@@ -19,7 +19,7 @@ var (
 	ColorOnPill = tcell.NewHexColor(0x1f1f28)
 	// ColorHighlight is the selected-row background (pastel purple) and
 	// ColorOnHighlight the text on it, matching the message selection.
-	ColorHighlight   = tcell.NewHexColor(0xe0608f)
+	ColorHighlight   = tcell.NewHexColor(0xca5681)
 	ColorOnHighlight = tcell.ColorWhite
 )
 
