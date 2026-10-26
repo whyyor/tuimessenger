@@ -320,8 +320,8 @@ func (msg *UIMessage) Draw(screen mauview.Screen) {
 
 // Selection colours: a warm highlight with dark text (set by the UI theme).
 var (
-	// tabiew's Kanagawa Wave row highlight, matching gomuks' Kanagawa palette.
-	SelectionBackground = tcell.NewHexColor(0xa8a073)
+	// Monokai green, solid, with dark text (tabiew's highlight style).
+	SelectionBackground = tcell.NewHexColor(0xa6e22e)
 	SelectionForeground = tcell.NewHexColor(0x1f1f28)
 )
 
