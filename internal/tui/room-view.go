@@ -59,7 +59,9 @@ type RoomView struct {
 	// attached are files waiting to be sent with the next Enter.
 	attached attachmentList
 	// search is Ctrl+f's in-chat search, nil when closed.
-	search       *chatSearch
+	search *chatSearch
+	// info is the i popup (message info), nil when closed.
+	info         *MessageInfo
 	statusScreen *mauview.ProxyScreen
 	inputScreen  *mauview.ProxyScreen
 	ulScreen     *mauview.ProxyScreen
@@ -406,6 +408,9 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 		mv := view.content
 		view.picker.Draw(view.contentScreen, mv.lastMessageX, mv.selTop, mv.selBottom)
 	}
+	if view.info != nil {
+		view.info.Draw(view.contentScreen)
+	}
 	view.status.SetText(view.GetStatus())
 	view.status.Draw(view.statusScreen)
 	view.drawReadHint(screen, view.statusScreen.OffsetY, width)
@@ -438,6 +443,9 @@ func (view *RoomView) ClearAllContext() {
 }
 
 func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
+	if view.info != nil {
+		return view.onInfoKey(event)
+	}
 	if view.picker != nil {
 		return view.picker.OnKeyEvent(event)
 	}
@@ -540,6 +548,11 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 					}
 					view.StopSelecting()
 					view.input.Focus()
+					return true
+				}
+				// i shows when it was sent, delivered and seen, and reactions.
+				if event.Rune() == 'i' {
+					view.OpenMessageInfo(msgView.GetSelected())
 					return true
 				}
 				// u copies the first URL in the selected message, which beats
@@ -727,6 +740,12 @@ func stripPasteWhitespace(s string) string {
 }
 
 func (view *RoomView) OnMouseEvent(event mauview.MouseEvent) bool {
+	if view.info != nil {
+		if event.Buttons() == tcell.Button1 && !event.HasMotion() {
+			view.closeInfo()
+		}
+		return true
+	}
 	if view.picker != nil {
 		if event.Buttons() == tcell.Button1 && !event.HasMotion() {
 			x, y := event.Position()

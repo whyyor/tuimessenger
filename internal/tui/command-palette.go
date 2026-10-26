@@ -226,6 +226,7 @@ func keyItems(cfg *config.Config) []*paletteItem {
 		{"Visual: view, play or open (image, voice, video, file, link)", "Space"},
 		{"Visual: hide message", "h"},
 		{"Visual: copy link", "u"},
+		{"Visual: message info (sent, delivered, seen)", "i"},
 		{"New line", "Shift+Enter"},
 		{"Clear input (undo: Ctrl+z)", "Ctrl+c"},
 		{"Scroll up / down", "PageUp / PageDown"},
