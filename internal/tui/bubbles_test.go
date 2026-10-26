@@ -269,3 +269,39 @@ func TestMarkReadIgnoresGomuksAndBots(t *testing.T) {
 		t.Error("a real reply means they read it")
 	}
 }
+
+func TestSelectionPaddingAndColours(t *testing.T) {
+	view, room := bubbleView(t)
+	for _, own := range []bool{false, true} {
+		sender := me
+		if !own {
+			sender = "@peter:x"
+		}
+		msg := textMsg(room, sender, time.Now(), "20-25 min ka")
+		msg.RowID = 5
+		view.selected = 5
+		lay := view.layoutBubble(msg, 60, true, nil, true)
+		if own {
+			deliveries.entries[msg.ID] = &deliveryEntry{state: deliveryDelivered, checked: time.Now()}
+		}
+		sim := tcell.NewSimulationScreen("")
+		_ = sim.Init()
+		sim.SetSize(60, 3)
+		view.drawBubble(sim, msg, lay, 0, 60)
+		bgAt := func(x int) tcell.Color {
+			_, _, st, _ := sim.GetContent(x, 0)
+			_, bg, _ := st.Decompose()
+			return bg
+		}
+		if bgAt(lay.x-1) != messages.SelectionBackground || bgAt(lay.x+lay.inner) != messages.SelectionBackground {
+			t.Errorf("own=%v: one padding cell each side", own)
+		}
+		_, _, st, _ := sim.GetContent(lay.x, 0)
+		if fg, _, _ := st.Decompose(); fg != messages.SelectionForeground {
+			t.Errorf("own=%v: selected text should be white, got %v", own, fg)
+		}
+		if r, _, _, _ := sim.GetContent(lay.barX, 0); r != '┃' {
+			t.Errorf("own=%v: the bar stays", own)
+		}
+	}
+}

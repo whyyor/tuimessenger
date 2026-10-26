@@ -320,10 +320,9 @@ func (msg *UIMessage) Draw(screen mauview.Screen) {
 
 // Selection colours: a warm highlight with dark text (set by the UI theme).
 var (
-	// Monokai pink, solid, with dark text (tabiew's highlight style); the
-	// same pink as the sidebar's selected chat.
-	SelectionBackground = tcell.NewHexColor(0xf92672)
-	SelectionForeground = tcell.NewHexColor(0x1f1f28)
+	// Pastel purple (Tokyo Night) with white text, solid like tabiew's.
+	SelectionBackground = tcell.NewHexColor(0x9d7cd8)
+	SelectionForeground = tcell.ColorWhite
 )
 
 func (msg *UIMessage) Clone() *UIMessage {

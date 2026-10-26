@@ -149,6 +149,17 @@ func (view *MessageView) drawBubble(screen mauview.Screen, msg *messages.UIMessa
 		screen.SetContent(lay.barX, row+y, '┃', nil, tcell.StyleDefault.Foreground(barColor))
 	}
 	msg.Draw(mauview.NewProxyScreen(screen, lay.x, row, lay.inner, h))
+	if msg.IsSelected {
+		// One cell of padding each side so the highlight doesn't hug the text.
+		pad := tcell.StyleDefault.Background(messages.SelectionBackground)
+		for y := range total {
+			for _, x := range []int{lay.x - 1, lay.x + lay.inner} {
+				if x >= 0 && x != lay.barX {
+					screen.SetContent(x, row+y, ' ', nil, pad)
+				}
+			}
+		}
+	}
 
 	metaY := row + h - 1
 	if lay.metaRow {

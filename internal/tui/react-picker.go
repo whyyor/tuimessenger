@@ -222,8 +222,8 @@ func (p *ReactPicker) quickRow() []pickerCell {
 	for i, key := range quickReactions {
 		style, numStyle := tcell.StyleDefault, dim
 		if i == p.sel {
-			style = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnPill).Bold(true)
-			numStyle = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnPill)
+			style = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnHighlight).Bold(true)
+			numStyle = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnHighlight)
 		}
 		if p.isOwn(key) {
 			style = style.Underline(true)
@@ -249,7 +249,7 @@ func (p *ReactPicker) searchRows() [][]pickerCell {
 		m := p.results[i]
 		marker, markerStyle, codeStyle, style := "   ", accent, dim, tcell.StyleDefault
 		if i == p.sel {
-			markerStyle = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnPill)
+			markerStyle = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnHighlight)
 			marker, codeStyle, style = " › ", markerStyle.Bold(true), markerStyle
 		}
 		if p.isOwn(m.Emoji) {

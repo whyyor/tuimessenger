@@ -467,7 +467,7 @@ func (p *CommandPalette) drawRow(screen mauview.Screen, row paletteRow, selected
 	}
 	base := tcell.StyleDefault
 	if selected {
-		base = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnPill)
+		base = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnHighlight)
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x, y, width, base)
 	}
 	item := row.item
