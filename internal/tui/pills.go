@@ -17,8 +17,8 @@ var (
 	ColorPillViolet = tcell.NewHexColor(0xa8a9eb)
 	// ColorOnPill is dark text on a coloured block.
 	ColorOnPill = tcell.NewHexColor(0x1f1f28)
-	// ColorHighlight is the selected-row background: Monokai green.
-	ColorHighlight = tcell.NewHexColor(0xa6e22e)
+	// ColorHighlight is the selected-row background: Monokai pink.
+	ColorHighlight = tcell.NewHexColor(0xf92672)
 )
 
 // pillWidth is how many cells drawPill uses.
