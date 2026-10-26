@@ -207,16 +207,17 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 			rowStyle = rowStyle.Background(ColorBarBackground).Bold(true)
 		}
 		// The bar starts at the red accent: no strip of it left of the ▌.
-		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 1, y, width-1, rowStyle)
+		// Columns 0 and width-1 stay empty so both sides have the same margin.
+		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 1, y, width-2, rowStyle)
 		if i == fs.selected {
 			screen.SetContent(1, y, '▌', nil, accentStyle.Background(ColorBarBackground))
 		}
 		icon, iconColor := BridgeIconColor(entry.Bridge)
 		widget.WriteLine(screen, mauview.AlignLeft, icon, 3, y, 2, rowStyle.Foreground(iconColor))
-		nameMax := width - 6
+		nameMax := width - 7
 		if entry.UnreadMessages > 0 || entry.UnreadNotifications > 0 || entry.UnreadHighlights > 0 || entry.MarkedUnread {
 			nameMax -= 2
-			widget.WriteLine(screen, mauview.AlignLeft, "●", width-2, y, 1, rowStyle.Foreground(tcell.ColorWhite))
+			widget.WriteLine(screen, mauview.AlignLeft, "●", width-3, y, 1, rowStyle.Foreground(tcell.ColorWhite))
 		}
 		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(entry.Name, nameMax, "…"), 5, y, nameMax, rowStyle)
 	}
