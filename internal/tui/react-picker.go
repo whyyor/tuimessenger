@@ -19,11 +19,14 @@ var quickReactions = []string{"👍", "❤️", "😂", "😮", "😢", "🙏"}
 
 const pickerMaxResults = 8
 
-// ReactPicker is the + popup: a quick row of six, or a shortcode search.
+// ReactPicker is the + popup (react) and Ctrl+e (insert into the composer):
+// a quick row of six, or a shortcode search.
 type ReactPicker struct {
 	room    *RoomView
 	eventID id.EventID
 	own     atomic.Pointer[map[string]id.EventID]
+	quick   []string
+	insert  bool
 
 	sel       int
 	searching bool
@@ -37,7 +40,7 @@ type ReactPicker struct {
 }
 
 func (view *RoomView) OpenReactPicker(eventID id.EventID) {
-	picker := &ReactPicker{room: view, eventID: eventID}
+	picker := &ReactPicker{room: view, eventID: eventID, quick: quickReactions}
 	view.picker = picker
 	go func() {
 		defer debug.Recover()
@@ -45,6 +48,19 @@ func (view *RoomView) OpenReactPicker(eventID id.EventID) {
 		picker.own.Store(&own)
 		view.parent.parent.Render()
 	}()
+}
+
+// OpenEmojiPicker is Ctrl+e: recent emoji, / to search, picks go into the composer.
+func (view *RoomView) OpenEmojiPicker() {
+	view.picker = &ReactPicker{room: view, insert: true, quick: recentEmoji.use(view.configDir()).Top(len(quickReactions))}
+	RequestRepaint()
+}
+
+func (view *RoomView) configDir() string {
+	if view.config == nil {
+		return ""
+	}
+	return view.config.Dir
 }
 
 func (view *RoomView) closePicker() {
@@ -68,6 +84,12 @@ func (p *ReactPicker) isOwn(key string) bool {
 func (p *ReactPicker) pick(key string) {
 	view := p.room
 	view.closePicker()
+	recentEmoji.use(view.configDir()).Add(key)
+	if p.insert {
+		view.insertAtCursor(key)
+		view.input.Focus()
+		return
+	}
 	go view.ToggleReaction(p.eventID, key)
 	view.StopSelecting()
 	view.input.Focus()
@@ -83,7 +105,10 @@ func (p *ReactPicker) OnKeyEvent(event mauview.KeyEvent) bool {
 	if p.searching {
 		return p.onSearchKey(event)
 	}
-	n := len(quickReactions)
+	if len(p.quick) == 0 {
+		p.quick = quickReactions
+	}
+	n := len(p.quick)
 	switch event.Key() {
 	case tcell.KeyEscape:
 		p.room.closePicker()
@@ -92,12 +117,12 @@ func (p *ReactPicker) OnKeyEvent(event mauview.KeyEvent) bool {
 	case tcell.KeyRight, tcell.KeyTab:
 		p.sel = (p.sel + 1) % n
 	case tcell.KeyEnter:
-		p.pick(quickReactions[p.sel])
+		p.pick(p.quick[p.sel])
 	case tcell.KeyRune:
 		r := event.Rune()
 		switch {
 		case r >= '1' && r <= '0'+rune(n):
-			p.pick(quickReactions[r-'1'])
+			p.pick(p.quick[r-'1'])
 		case r == 'h':
 			p.sel = (p.sel + n - 1) % n
 		case r == 'l':
@@ -158,7 +183,7 @@ func (p *ReactPicker) OnMouseEvent(x, y int) {
 	if !p.searching && y == p.y+1 {
 		for i, span := range p.slots {
 			if x-p.x >= span[0] && x-p.x < span[1] {
-				p.pick(quickReactions[i])
+				p.pick(p.quick[i])
 				return
 			}
 		}
@@ -191,7 +216,11 @@ func (p *ReactPicker) Draw(screen mauview.Screen, anchorX, top, bottom int) {
 	default:
 		p.y = max(0, height-p.h)
 	}
-	drawThinBox(screen, p.x, p.y, p.w, p.h, " \uf118 React ")
+	title := " \uf118 React "
+	if p.insert {
+		title = " \uf118 Emoji "
+	}
+	drawThinBox(screen, p.x, p.y, p.w, p.h, title)
 	for i, row := range rows {
 		cx := p.x + 1
 		for _, cell := range row {
@@ -218,8 +247,11 @@ func (p *ReactPicker) quickRow() []pickerCell {
 	dim := tcell.StyleDefault.Foreground(ColorStatusText)
 	row := []pickerCell{{" ", tcell.StyleDefault}}
 	p.slots = p.slots[:0]
+	if len(p.quick) == 0 {
+		p.quick = quickReactions
+	}
 	x := 1
-	for i, key := range quickReactions {
+	for i, key := range p.quick {
 		style, numStyle := tcell.StyleDefault, dim
 		if i == p.sel {
 			style = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnHighlight).Bold(true)

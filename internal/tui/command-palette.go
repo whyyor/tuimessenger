@@ -153,6 +153,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		}
 		items = append(items,
 			cmd("Search this chat", "Ctrl+f", room.OpenSearch),
+			cmd("Insert emoji", "Ctrl+e", room.OpenEmojiPicker),
 			cmd("Open chat in pager", keyHint(main, "show_bare"), func() { view.ShowBare(room) }),
 			cmd("Mark chat seen (sends blue ticks)", "Ctrl+m", room.MarkReadExplicit),
 			cmd("Mark chat unread", keyHint(main, "mark_unread"), view.MarkUnread),
@@ -227,6 +228,7 @@ func keyItems(cfg *config.Config) []*paletteItem {
 		{"Visual: hide message", "h"},
 		{"Visual: copy link", "u"},
 		{"Visual: message info (sent, delivered, seen)", "i"},
+		{"Emoji picker (recent, / to search)", "Ctrl+e"},
 		{"New line", "Shift+Enter"},
 		{"Clear input (undo: Ctrl+z)", "Ctrl+c"},
 		{"Scroll up / down", "PageUp / PageDown"},

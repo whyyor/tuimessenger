@@ -404,7 +404,10 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 		view.topic.Draw(view.topicScreen)
 	}
 	view.content.Draw(view.contentScreen)
-	if view.picker != nil {
+	if view.picker != nil && view.picker.insert {
+		// Ctrl+e: just above the composer, lined up with its bar.
+		view.picker.Draw(view.contentScreen, 0, contentHeight, -1)
+	} else if view.picker != nil {
 		mv := view.content
 		view.picker.Draw(view.contentScreen, mv.lastMessageX, mv.selTop, mv.selBottom)
 	}
@@ -474,6 +477,16 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		} else {
 			view.StartSelecting(SelectReply, "")
 		}
+		return true
+	}
+
+	// Ctrl+e opens the emoji picker for the composer, from visual mode too.
+	if event.Key() == tcell.KeyCtrlE {
+		if view.selecting {
+			view.StopSelecting()
+		}
+		view.input.Focus()
+		view.OpenEmojiPicker()
 		return true
 	}
 
