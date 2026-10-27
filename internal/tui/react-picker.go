@@ -34,13 +34,16 @@ type ReactPicker struct {
 	results   []emoji.Match
 	scroll    int
 
+	// Browse grid (empty query): tab 0 is recent, then the categories.
+	cat, gridSel, gridScroll int
+
 	// Last drawn box and quick-slot spans, in content-screen cells.
 	x, y, w, h int
 	slots      [][2]int
 }
 
 func (view *RoomView) OpenReactPicker(eventID id.EventID) {
-	picker := &ReactPicker{room: view, eventID: eventID, quick: quickReactions}
+	picker := &ReactPicker{room: view, eventID: eventID, quick: quickReactions, cat: 1}
 	view.picker = picker
 	go func() {
 		defer debug.Recover()
@@ -52,7 +55,8 @@ func (view *RoomView) OpenReactPicker(eventID id.EventID) {
 
 // OpenEmojiPicker is Ctrl+e: recent emoji, / to search, picks go into the composer.
 func (view *RoomView) OpenEmojiPicker() {
-	view.picker = &ReactPicker{room: view, insert: true, quick: recentEmoji.use(view.configDir()).Top(len(quickReactions))}
+	view.picker = &ReactPicker{room: view, insert: true, cat: 1,
+		quick: recentEmoji.use(view.configDir()).Top(len(quickReactions))}
 	RequestRepaint()
 }
 
@@ -141,6 +145,9 @@ func (p *ReactPicker) OnKeyEvent(event mauview.KeyEvent) bool {
 }
 
 func (p *ReactPicker) onSearchKey(event mauview.KeyEvent) bool {
+	if p.query == "" && p.onGridKey(event) {
+		return true
+	}
 	switch event.Key() {
 	case tcell.KeyEscape:
 		p.room.closePicker()
@@ -180,6 +187,10 @@ func (p *ReactPicker) OnMouseEvent(x, y int) {
 		p.room.closePicker()
 		return
 	}
+	if p.gridMode() {
+		p.onGridClick(x, y)
+		return
+	}
 	if !p.searching && y == p.y+1 {
 		for i, span := range p.slots {
 			if x-p.x >= span[0] && x-p.x < span[1] {
@@ -194,17 +205,19 @@ func (p *ReactPicker) OnMouseEvent(x, y int) {
 func (p *ReactPicker) Draw(screen mauview.Screen, anchorX, top, bottom int) {
 	width, height := screen.Size()
 	var rows [][]pickerCell
-	if p.searching {
-		rows = p.searchRows()
-	} else {
-		rows = [][]pickerCell{p.quickRow()}
-	}
 	inner := 0
-	for _, row := range rows {
-		inner = max(inner, rowWidth(row))
-	}
-	if p.searching {
-		inner = max(inner, 28)
+	switch {
+	case p.gridMode():
+		rows, inner = p.gridLayoutRows(), gridInner
+	case p.searching:
+		rows = p.searchRows()
+		for _, row := range rows {
+			inner = max(inner, rowWidth(row))
+		}
+		inner = max(inner, gridInner)
+	default:
+		rows = [][]pickerCell{p.quickRow()}
+		inner = rowWidth(rows[0])
 	}
 	p.w, p.h = min(inner+2, width), len(rows)+2
 	p.x = max(0, min(anchorX, width-p.w))
@@ -227,6 +240,9 @@ func (p *ReactPicker) Draw(screen mauview.Screen, anchorX, top, bottom int) {
 			widget.WriteLine(screen, mauview.AlignLeft, cell.text, cx, p.y+1+i, p.x+p.w-1-cx, cell.style)
 			cx += runewidth.StringWidth(cell.text)
 		}
+	}
+	if p.gridMode() {
+		p.drawGrid(screen)
 	}
 }
 
@@ -287,7 +303,12 @@ func (p *ReactPicker) searchRows() [][]pickerCell {
 		if p.isOwn(m.Emoji) {
 			style = style.Underline(true)
 		}
-		rows = append(rows, []pickerCell{{marker, markerStyle}, {m.Emoji, style}, {" :" + m.Shortcode + ":", codeStyle}})
+		row := []pickerCell{{marker, markerStyle}, {m.Emoji, style}, {" :" + m.Shortcode + ":", codeStyle}}
+		if m.Keyword != "" {
+			// Why it matched, for searches by meaning: "awkward".
+			row = append(row, pickerCell{"  " + m.Keyword, dim})
+		}
+		rows = append(rows, row)
 	}
 	return rows
 }
