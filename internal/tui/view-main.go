@@ -245,8 +245,7 @@ func (view *MainView) drawUnreadList(screen mauview.Screen, width, hintY int) {
 		widget.WriteLine(screen, mauview.AlignLeft, badge, x+blockW-badgeW, y, badgeW,
 			tcell.StyleDefault.Foreground(badgeColor).Bold(true))
 		nameMax := blockW - 4 - badgeW - 1
-		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(room.Name, nameMax, "…"), x+4, y, nameMax,
-			tcell.StyleDefault.Bold(true))
+		writeNameAlias(screen, x+4, y, nameMax, room.Name, view.showAlias(room.RoomID), tcell.StyleDefault.Bold(true), dim)
 		view.hintRows = append(view.hintRows, hintRow{y: y, roomID: room.RoomID})
 		y++
 	}

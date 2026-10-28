@@ -19,6 +19,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/tidwall/gjson"
 	"maunium.net/go/mautrix/event"
@@ -50,6 +51,8 @@ const (
 	CmdUnread    = "unread"
 	CmdTyping    = "typing"
 	CmdSeen      = "seen"
+	CmdAlias     = "alias"
+	CmdUnalias   = "unalias"
 
 	CmdClear   = "clear"
 	CmdUnclear = "unclear"
@@ -150,6 +153,18 @@ var LocalCommands = []*cmdschema.EventContent{{
 		Optional: true,
 	}},
 	TailParam: "state",
+}, {
+	Command:     CmdAlias,
+	Description: event.MakeExtensibleText("Give this chat a private alias you can search by; no name shows the current one"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:      "name",
+		Schema:   cmdschema.PrimitiveTypeString.Schema(),
+		Optional: true,
+	}},
+	TailParam: "name",
+}, {
+	Command:     CmdUnalias,
+	Description: event.MakeExtensibleText("Remove this chat's alias"),
 }, {
 	Command:     CmdUnread,
 	Description: event.MakeExtensibleText("Mark this chat unread and close it"),
@@ -265,6 +280,16 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 	case CmdSeen:
 		state := gjson.GetBytes(cmd.Arguments, "state").Str
 		go view.SetPrivacy(func(p *ChatPrivacy) { p.ReadReceipts = parseToggle(state, p.ReadReceipts) })
+	case CmdAlias:
+		if name := strings.TrimSpace(gjson.GetBytes(cmd.Arguments, "name").Str); name != "" {
+			go view.SetAlias(name)
+		} else if current := chatAlias(view.Room); current != "" {
+			view.AddServiceMessage("Alias: %q (change with /alias <name>, remove with /unalias)", current)
+		} else {
+			view.AddServiceMessage("No alias yet: /alias <name> sets one")
+		}
+	case CmdUnalias:
+		go view.SetAlias("")
 	case CmdUnread:
 		view.parent.MarkUnread()
 	case CmdMutePrune:

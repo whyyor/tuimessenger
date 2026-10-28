@@ -33,6 +33,8 @@ const paletteChatsUnfiltered = 6
 type paletteItem struct {
 	section   paletteSection
 	title     string
+	alias     string // searchable; shown unless aliases are hidden
+	showAlias bool
 	detail    string
 	icon      string
 	iconColor tcell.Color
@@ -112,6 +114,15 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		sidebar = "Show sidebar"
 	}
 	items = append(items, cmd(sidebar, keyHint(main, "toggle_sidebar"), view.toggleSidebar))
+	aliases := "Hide aliases"
+	if view.config.Preferences.HideAliases {
+		aliases = "Show aliases"
+	}
+	items = append(items, cmd(aliases, "", func() {
+		view.config.Preferences.HideAliases = !view.config.Preferences.HideAliases
+		go view.config.Save()
+		RequestRepaint()
+	}))
 	members := "Show members list"
 	if view.config.Preferences.ShowUserList {
 		members = "Hide members list"
@@ -142,6 +153,10 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 	if room != nil {
 		muted := view.roomList.IsMuted(room.Room.ID)
 		privacy := chatPrivacy(room.Room)
+		aliasTitle := "Set an alias for this chat (searchable)"
+		if current := chatAlias(room.Room); current != "" {
+			aliasTitle = "Change alias (" + current + ")"
+		}
 		cleared := !clearedAt(room.Room).IsZero()
 		muteTitle, muteCmd := "Mute this chat", "/mute"
 		if muted {
@@ -157,6 +172,11 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 			cmd("Open chat in pager", keyHint(main, "show_bare"), func() { view.ShowBare(room) }),
 			cmd("Mark chat seen (sends blue ticks)", "Ctrl+m", room.MarkReadExplicit),
 			cmd("Mark chat unread", keyHint(main, "mark_unread"), view.MarkUnread),
+			cmd(aliasTitle, "/alias", func() {
+				room.input.SetText("/alias " + chatAlias(room.Room))
+				room.input.SetCursorOffset(-1)
+				room.input.Focus()
+			}),
 			cmd("Share typing in this chat: "+onOff(privacy.Typing)+" → "+onOff(!privacy.Typing), "/typing",
 				func() { go room.SetPrivacy(func(p *ChatPrivacy) { p.Typing = !p.Typing }) }),
 			cmd("Share seen in this chat: "+onOff(privacy.ReadReceipts)+" → "+onOff(!privacy.ReadReceipts), "/seen",
@@ -204,6 +224,7 @@ func (p *CommandPalette) chatItems() []*paletteItem {
 		roomID := room.RoomID
 		items = append(items, &paletteItem{
 			section: sectionChats, title: room.Name, detail: strings.Join(notes, " · "),
+			alias: aliasOf(view.matrix, roomID), showAlias: !view.config.Preferences.HideAliases,
 			icon: icon, iconColor: color,
 			run: func() { view.SwitchRoom(roomID) },
 		})
@@ -288,7 +309,13 @@ func (p *CommandPalette) refilter() {
 		if filtered && item.section != section {
 			continue
 		}
-		if s := matchScore(item.title, text); s >= 0 {
+		s := matchScore(item.title, text)
+		if item.alias != "" {
+			if as := matchScore(item.alias, text); as >= 0 && (s < 0 || as < s) {
+				s = as
+			}
+		}
+		if s >= 0 {
 			bySection[item.section] = append(bySection[item.section], scored{item, s, i})
 		}
 	}
@@ -493,6 +520,13 @@ func (p *CommandPalette) drawRow(screen mauview.Screen, row paletteRow, selected
 	}
 	titleMax := x + width - titleX - detailW - 2
 	if titleMax > 0 {
-		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(item.title, titleMax, "…"), titleX, y, titleMax, base.Bold(selected))
+		alias, aliasStyle := "", aliasDim(base)
+		if item.showAlias {
+			alias = item.alias
+		}
+		if selected {
+			aliasStyle = base
+		}
+		writeNameAlias(screen, titleX, y, titleMax, item.title, alias, base.Bold(selected), aliasStyle)
 	}
 }

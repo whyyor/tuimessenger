@@ -48,7 +48,7 @@ func TestSortRoomMatches(t *testing.T) {
 	}
 
 	matches := fuzzy.RankFindFold("tel", names)
-	sortRoomMatches(matches, "tel", lower, recency)
+	sortRoomMatches(matches, "tel", lower, nil, recency)
 
 	got := make([]string, len(matches))
 	for i, m := range matches {
@@ -80,7 +80,7 @@ func TestSortRoomMatchesRecencyWithinTier(t *testing.T) {
 	recency := []time.Time{now.AddDate(-2, 0, 0), now} // Sattu 2 years old
 
 	matches := fuzzy.RankFindFold("sa", names)
-	sortRoomMatches(matches, "sa", lower, recency)
+	sortRoomMatches(matches, "sa", lower, nil, recency)
 
 	if matches[0].Target != "Sanya" {
 		t.Errorf("expected recent Sanya first, got %q", matches[0].Target)

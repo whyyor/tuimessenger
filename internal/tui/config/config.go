@@ -40,8 +40,10 @@ import (
 type UserPreferences struct {
 	HideUserList bool `yaml:"hide_user_list"`
 	// ShowUserList turns on the member list (Ctrl+b); off by default.
-	ShowUserList         bool `yaml:"-"`
-	HideRoomList         bool `yaml:"hide_room_list"`
+	ShowUserList bool `yaml:"-"`
+	HideRoomList bool `yaml:"hide_room_list"`
+	// HideAliases keeps chat aliases out of lists; they still match in search.
+	HideAliases          bool `yaml:"hide_aliases"`
 	HideTimestamp        bool `yaml:"hide_timestamp"`
 	BareMessageView      bool `yaml:"bare_message_view"`
 	DisableImages        bool `yaml:"disable_images"`

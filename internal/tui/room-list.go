@@ -313,7 +313,7 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 			nameMax -= badgeWidth + 1
 			widget.WriteLine(screen, mauview.AlignLeft, badge, list.width-badgeWidth-1, y, badgeWidth, badgeStyle)
 		}
-		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(room.Name, nameMax, "…"), 3, y, nameMax, rowStyle)
+		writeNameAlias(screen, 3, y, nameMax, room.Name, list.parent.showAlias(room.RoomID), rowStyle, aliasDim(rowStyle))
 	}
 
 }

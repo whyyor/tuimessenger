@@ -47,6 +47,7 @@ type FuzzySearchModal struct {
 	roomList    []*store.RoomListEntry
 	roomTitles  []string
 	roomLower   []string
+	roomAliases []string
 	roomRecency []time.Time
 
 	parent *MainView
@@ -60,9 +61,11 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 	fs.roomTitles = make([]string, len(fs.roomList))
 	fs.roomLower = make([]string, len(fs.roomList))
 	fs.roomRecency = make([]time.Time, len(fs.roomList))
+	fs.roomAliases = make([]string, len(fs.roomList))
 	for i, room := range fs.roomList {
 		fs.roomTitles[i] = room.Name
 		fs.roomLower[i] = strings.ToLower(room.Name)
+		fs.roomAliases[i] = strings.ToLower(aliasOf(mainView.matrix, room.RoomID))
 		fs.roomRecency[i] = room.SortingTimestamp
 	}
 
@@ -123,8 +126,14 @@ func (fs *FuzzySearchModal) changeHandler(str string) {
 			fs.matches[i] = fuzzy.Rank{Source: str, Target: title, OriginalIndex: i}
 		}
 	} else {
-		fs.matches = fuzzy.RankFindFold(str, fs.roomTitles)
-		sortRoomMatches(fs.matches, str, fs.roomLower, fs.roomRecency)
+		// A chat matches on its name or its alias.
+		fs.matches = fs.matches[:0]
+		for i, title := range fs.roomTitles {
+			if fuzzy.MatchFold(str, title) || (fs.roomAliases[i] != "" && fuzzy.MatchFold(str, fs.roomAliases[i])) {
+				fs.matches = append(fs.matches, fuzzy.Rank{Source: str, Target: title, OriginalIndex: i})
+			}
+		}
+		sortRoomMatches(fs.matches, str, fs.roomLower, fs.roomAliases, fs.roomRecency)
 	}
 	fs.selected = 0
 	fs.scrollOffset = 0
@@ -219,7 +228,7 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 			nameMax -= 2
 			widget.WriteLine(screen, mauview.AlignLeft, "●", width-3, y, 1, rowStyle.Foreground(tcell.ColorWhite))
 		}
-		widget.WriteLine(screen, mauview.AlignLeft, runewidth.Truncate(entry.Name, nameMax, "…"), 5, y, nameMax, rowStyle)
+		writeNameAlias(screen, 5, y, nameMax, entry.Name, fs.parent.showAlias(entry.RoomID), rowStyle, aliasDim(rowStyle))
 	}
 }
 

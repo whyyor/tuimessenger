@@ -44,7 +44,8 @@ func isWordSep(c byte) bool {
 // sortRoomMatches orders matches by match quality, then most-recent-first.
 // fuzzy.Ranks.Less sorts purely on Levenshtein distance against the whole name,
 // which degenerates into "shortest name wins" and ignores recency completely.
-func sortRoomMatches(matches fuzzy.Ranks, query string, lowerNames []string, recency []time.Time) {
+// lowerAliases may be nil; a chat ranks by whichever of name or alias fits best.
+func sortRoomMatches(matches fuzzy.Ranks, query string, lowerNames, lowerAliases []string, recency []time.Time) {
 	lowerQuery := strings.ToLower(query)
 	type scored struct {
 		rank fuzzy.Rank
@@ -52,7 +53,11 @@ func sortRoomMatches(matches fuzzy.Ranks, query string, lowerNames []string, rec
 	}
 	scoredMatches := make([]scored, len(matches))
 	for i, match := range matches {
-		scoredMatches[i] = scored{match, matchTier(lowerNames[match.OriginalIndex], lowerQuery)}
+		tier := matchTier(lowerNames[match.OriginalIndex], lowerQuery)
+		if lowerAliases != nil && lowerAliases[match.OriginalIndex] != "" {
+			tier = min(tier, matchTier(lowerAliases[match.OriginalIndex], lowerQuery))
+		}
+		scoredMatches[i] = scored{match, tier}
 	}
 	sort.SliceStable(scoredMatches, func(a, b int) bool {
 		x, y := scoredMatches[a], scoredMatches[b]
