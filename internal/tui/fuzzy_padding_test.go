@@ -77,8 +77,15 @@ func TestSwitcherIconGlows(t *testing.T) {
 	if want := vivid(brand); fg(1) != want || want == brand {
 		t.Errorf("the selected icon is lit: got %v want %v", fg(1), want)
 	}
-	if got := vivid(tcell.NewHexColor(0x25d366)); got != tcell.NewHexColor(0x2cff7b) {
-		t.Errorf("WhatsApp green should get brighter and stay green: %06x", got.Hex())
+	if got := vivid(tcell.NewHexColor(0x25d366)); got != tcell.NewHexColor(0x00ff5f) {
+		t.Errorf("WhatsApp green should go neon and stay green: %06x", got.Hex())
+	}
+	// Pure blue reads dark on the bar, so blues keep some lightness.
+	if r, g, b := vivid(tcell.NewHexColor(0x5865f2)).RGB(); 0.2126*float64(r)+0.7152*float64(g)+0.0722*float64(b) < 0.3*255 {
+		t.Errorf("blues must not go dark: %d,%d,%d", r, g, b)
+	}
+	if got := vivid(tcell.NewHexColor(0xf5f5f7)); got.Hex()&0xff0000 < 0xf00000 {
+		t.Errorf("near-greys stay light: %06x", got.Hex())
 	}
 	if vivid(tcell.ColorDefault) != tcell.ColorDefault {
 		t.Error("default colours stay default")
