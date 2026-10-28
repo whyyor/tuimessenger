@@ -36,3 +36,23 @@ func TestFuzzyResultsSymmetricMargins(t *testing.T) {
 		t.Error("unread dot sits one cell inside the bar's right edge")
 	}
 }
+
+func TestSwitcherIconNotBold(t *testing.T) {
+	entry := &store.RoomListEntry{Name: "Internal Acme's", Bridge: "whatsapp"}
+	fs := &FuzzySearchModal{roomList: []*store.RoomListEntry{entry}, matches: fuzzy.Ranks{{OriginalIndex: 0}}}
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(30, 1)
+	(&fuzzyResultsView{parent: fs}).Draw(sim)
+	attrs := func(x int) tcell.AttrMask {
+		_, _, st, _ := sim.GetContent(x, 0)
+		_, _, a := st.Decompose()
+		return a
+	}
+	if attrs(3)&tcell.AttrBold != 0 {
+		t.Error("the selected row's icon should not be bold")
+	}
+	if attrs(5)&tcell.AttrBold == 0 {
+		t.Error("the selected row's name stays bold")
+	}
+}

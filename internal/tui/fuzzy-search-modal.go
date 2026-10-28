@@ -225,7 +225,8 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 			screen.SetContent(1, y, '▌', nil, accentStyle.Background(ColorBarBackground))
 		}
 		icon, iconColor := BridgeIconColor(entry.Bridge)
-		widget.WriteLine(screen, mauview.AlignLeft, icon, 3, y, 2, rowStyle.Foreground(iconColor))
+		// Icons never bold: Nerd Font glyphs have no bold face and render oddly.
+		widget.WriteLine(screen, mauview.AlignLeft, icon, 3, y, 2, rowStyle.Foreground(iconColor).Bold(false))
 		nameMax := width - 7
 		if entry.UnreadMessages > 0 || entry.UnreadNotifications > 0 || entry.UnreadHighlights > 0 || entry.MarkedUnread {
 			nameMax -= 2

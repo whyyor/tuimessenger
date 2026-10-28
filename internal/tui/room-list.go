@@ -272,7 +272,8 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 			// Brand colors clash on the red selection bar; inherit its text color.
 			iconStyle = rowStyle
 		}
-		widget.WriteLine(screen, mauview.AlignLeft, icon, 1, y, 2, iconStyle)
+		// Icons never bold (unread rows are): Nerd Font glyphs have no bold face.
+		widget.WriteLine(screen, mauview.AlignLeft, icon, 1, y, 2, iconStyle.Bold(false))
 
 		// Reserve space on the right for the unread badge before truncating.
 		badge := ""
