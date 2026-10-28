@@ -74,10 +74,13 @@ func TestSwitcherIconGlows(t *testing.T) {
 	if fg(0) != brand {
 		t.Errorf("other rows keep the brand colour: %v", fg(0))
 	}
-	if want := mixColor(brand, tcell.ColorWhite, iconGlow); fg(1) != want || want == brand {
+	if want := vivid(brand); fg(1) != want || want == brand {
 		t.Errorf("the selected icon is lit: got %v want %v", fg(1), want)
 	}
-	if mixColor(tcell.ColorDefault, tcell.ColorWhite, 0.5) != tcell.ColorDefault {
+	if got := vivid(tcell.NewHexColor(0x25d366)); got != tcell.NewHexColor(0x2cff7b) {
+		t.Errorf("WhatsApp green should get brighter and stay green: %06x", got.Hex())
+	}
+	if vivid(tcell.ColorDefault) != tcell.ColorDefault {
 		t.Error("default colours stay default")
 	}
 }

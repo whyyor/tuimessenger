@@ -228,7 +228,7 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 		// Icons never bold: Nerd Font glyphs have no bold face and render oddly.
 		iconStyle := rowStyle.Foreground(iconColor).Bold(false)
 		if i == fs.selected {
-			iconStyle = iconStyle.Foreground(mixColor(iconColor, tcell.ColorWhite, iconGlow))
+			iconStyle = iconStyle.Foreground(vivid(iconColor))
 		}
 		widget.WriteLine(screen, mauview.AlignLeft, icon, 3, y, 2, iconStyle)
 		nameMax := width - 7
