@@ -56,3 +56,28 @@ func TestSwitcherIconNotBold(t *testing.T) {
 		t.Error("the selected row's name stays bold")
 	}
 }
+
+func TestSwitcherIconGlows(t *testing.T) {
+	entries := []*store.RoomListEntry{{Name: "a", Bridge: "whatsapp"}, {Name: "b", Bridge: "whatsapp"}}
+	fs := &FuzzySearchModal{roomList: entries, matches: fuzzy.Ranks{{OriginalIndex: 0}, {OriginalIndex: 1}}}
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(30, 2)
+	(&fuzzyResultsView{parent: fs}).Draw(sim)
+	fg := func(y int) tcell.Color {
+		_, _, st, _ := sim.GetContent(3, y)
+		f, _, _ := st.Decompose()
+		return f
+	}
+	_, brand := BridgeIconColor("whatsapp")
+	// The selected (best) match is the bottom row.
+	if fg(0) != brand {
+		t.Errorf("other rows keep the brand colour: %v", fg(0))
+	}
+	if want := mixColor(brand, tcell.ColorWhite, iconGlow); fg(1) != want || want == brand {
+		t.Errorf("the selected icon is lit: got %v want %v", fg(1), want)
+	}
+	if mixColor(tcell.ColorDefault, tcell.ColorWhite, 0.5) != tcell.ColorDefault {
+		t.Error("default colours stay default")
+	}
+}
