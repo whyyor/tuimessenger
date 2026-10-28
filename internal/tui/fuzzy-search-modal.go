@@ -54,9 +54,12 @@ type FuzzySearchModal struct {
 }
 
 func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearchModal {
-	fs := &FuzzySearchModal{
-		parent:   mainView,
-		roomList: applyLocalSeen(mainView.matrix, mainView.matrix.ReversedRoomList.Current()),
+	fs := &FuzzySearchModal{parent: mainView}
+	// Skip the chat that's already open; a new slice, as the store owns the old one.
+	for _, room := range applyLocalSeen(mainView.matrix, mainView.matrix.ReversedRoomList.Current()) {
+		if mainView.currentRoom == nil || room.RoomID != mainView.currentRoom.Room.ID {
+			fs.roomList = append(fs.roomList, room)
+		}
 	}
 	fs.roomTitles = make([]string, len(fs.roomList))
 	fs.roomLower = make([]string, len(fs.roomList))

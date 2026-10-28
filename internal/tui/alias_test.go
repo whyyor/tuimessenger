@@ -147,3 +147,19 @@ func TestWriteNameAliasTruncation(t *testing.T) {
 		t.Errorf("the name still truncates: %q", got)
 	}
 }
+
+func TestSwitcherSkipsOpenChat(t *testing.T) {
+	main := aliasMain(t)
+	main.currentRoom = &RoomView{Room: main.matrix.GetRoom("!peter:x")}
+	fs := NewFuzzySearchModal(main, 42, 12)
+	if got := switcherNames(fs); len(got) != 1 || got[0] != "Mariana" {
+		t.Errorf("the open chat should be left out, got %v", got)
+	}
+	fs.changeHandler("peter")
+	if got := switcherNames(fs); len(got) != 0 {
+		t.Errorf("searching for the open chat finds nothing, got %v", got)
+	}
+	if n := len(main.matrix.ReversedRoomList.Current()); n != 2 {
+		t.Errorf("the store's room list must not change: %d", n)
+	}
+}
