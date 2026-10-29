@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html"
 	"strings"
 	"time"
 	"unicode"
@@ -1176,9 +1175,7 @@ func (view *RoomView) InputSubmit(text string) {
 	if len(text) == 0 {
 		return
 	} else if cmd, err := view.ParseCommand(text); err != nil {
-		view.Room.ApplyPending(database.MakeFakeEvent(view.Room.ID,
-			fmt.Sprintf("Failed to parse command: <code>%v</code>", html.EscapeString(err.Error()))))
-		view.parent.parent.Render()
+		toasts.Show(toastError, "Failed to parse command: "+err.Error())
 	} else if cmd != nil {
 		go view.HandleCommand(cmd)
 	} else {
@@ -1377,5 +1374,6 @@ func (view *RoomView) AddServiceMessage(text string, args ...any) {
 	if len(args) > 0 {
 		text = fmt.Sprintf(text, args...)
 	}
-	view.Room.ApplyPending(database.MakeFakeEvent(view.Room.ID, html.EscapeString(text)))
+	// A toast, not a timeline row: notices no longer shift the chat.
+	toasts.Show(classifyNotice(text), text)
 }

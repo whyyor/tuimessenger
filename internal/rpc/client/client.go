@@ -18,6 +18,7 @@ import (
 	"go.mau.fi/util/exsync"
 	"maunium.net/go/mautrix/id"
 
+	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
 	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
 	"go.mau.fi/gomuks/pkg/rpc"
@@ -32,6 +33,9 @@ type GomuksClient struct {
 	EventHandler rpc.EventHandler
 
 	SendNotification func(room *store.RoomStore, notif jsoncmd.SyncNotification)
+	// OnNotice gets gomuks' own replies (fake events) to sends; returning
+	// true keeps them out of the timeline.
+	OnNotice func(evt *database.Event) bool
 
 	stateRequestQueue     []database.RoomStateGUID
 	stateRequestQueueLock sync.Mutex
@@ -110,6 +114,9 @@ func (gc *GomuksClient) SendMessage(ctx context.Context, params *jsoncmd.SendMes
 	if err != nil {
 		return err
 	} else if dbEvt != nil {
+		if dbEvt.Sender == cmdspec.FakeGomuksSender && gc.OnNotice != nil && gc.OnNotice(dbEvt) {
+			return nil
+		}
 		room.ApplyPending(dbEvt)
 	}
 	return nil

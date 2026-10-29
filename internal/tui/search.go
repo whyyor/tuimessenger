@@ -209,7 +209,11 @@ func (view *RoomView) runSearch() {
 // refreshSearch rebuilds the match list; jumpNewest moves to the newest
 // match, otherwise the current one is kept as results grow.
 func (view *RoomView) refreshSearch(s *chatSearch, jumpNewest bool) {
-	loaded := view.MessageView().SearchRows(string(s.query))
+	// The search goroutine calls this too: copy the query under the lock.
+	s.mu.Lock()
+	query := string(s.query)
+	s.mu.Unlock()
+	loaded := view.MessageView().SearchRows(query)
 	s.mu.Lock()
 	var curRow database.EventRowID
 	if s.cur >= 0 && s.cur < len(s.matches) {
@@ -341,14 +345,14 @@ func (view *RoomView) onSearchKey(event mauview.KeyEvent) bool {
 		move(1)
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if len(s.query) > 0 {
-			s.query = s.query[:len(s.query)-1]
+			s.setQuery(s.query[:len(s.query)-1])
 			view.runSearch()
 		}
 	case tcell.KeyCtrlU:
-		s.query = s.query[:0]
+		s.setQuery(nil)
 		view.runSearch()
 	case tcell.KeyRune:
-		s.query = append(s.query, event.Rune())
+		s.setQuery(append(slices.Clone(s.query), event.Rune()))
 		view.runSearch()
 	}
 	return true
@@ -423,4 +427,11 @@ func (view *RoomView) drawSearch(screen mauview.Screen, x, y, width int) {
 	if rx := x + width - pillsWidth(right); rx > cursorX+2 {
 		drawPills(screen, rx, y, right)
 	}
+}
+
+// setQuery changes the query under the lock the search goroutine reads it with.
+func (s *chatSearch) setQuery(q []rune) {
+	s.mu.Lock()
+	s.query = q
+	s.mu.Unlock()
 }

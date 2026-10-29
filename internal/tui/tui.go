@@ -30,6 +30,7 @@ import (
 	"go.mau.fi/util/exerrors"
 	"go.mau.fi/util/exzerolog"
 
+	"go.mau.fi/gomuks/pkg/hicli/database"
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
 	"go.mau.fi/gomuks/pkg/rpc"
 	"go.mau.fi/gomuks/pkg/rpc/client"
@@ -158,6 +159,18 @@ func (ui *GomuksTUI) Connect() {
 		onRoomListChange(ui.gmx, rooms)
 	})
 	ui.gmx.SendNotification = ui.MainView.NotifyMessage
+	toasts.render = ui.Render
+	ui.gmx.OnNotice = func(evt *database.Event) bool {
+		text := ""
+		if evt.LocalContent != nil {
+			text = noticeText(evt.LocalContent.SanitizedHTML)
+		}
+		if text == "" {
+			text = evt.GetMautrixContent().AsMessage().Body
+		}
+		toasts.Show(classifyNotice(text), text)
+		return true
+	}
 	ui.gmx.EventHandler = ui.gomuksEventHandler
 	messages.RequestRender = ui.Render
 	ui.MainView.matrix = ui.gmx

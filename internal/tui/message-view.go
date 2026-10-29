@@ -410,6 +410,53 @@ func (view *MessageView) OnMouseEvent(event mauview.MouseEvent) bool {
 
 const PaddingAtTop = 5
 
+// scrollAnchor picks what to hold still while the timeline changes: the
+// selected message in visual mode, else (scrolled up) the message on the
+// viewport's bottom row. rel is that row minus the message's last line.
+// At the bottom and not selecting there's no anchor: new messages show.
+func (view *MessageView) scrollAnchor(offset int) (database.EventRowID, int, bool) {
+	buf := view.msgBuffer
+	bottom := len(buf) - 1 - offset
+	if len(buf) == 0 || bottom < 0 {
+		return 0, 0, false
+	}
+	row := view.selected
+	if row == 0 {
+		if offset == 0 {
+			return 0, 0, false
+		}
+		for i := min(bottom, len(buf)-1); i >= 0 && row == 0; i-- {
+			row = buf[i].RowID
+		}
+	}
+	last := lastLineOf(buf, row)
+	if last < 0 {
+		return 0, 0, false
+	}
+	return row, bottom - last, true
+}
+
+// anchoredOffset is the scroll offset that puts the anchor back on its row.
+func anchoredOffset(buf []*messages.UIMessage, row database.EventRowID, rel int) (int, bool) {
+	last := lastLineOf(buf, row)
+	if last < 0 {
+		return 0, false
+	}
+	return max(len(buf)-1-last-rel, 0), true
+}
+
+func lastLineOf(buf []*messages.UIMessage, row database.EventRowID) int {
+	if row == 0 {
+		return -1
+	}
+	for i := len(buf) - 1; i >= 0; i-- {
+		if buf[i].RowID == row {
+			return i
+		}
+	}
+	return -1
+}
+
 func (view *MessageView) AddScrollOffset(diff int) {
 	totalHeight := view.TotalHeight()
 	height := view.Height()
@@ -674,6 +721,7 @@ func (view *MessageView) update(width int) {
 	}
 	scrollOffset := view.GetScrollOffset()
 	newScrollOffset := scrollOffset
+	anchorRow, anchorRel, anchored := view.scrollAnchor(scrollOffset)
 	appendBuffer := func(msg *messages.UIMessage) {
 		if width < 5 {
 			return
@@ -734,6 +782,11 @@ func (view *MessageView) update(width int) {
 	if scrollOffset > 0 && !increaseScrollOffset && !prevLastEventNotFound {
 		// Previous last message wasn't found, so reset scroll position
 		newScrollOffset = 0
+	}
+	if anchored {
+		if offset, ok := anchoredOffset(newBuffer, anchorRow, anchorRel); ok {
+			newScrollOffset = offset
+		}
 	}
 	if newScrollOffset != scrollOffset {
 		view.ScrollOffset.Store(int32(newScrollOffset))

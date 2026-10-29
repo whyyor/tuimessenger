@@ -122,6 +122,7 @@ func (view *MainView) Draw(screen mauview.Screen) {
 	if view.modal != nil {
 		view.modal.Draw(screen)
 	}
+	toasts.Draw(screen)
 	view.drawConnDialog(screen)
 }
 
@@ -469,6 +470,10 @@ const WheelScrollOffsetDiff = 3
 func (view *MainView) OnMouseEvent(event mauview.MouseEvent) bool {
 	if !event.HasMotion() {
 		userAttention.touch()
+	}
+	if x, y := event.Position(); event.Buttons() == tcell.Button1 && !event.HasMotion() && toasts.Hit(x, y) {
+		toasts.Dismiss()
+		return true
 	}
 	if !event.HasMotion() {
 		view.browsing = false
