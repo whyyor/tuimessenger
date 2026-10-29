@@ -155,6 +155,14 @@ func (fs *FuzzySearchModal) OnKeyEvent(event mauview.KeyEvent) bool {
 			return true
 		}
 	}
+	// Ctrl+p peeks: opens the chat without sending seen this visit.
+	if event.Key() == tcell.KeyCtrlP {
+		if fs.selected < len(fs.matches) {
+			fs.parent.PeekRoom(fs.roomList[fs.matches[fs.selected].OriginalIndex].RoomID)
+		}
+		fs.parent.HideModal()
+		return true
+	}
 	kb := config.Keybind{
 		Key: event.Key(),
 		Ch:  event.Rune(),
@@ -251,7 +259,14 @@ func (fc *fuzzyCountView) Draw(screen mauview.Screen) {
 	count := fmt.Sprintf(" %d/%d ", len(fs.matches), len(fs.roomList))
 	widget.WriteLine(screen, mauview.AlignLeft, count, 1, 0, width, tcell.StyleDefault.Foreground(tcell.PaletteColor(3)))
 	ruleStyle := tcell.StyleDefault.Foreground(ColorBorder)
-	for x := 1 + runewidth.StringWidth(count); x < width-1; x++ {
+	end := width - 1
+	// The peek key, on the rule's right end, when there's room for it.
+	const peekHint = " ctrl+p peek "
+	if hw := runewidth.StringWidth(peekHint); end-hw > 1+runewidth.StringWidth(count)+4 {
+		end -= hw
+		widget.WriteLine(screen, mauview.AlignLeft, peekHint, end, 0, hw, tcell.StyleDefault.Foreground(ColorStatusText))
+	}
+	for x := 1 + runewidth.StringWidth(count); x < end; x++ {
 		screen.SetContent(x, 0, '─', nil, ruleStyle)
 	}
 }

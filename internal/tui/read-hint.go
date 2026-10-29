@@ -139,7 +139,7 @@ func (view *RoomView) weReactedTo(evt *database.Event) bool {
 // needsReadHint: /seen-off chat whose newest message is theirs, without a
 // public read or our reaction. /seen-on chats read publicly by themselves.
 func (view *RoomView) needsReadHint() bool {
-	if receiptTypeFor(view.Room) == event.ReceiptTypeRead {
+	if receiptTypeFor(view.Room) == event.ReceiptTypeRead && !view.peek {
 		return false
 	}
 	newest := newestPeerMessage(view.Room)
@@ -152,10 +152,16 @@ func (view *RoomView) needsReadHint() bool {
 
 // drawReadHint centres the hint in the status row.
 func (view *RoomView) drawReadHint(screen mauview.Screen, y, width int) {
-	if !view.needsReadHint() {
+	var hint []pill
+	if view.peek {
+		hint = append(hint, pill{icon: "\U000f0208", label: "peek · not sending seen", color: ColorPillViolet, dim: true})
+	}
+	if view.needsReadHint() {
+		hint = append(hint, pill{icon: "\uf00c", label: readHint, color: ColorPillYellow, dim: true})
+	}
+	if len(hint) == 0 {
 		return
 	}
-	hint := []pill{{icon: "\uf00c", label: readHint, color: ColorPillYellow, dim: true}}
 	w := pillsWidth(hint)
 	x := (width - w) / 2
 	if x < runewidth.StringWidth(view.GetStatus())+3 {

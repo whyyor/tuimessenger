@@ -41,6 +41,12 @@ func receiptTypeFor(room *store.RoomStore) event.ReceiptType {
 	return event.ReceiptTypeReadPrivate
 }
 
+// sendsPublicRead: automatic reads go public only with /seen on and not
+// peeking; otherwise gomuks records them locally.
+func sendsPublicRead(view *RoomView) bool {
+	return !view.peek && receiptTypeFor(view.Room) == event.ReceiptTypeRead
+}
+
 // parseToggle reads on/off; anything else (or nothing) flips current.
 func parseToggle(arg string, current bool) bool {
 	switch strings.ToLower(strings.TrimSpace(arg)) {

@@ -61,7 +61,9 @@ type RoomView struct {
 	// search is Ctrl+f's in-chat search, nil when closed.
 	search *chatSearch
 	// info is the i popup (message info), nil when closed.
-	info         *MessageInfo
+	info *MessageInfo
+	// peek (Ctrl+k → Ctrl+p): this visit sends no seen, like /seen off.
+	peek         bool
 	statusScreen *mauview.ProxyScreen
 	inputScreen  *mauview.ProxyScreen
 	ulScreen     *mauview.ProxyScreen

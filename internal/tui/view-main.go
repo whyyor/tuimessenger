@@ -273,8 +273,8 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 	if roomView != nil && roomView == view.currentRoom && roomView.MessageView().GetScrollOffset() == 0 {
 		ClearNotifications(roomView.Room.ID)
 		req := roomView.Room.GetMarkAsReadParams()
-		if req != nil && receiptTypeFor(roomView.Room) != event.ReceiptTypeRead {
-			// /seen off: no receipt at all, so a later Ctrl+m can still bridge one.
+		if req != nil && !sendsPublicRead(roomView) {
+			// /seen off or peeking: no receipt at all, so a later Ctrl+m can still bridge one.
 			go view.markSeenLocally(roomView.Room, req)
 			return
 		}
@@ -578,6 +578,16 @@ func (view *MainView) CloseCurrentRoom() {
 }
 
 func (view *MainView) SwitchRoom(roomID id.RoomID) {
+	view.switchRoom(roomID, false)
+}
+
+// PeekRoom opens a chat without sending seen for this visit; Ctrl+m still
+// can. Switching away ends it, as every visit gets a fresh RoomView.
+func (view *MainView) PeekRoom(roomID id.RoomID) {
+	view.switchRoom(roomID, true)
+}
+
+func (view *MainView) switchRoom(roomID id.RoomID, peek bool) {
 	roomData := view.matrix.GetRoom(roomID)
 	if roomData == nil {
 		debug.Print("Tried to switch to nonexistent room!", roomID)
@@ -594,6 +604,7 @@ func (view *MainView) SwitchRoom(roomID id.RoomID) {
 		view.currentRoom.Unload()
 	}
 	currentRoom := NewRoomView(view, roomData)
+	currentRoom.peek = peek
 	view.currentRoom = currentRoom
 	view.roomView.SetInnerComponent(currentRoom)
 	view.roomView.Focus()

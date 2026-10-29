@@ -250,6 +250,7 @@ func keyItems(cfg *config.Config) []*paletteItem {
 		{"Visual: copy link", "u"},
 		{"Visual: message info (sent, delivered, seen)", "i"},
 		{"Emoji picker (recent, / to search)", "Ctrl+e"},
+		{"Peek a chat (open without sending seen)", "Ctrl+k, then Ctrl+p"},
 		{"New line", "Shift+Enter"},
 		{"Clear input (undo: Ctrl+z)", "Ctrl+c"},
 		{"Scroll up / down", "PageUp / PageDown"},
