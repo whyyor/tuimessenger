@@ -122,8 +122,19 @@ func (view *MainView) Draw(screen mauview.Screen) {
 	if view.modal != nil {
 		view.modal.Draw(screen)
 	}
-	toasts.Draw(screen)
+	toasts.Draw(screen, view.toastArea(screen))
 	view.drawConnDialog(screen)
+}
+
+// toastArea centres toasts over the open chat, just above its status line;
+// with no chat open, over the whole screen, three rows up (as tabiew does).
+func (view *MainView) toastArea(screen mauview.Screen) toastArea {
+	width, height := screen.Size()
+	if rv := view.currentRoom; rv != nil && rv.contentScreen != nil && rv.contentScreen.Width > 0 {
+		x, y := absOffset(rv.contentScreen)
+		return toastArea{x: x, w: rv.contentScreen.Width, bottom: y + rv.contentScreen.Height}
+	}
+	return toastArea{w: width, bottom: height - 2}
 }
 
 // drawConnDialog overlays a small centered dialog while the connection is

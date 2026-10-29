@@ -3,7 +3,6 @@ package tui
 import (
 	"html"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,8 +14,10 @@ import (
 	"go.mau.fi/gomuks/tui/widget"
 )
 
-// Toasts replace gomuks' notices in the timeline (opencode's design): top
-// right, a coloured ┃ each side, five seconds each, click to dismiss.
+// Toasts replace gomuks' notices in the timeline, in tabiew's style: a
+// rounded box centred over the chat just above the status line, in the
+// highlight colour, three seconds each; errors get a red " Error " frame.
+// A click dismisses one.
 type toastKind int
 
 const (
@@ -27,10 +28,11 @@ const (
 )
 
 const (
-	toastDuration = 5 * time.Second
+	toastDuration      = 3 * time.Second
+	toastErrorDuration = 6 * time.Second
 	// toastMinShow is how long a toast stays before a newer one replaces it.
 	toastMinShow  = time.Second
-	toastMaxWidth = 60
+	toastMaxWidth = 64
 	toastMaxLines = 6
 )
 
@@ -39,6 +41,13 @@ var toastColors = map[toastKind]tcell.Color{
 	toastSuccess: ColorPillGreen,
 	toastWarning: ColorPillYellow,
 	toastError:   tcell.NewHexColor(0xe46876),
+}
+
+var toastIcons = map[toastKind]string{
+	toastInfo:    "\uf05a",
+	toastSuccess: "\uf00c",
+	toastWarning: "\uf071",
+	toastError:   "\uf057",
 }
 
 type toast struct {
@@ -99,7 +108,11 @@ func (t *toaster) showLocked(next *toast) {
 		return
 	}
 	next.shown = toastNow()
-	t.timer = toastAfter(toastDuration, t.expire(next))
+	d := toastDuration
+	if next.kind == toastError {
+		d = toastErrorDuration
+	}
+	t.timer = toastAfter(d, t.expire(next))
 }
 
 func (t *toaster) expire(which *toast) func() {
@@ -169,8 +182,11 @@ func wrapText(text string, width int) []string {
 	return lines
 }
 
-// Draw paints the toast at the top right, on the terminal background.
-func (t *toaster) Draw(screen mauview.Screen) {
+// toastArea is where toasts centre: x, width and the row they sit above.
+type toastArea struct{ x, w, bottom int }
+
+// Draw paints the toast centred in area, one row above its bottom.
+func (t *toaster) Draw(screen mauview.Screen, area toastArea) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	cur := t.current
@@ -178,10 +194,8 @@ func (t *toaster) Draw(screen mauview.Screen) {
 		t.w, t.h = 0, 0
 		return
 	}
-	width, height := screen.Size()
-	maxW := min(toastMaxWidth, width-6)
-	// ┃, two cells of padding, the text, " x", two cells, ┃.
-	textMax := maxW - 2 - 4 - 2
+	// │, a space, the icon and a space, the text, a space, │.
+	textMax := min(toastMaxWidth, area.w-4) - 6
 	if textMax < 8 {
 		return
 	}
@@ -194,31 +208,41 @@ func (t *toaster) Draw(screen mauview.Screen) {
 	for _, l := range lines {
 		textW = max(textW, runewidth.StringWidth(l))
 	}
-	w := textW + 2 + 4 + 2
-	h := len(lines) + 2
-	if len(t.queue) > 0 {
-		h += 2
+	w, h := textW+6, len(lines)+2
+	if cur.kind == toastError {
+		w = max(w, 13) // room for the centred " Error " title
 	}
-	h = min(h, height-1)
-	x, y := width-w-2, 1
+	x, y := area.x+(area.w-w)/2, area.bottom-1-h
+	if y < 0 {
+		return
+	}
 	t.x, t.y, t.w, t.h = x, y, w, h
 
-	bar := tcell.StyleDefault.Foreground(toastColors[cur.kind])
-	muted := tcell.StyleDefault.Foreground(ColorStatusText)
-	for row := y; row < y+h; row++ {
-		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x, row, w, tcell.StyleDefault)
-		screen.SetContent(x, row, '┃', nil, bar)
-		screen.SetContent(x+w-1, row, '┃', nil, bar)
+	color := toastColors[cur.kind]
+	border := tcell.StyleDefault.Foreground(ColorHighlight)
+	if cur.kind == toastError {
+		border = tcell.StyleDefault.Foreground(color)
 	}
+	drawThinBoxStyled(screen, x, y, w, h, "", border)
+	if cur.kind == toastError {
+		const title = " Error "
+		widget.WriteLine(screen, mauview.AlignLeft, title, x+(w-len(title))/2, y, len(title), border.Bold(true))
+	}
+	widget.WriteLine(screen, mauview.AlignLeft, toastIcons[cur.kind], x+2, y+1, 1, tcell.StyleDefault.Foreground(color))
 	for i, l := range lines {
-		if y+1+i >= y+h {
-			break
-		}
-		widget.WriteLine(screen, mauview.AlignLeft, l, x+3, y+1+i, textW, tcell.StyleDefault)
+		widget.WriteLine(screen, mauview.AlignLeft, l, x+4, y+1+i, textW, tcell.StyleDefault)
 	}
-	screen.SetContent(x+w-4, y+1, 'x', nil, muted)
-	if n := len(t.queue); n > 0 && y+h-2 > y+len(lines) {
-		widget.WriteLine(screen, mauview.AlignLeft, "+"+strconv.Itoa(n)+" more", x+3, y+h-2, textW, muted)
+}
+
+// absOffset adds up nested proxy screens' offsets: where s sits on screen.
+func absOffset(s mauview.Screen) (x, y int) {
+	for {
+		p, ok := s.(*mauview.ProxyScreen)
+		if !ok || p == nil {
+			return
+		}
+		x, y = x+p.OffsetX, y+p.OffsetY
+		s = p.Parent
 	}
 }
 
