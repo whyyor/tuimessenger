@@ -3,6 +3,7 @@ package tui
 import (
 	"html"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,10 +15,9 @@ import (
 	"go.mau.fi/gomuks/tui/widget"
 )
 
-// Toasts replace gomuks' notices in the timeline, in tabiew's style: a
-// rounded box centred over the chat just above the status line, in the
-// highlight colour, three seconds each; errors get a red " Error " frame.
-// A click dismisses one.
+// Toasts replace gomuks' notices in the timeline: opencode's layout (top
+// right, a coloured ┃ each side, click to dismiss) in our theme: a Nerd Font
+// icon per kind, Kanagawa colours, transparent background.
 type toastKind int
 
 const (
@@ -28,11 +28,11 @@ const (
 )
 
 const (
-	toastDuration      = 3 * time.Second
-	toastErrorDuration = 6 * time.Second
+	toastDuration      = 5 * time.Second
+	toastErrorDuration = 7 * time.Second
 	// toastMinShow is how long a toast stays before a newer one replaces it.
 	toastMinShow  = time.Second
-	toastMaxWidth = 64
+	toastMaxWidth = 60
 	toastMaxLines = 6
 )
 
@@ -182,11 +182,8 @@ func wrapText(text string, width int) []string {
 	return lines
 }
 
-// toastArea is where toasts centre: x, width and the row they sit above.
-type toastArea struct{ x, w, bottom int }
-
-// Draw paints the toast centred in area, one row above its bottom.
-func (t *toaster) Draw(screen mauview.Screen, area toastArea) {
+// Draw paints the toast at the top right, on the terminal background.
+func (t *toaster) Draw(screen mauview.Screen) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	cur := t.current
@@ -194,8 +191,10 @@ func (t *toaster) Draw(screen mauview.Screen, area toastArea) {
 		t.w, t.h = 0, 0
 		return
 	}
-	// │, a space, the icon and a space, the text, a space, │.
-	textMax := min(toastMaxWidth, area.w-4) - 6
+	width, height := screen.Size()
+	// ┃, two cells of padding, the icon and a space, the text, two cells,
+	// x, two cells, ┃.
+	textMax := min(toastMaxWidth, width-6) - 11
 	if textMax < 8 {
 		return
 	}
@@ -208,41 +207,33 @@ func (t *toaster) Draw(screen mauview.Screen, area toastArea) {
 	for _, l := range lines {
 		textW = max(textW, runewidth.StringWidth(l))
 	}
-	w, h := textW+6, len(lines)+2
-	if cur.kind == toastError {
-		w = max(w, 13) // room for the centred " Error " title
+	w := textW + 11
+	h := len(lines) + 2
+	if len(t.queue) > 0 {
+		h += 2
 	}
-	x, y := area.x+(area.w-w)/2, area.bottom-1-h
-	if y < 0 {
-		return
-	}
+	h = min(h, height-1)
+	x, y := width-w-2, 1
 	t.x, t.y, t.w, t.h = x, y, w, h
 
 	color := toastColors[cur.kind]
-	border := tcell.StyleDefault.Foreground(ColorHighlight)
-	if cur.kind == toastError {
-		border = tcell.StyleDefault.Foreground(color)
+	bar := tcell.StyleDefault.Foreground(color)
+	muted := tcell.StyleDefault.Foreground(ColorStatusText)
+	for row := y; row < y+h; row++ {
+		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x, row, w, tcell.StyleDefault)
+		screen.SetContent(x, row, '┃', nil, bar)
+		screen.SetContent(x+w-1, row, '┃', nil, bar)
 	}
-	drawThinBoxStyled(screen, x, y, w, h, "", border)
-	if cur.kind == toastError {
-		const title = " Error "
-		widget.WriteLine(screen, mauview.AlignLeft, title, x+(w-len(title))/2, y, len(title), border.Bold(true))
-	}
-	widget.WriteLine(screen, mauview.AlignLeft, toastIcons[cur.kind], x+2, y+1, 1, tcell.StyleDefault.Foreground(color))
+	widget.WriteLine(screen, mauview.AlignLeft, toastIcons[cur.kind], x+3, y+1, 1, bar)
 	for i, l := range lines {
-		widget.WriteLine(screen, mauview.AlignLeft, l, x+4, y+1+i, textW, tcell.StyleDefault)
-	}
-}
-
-// absOffset adds up nested proxy screens' offsets: where s sits on screen.
-func absOffset(s mauview.Screen) (x, y int) {
-	for {
-		p, ok := s.(*mauview.ProxyScreen)
-		if !ok || p == nil {
-			return
+		if y+1+i >= y+h {
+			break
 		}
-		x, y = x+p.OffsetX, y+p.OffsetY
-		s = p.Parent
+		widget.WriteLine(screen, mauview.AlignLeft, l, x+5, y+1+i, textW, tcell.StyleDefault)
+	}
+	screen.SetContent(x+w-4, y+1, 'x', nil, muted)
+	if n := len(t.queue); n > 0 && y+h-2 > y+len(lines) {
+		widget.WriteLine(screen, mauview.AlignLeft, "+"+strconv.Itoa(n)+" more", x+5, y+h-2, textW, muted)
 	}
 }
 

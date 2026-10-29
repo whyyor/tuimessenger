@@ -315,11 +315,7 @@ func (p *ReactPicker) searchRows() [][]pickerCell {
 
 // drawThinBox clears an area and frames it with single-line borders.
 func drawThinBox(screen mauview.Screen, x, y, w, h int, title string) {
-	drawThinBoxStyled(screen, x, y, w, h, title, tcell.StyleDefault.Foreground(ColorBorder))
-}
-
-// drawThinBoxStyled is drawThinBox with the border's colour chosen.
-func drawThinBoxStyled(screen mauview.Screen, x, y, w, h int, title string, border tcell.Style) {
+	border := tcell.StyleDefault.Foreground(ColorBorder)
 	for row := y; row < y+h; row++ {
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x, row, w, tcell.StyleDefault)
 	}

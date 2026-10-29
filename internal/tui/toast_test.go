@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
-	"go.mau.fi/mauview"
 )
 
 // fakeToasts gives a fresh toaster with a controllable clock and timers.
@@ -60,12 +59,12 @@ func TestToastQueueAndReplace(t *testing.T) {
 	}
 }
 
-func drawToast(ts *toaster, area toastArea) (tcell.SimulationScreen, string) {
+func drawToast(ts *toaster) (tcell.SimulationScreen, string) {
 	const w, h = 100, 20
 	sim := tcell.NewSimulationScreen("")
 	_ = sim.Init()
 	sim.SetSize(w, h)
-	ts.Draw(sim, area)
+	ts.Draw(sim)
 	return sim, strings.Join(screenText(sim, w, h), "\n")
 }
 
@@ -73,29 +72,27 @@ func TestToastDrawAndClick(t *testing.T) {
 	ts, _, _ := fakeToasts(t)
 	ts.Show(toastSuccess, "Alias set to \"sis\": find this chat by it in Ctrl+k and Ctrl+p, and it stays private to you")
 	ts.Show(toastInfo, "Fetching video…")
-	area := toastArea{x: 20, w: 80, bottom: 18}
-	sim, text := drawToast(ts, area)
-	if ts.x != area.x+(area.w-ts.w)/2 || ts.y+ts.h != area.bottom-1 || ts.w > toastMaxWidth {
-		t.Errorf("centred, just above the status line: x=%d w=%d y=%d h=%d", ts.x, ts.w, ts.y, ts.h)
+	sim, text := drawToast(ts)
+	if ts.x+ts.w != 100-2 || ts.y != 1 || ts.w > toastMaxWidth {
+		t.Errorf("top right, two cells in, at most %d wide: x=%d w=%d y=%d", toastMaxWidth, ts.x, ts.w, ts.y)
 	}
-	r, _, st, _ := sim.GetContent(ts.x, ts.y)
-	if fg, _, _ := st.Decompose(); r != '╭' || fg != ColorHighlight {
-		t.Errorf("rounded corner in the highlight colour: %q %v", r, fg)
+	for _, x := range []int{ts.x, ts.x + ts.w - 1} {
+		r, _, st, _ := sim.GetContent(x, ts.y+1)
+		if fg, _, _ := st.Decompose(); r != '┃' || fg != ColorPillGreen {
+			t.Errorf("bars in the success colour at %d: %q %v", x, r, fg)
+		}
 	}
-	if r, _, _, _ := sim.GetContent(ts.x+ts.w-1, ts.y+ts.h-1); r != '╯' {
-		t.Error("rounded bottom-right corner")
-	}
-	r, _, st, _ = sim.GetContent(ts.x+2, ts.y+1)
+	r, _, st, _ := sim.GetContent(ts.x+3, ts.y+1)
 	if fg, _, _ := st.Decompose(); r != '\uf00c' || fg != ColorPillGreen {
-		t.Errorf("a green check for success: %q %v", r, fg)
+		t.Errorf("a green check icon: %q %v", r, fg)
 	}
-	for _, want := range []string{"Alias set", "stays private"} {
+	for _, want := range []string{"Alias set", "stays private", "+1 more", "x"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("missing %q:\n%s", want, text)
 		}
 	}
-	if strings.Contains(text, "more") || ts.h < 4 {
-		t.Errorf("wrapped, no opencode extras:\n%s", text)
+	if ts.h < 5 {
+		t.Errorf("long text wraps onto several lines: h=%d", ts.h)
 	}
 	if !ts.Hit(ts.x+3, ts.y+1) || ts.Hit(0, 0) {
 		t.Error("hit test")
@@ -106,7 +103,7 @@ func TestToastDrawAndClick(t *testing.T) {
 	}
 }
 
-func TestErrorToastHasTitleAndStaysLonger(t *testing.T) {
+func TestErrorToastIsRedAndStaysLonger(t *testing.T) {
 	ts, _, _ := fakeToasts(t)
 	var got time.Duration
 	toastAfter = func(d time.Duration, _ func()) *time.Timer { got = d; return time.NewTimer(time.Hour) }
@@ -114,23 +111,10 @@ func TestErrorToastHasTitleAndStaysLonger(t *testing.T) {
 	if got != toastErrorDuration || toastErrorDuration <= toastDuration {
 		t.Errorf("errors stay longer: %v", got)
 	}
-	sim, text := drawToast(ts, toastArea{w: 80, bottom: 18})
-	if !strings.Contains(text, "─ Error ─") {
-		t.Errorf("a centred Error title:\n%s", text)
-	}
+	sim, _ := drawToast(ts)
 	_, _, st, _ := sim.GetContent(ts.x, ts.y)
 	if fg, _, _ := st.Decompose(); fg != toastColors[toastError] {
-		t.Errorf("a red frame: %v", fg)
-	}
-}
-
-func TestAbsOffset(t *testing.T) {
-	sim := tcell.NewSimulationScreen("")
-	_ = sim.Init()
-	outer := &mauview.ProxyScreen{Parent: sim, OffsetX: 30, OffsetY: 1}
-	inner := &mauview.ProxyScreen{Parent: outer, OffsetX: 1, OffsetY: 2}
-	if x, y := absOffset(inner); x != 31 || y != 3 {
-		t.Errorf("got %d,%d", x, y)
+		t.Errorf("red bars: %v", fg)
 	}
 }
 
