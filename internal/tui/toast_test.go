@@ -76,11 +76,11 @@ func TestToastDrawAndClick(t *testing.T) {
 	if ts.x+ts.w != 100-2 || ts.y != 1 || ts.w > toastMaxWidth {
 		t.Errorf("top right, two cells in, at most %d wide: x=%d w=%d y=%d", toastMaxWidth, ts.x, ts.w, ts.y)
 	}
-	for _, x := range []int{ts.x, ts.x + ts.w - 1} {
-		r, _, st, _ := sim.GetContent(x, ts.y+1)
-		if fg, _, _ := st.Decompose(); r != '┃' || fg != ColorMonokaiGreen {
-			t.Errorf("bars in the success colour at %d: %q %v", x, r, fg)
-		}
+	if r, _, st, _ := sim.GetContent(ts.x, ts.y+1); r != '┃' || func() bool { fg, _, _ := st.Decompose(); return fg != ColorMonokaiGreen }() {
+		t.Errorf("a left bar in the success colour: %q", r)
+	}
+	if r, _, _, _ := sim.GetContent(ts.x+ts.w-1, ts.y+1); r == '┃' {
+		t.Error("no bar on the right: it reads like a message")
 	}
 	r, _, st, _ := sim.GetContent(ts.x+3, ts.y+1)
 	if fg, _, _ := st.Decompose(); r != '\uf00c' || fg != ColorMonokaiGreen {

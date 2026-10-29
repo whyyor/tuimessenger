@@ -16,7 +16,7 @@ import (
 )
 
 // Toasts replace gomuks' notices in the timeline: opencode's layout (top
-// right, a coloured ┃ each side, click to dismiss) in our theme: a Nerd Font
+// right, click to dismiss) with one coloured ┃ on the left, like a message, in our theme: a Nerd Font
 // icon per kind, the terminal's Monokai colours, transparent background.
 type toastKind int
 
@@ -202,7 +202,7 @@ func (t *toaster) Draw(screen mauview.Screen) {
 	}
 	width, height := screen.Size()
 	// ┃, two cells of padding, the icon and a space, the text, two cells,
-	// x, two cells, ┃.
+	// x, three cells.
 	textMax := min(toastMaxWidth, width-6) - 11
 	if textMax < 8 {
 		return
@@ -231,7 +231,6 @@ func (t *toaster) Draw(screen mauview.Screen) {
 	for row := y; row < y+h; row++ {
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x, row, w, tcell.StyleDefault)
 		screen.SetContent(x, row, '┃', nil, bar)
-		screen.SetContent(x+w-1, row, '┃', nil, bar)
 	}
 	widget.WriteLine(screen, mauview.AlignLeft, toastIcons[cur.kind], x+3, y+1, 1, bar)
 	for i, l := range lines {
