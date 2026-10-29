@@ -105,6 +105,9 @@ func TestToastDrawAndClick(t *testing.T) {
 
 func TestErrorToastIsRedAndStaysLonger(t *testing.T) {
 	ts, _, _ := fakeToasts(t)
+	if toastColors[toastInfo] != ColorComposerBar {
+		t.Error("in-progress toasts use the composer bar's purple")
+	}
 	var got time.Duration
 	toastAfter = func(d time.Duration, _ func()) *time.Timer { got = d; return time.NewTimer(time.Hour) }
 	ts.Show(toastError, "Failed to send message: timeout")

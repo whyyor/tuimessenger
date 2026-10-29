@@ -37,16 +37,16 @@ const (
 )
 
 // The terminal's own Monokai palette (Ghostty, Monokai Remastered): green 2,
-// cyan 6 (Monokai's blue), yellow 3, red 1.
+// purple 5 (the composer bar's), yellow 3, red 1.
 var (
 	ColorMonokaiGreen  = tcell.NewHexColor(0xadda78)
-	ColorMonokaiCyan   = tcell.NewHexColor(0x85dacc)
+	ColorMonokaiPurple = tcell.NewHexColor(0xa8a9eb)
 	ColorMonokaiYellow = tcell.NewHexColor(0xf9cc6c)
 	ColorMonokaiRed    = tcell.NewHexColor(0xfd6883)
 )
 
 var toastColors = map[toastKind]tcell.Color{
-	toastInfo:    ColorMonokaiCyan,
+	toastInfo:    ColorMonokaiPurple,
 	toastSuccess: ColorMonokaiGreen,
 	toastWarning: ColorMonokaiYellow,
 	toastError:   ColorMonokaiRed,
