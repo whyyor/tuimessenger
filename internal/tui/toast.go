@@ -17,7 +17,7 @@ import (
 
 // Toasts replace gomuks' notices in the timeline: opencode's layout (top
 // right, a coloured ┃ each side, click to dismiss) in our theme: a Nerd Font
-// icon per kind, Kanagawa colours, transparent background.
+// icon per kind, the terminal's Monokai colours, transparent background.
 type toastKind int
 
 const (
@@ -36,11 +36,20 @@ const (
 	toastMaxLines = 6
 )
 
+// The terminal's own Monokai palette (Ghostty, Monokai Remastered): green 2,
+// cyan 6 (Monokai's blue), yellow 3, red 1.
+var (
+	ColorMonokaiGreen  = tcell.NewHexColor(0xadda78)
+	ColorMonokaiCyan   = tcell.NewHexColor(0x85dacc)
+	ColorMonokaiYellow = tcell.NewHexColor(0xf9cc6c)
+	ColorMonokaiRed    = tcell.NewHexColor(0xfd6883)
+)
+
 var toastColors = map[toastKind]tcell.Color{
-	toastInfo:    ColorPillBlue,
-	toastSuccess: ColorPillGreen,
-	toastWarning: ColorPillYellow,
-	toastError:   tcell.NewHexColor(0xe46876),
+	toastInfo:    ColorMonokaiCyan,
+	toastSuccess: ColorMonokaiGreen,
+	toastWarning: ColorMonokaiYellow,
+	toastError:   ColorMonokaiRed,
 }
 
 var toastIcons = map[toastKind]string{

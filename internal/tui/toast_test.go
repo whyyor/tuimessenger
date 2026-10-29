@@ -78,12 +78,12 @@ func TestToastDrawAndClick(t *testing.T) {
 	}
 	for _, x := range []int{ts.x, ts.x + ts.w - 1} {
 		r, _, st, _ := sim.GetContent(x, ts.y+1)
-		if fg, _, _ := st.Decompose(); r != '┃' || fg != ColorPillGreen {
+		if fg, _, _ := st.Decompose(); r != '┃' || fg != ColorMonokaiGreen {
 			t.Errorf("bars in the success colour at %d: %q %v", x, r, fg)
 		}
 	}
 	r, _, st, _ := sim.GetContent(ts.x+3, ts.y+1)
-	if fg, _, _ := st.Decompose(); r != '\uf00c' || fg != ColorPillGreen {
+	if fg, _, _ := st.Decompose(); r != '\uf00c' || fg != ColorMonokaiGreen {
 		t.Errorf("a green check icon: %q %v", r, fg)
 	}
 	for _, want := range []string{"Alias set", "stays private", "+1 more", "x"} {
