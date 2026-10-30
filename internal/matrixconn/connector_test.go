@@ -17,6 +17,7 @@ import (
 
 	"github.com/whyyor/tuimessenger/internal/media"
 	"github.com/whyyor/tuimessenger/internal/store"
+	"github.com/whyyor/tuimessenger/internal/typing"
 )
 
 const (
@@ -36,7 +37,7 @@ func newTestConnector(t *testing.T) (*Connector, *store.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(zerolog.Nop(), st, med, "whatsapp", server, owner), st
+	return New(zerolog.Nop(), st, med, typing.New(), "whatsapp", server, owner), st
 }
 
 func text(body string) *event.Content {
