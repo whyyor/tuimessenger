@@ -220,6 +220,9 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	if y := find("ctrl+p peek"); y != top+2 {
 		t.Errorf("the label sits under the pill: %d", y)
 	}
+	if strings.TrimSpace(lines[top+3]) != "" || bgAt(left, top+3) != ColorPanel {
+		t.Errorf("the same blank row under the label: %q", lines[top+3])
+	}
 	prompt := find("2 / 2")
 	if strings.TrimSpace(lines[prompt-1]) != "" {
 		t.Errorf("a blank row above the prompt: %q", lines[prompt-1])

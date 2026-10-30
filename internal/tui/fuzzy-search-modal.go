@@ -95,6 +95,7 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		SetDirection(mauview.FlexRow).
 		AddFixedComponent(spacer{}, 1).
 		AddFixedComponent(fuzzyLabel{}, 1).
+		AddFixedComponent(spacer{}, 1). // the label gets a row each side
 		AddProportionalComponent(fs.results, 1).
 		AddFixedComponent(spacer{}, 1).
 		AddFixedComponent(inputRow, 1)
