@@ -507,8 +507,7 @@ func (p *CommandPalette) drawRow(screen mauview.Screen, row paletteRow, selected
 		// Like Ctrl+k's selection: a grey bar with a purple ▌, margins kept
 		// empty at both ends.
 		base = base.Background(ColorBarBackground)
-		// Dim grey is too faint on the bar; the bar's lighter text grey reads.
-		dim = tcell.StyleDefault.Background(ColorBarBackground).Foreground(ColorBarText)
+		dim = dim.Background(ColorBarBackground)
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x+1, y, width-2, base)
 		screen.SetContent(x+1, y, '▌', nil, base.Foreground(ColorHighlight))
 	}

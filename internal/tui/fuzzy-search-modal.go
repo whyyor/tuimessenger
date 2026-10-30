@@ -245,11 +245,7 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 			nameMax -= 2
 			widget.WriteLine(screen, mauview.AlignLeft, "●", width-3, y, 1, rowStyle.Foreground(tcell.ColorWhite))
 		}
-		aliasStyle := aliasDim(rowStyle)
-		if i == fs.selected {
-			aliasStyle = rowStyle.Foreground(ColorBarText).Bold(false)
-		}
-		writeNameAlias(screen, 5, y, nameMax, entry.Name, fs.parent.showAlias(entry.RoomID), rowStyle, aliasStyle)
+		writeNameAlias(screen, 5, y, nameMax, entry.Name, fs.parent.showAlias(entry.RoomID), rowStyle, aliasDim(rowStyle))
 	}
 }
 

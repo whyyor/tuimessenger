@@ -20,8 +20,9 @@ var (
 	ColorSelectionText = tcell.NewHexColor(0xfff1f3)
 	// ColorStatusText is used for the transient status line above the composer.
 	ColorStatusText = tcell.NewHexColor(0x8a8a94)
-	// ColorBorder is used for modal borders.
-	ColorBorder = tcell.NewHexColor(0x54546d)
+	// ColorBorder is used for modal borders: the same dark grey as the
+	// selection bar.
+	ColorBorder = tcell.NewHexColor(0x2a2a37)
 	// ColorUnreadBadge marks rooms with unread messages in the room list.
 	ColorUnreadBadge = tcell.NewHexColor(0x7fb4ca)
 	// ColorUnreadHighlight marks rooms with unread mentions in the room list.
