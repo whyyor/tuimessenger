@@ -134,8 +134,9 @@ func TestPaletteSelectionLikeSwitcher(t *testing.T) {
 	}
 }
 
-func TestSelectionBarMatchesBorder(t *testing.T) {
-	if ColorBarBackground != ColorBorder {
-		t.Errorf("selection bar %06x should match the border %06x", ColorBarBackground.Hex(), ColorBorder.Hex())
+func TestBorderLighterThanSelectionBar(t *testing.T) {
+	luma := func(c tcell.Color) int32 { r, g, b := c.RGB(); return r + g + b }
+	if luma(ColorBorder) <= luma(ColorBarBackground) {
+		t.Errorf("border %06x should be lighter than the selection bar %06x", ColorBorder.Hex(), ColorBarBackground.Hex())
 	}
 }

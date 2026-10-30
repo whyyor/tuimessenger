@@ -7,9 +7,9 @@ import (
 // A quiet slate palette to replace the stock 16-color greens. Truecolor is
 // safe here: this fork targets Ghostty.
 var (
-	// ColorBarBackground is the selected row's bar in Ctrl+p and Ctrl+k: the
-	// same grey as the borders, so the two always match.
-	ColorBarBackground = ColorBorder
+	// ColorBarBackground is the selected row's bar in Ctrl+p and Ctrl+k: a
+	// dark grey, darker than the borders.
+	ColorBarBackground = tcell.NewHexColor(0x1f1f28)
 	// ColorBarText is the foreground on top of ColorBarBackground.
 	ColorBarText = tcell.NewHexColor(0xc8c9c5)
 	// ColorSelectionBackground marks the selected room in the room list.
@@ -20,9 +20,9 @@ var (
 	ColorSelectionText = tcell.NewHexColor(0xfff1f3)
 	// ColorStatusText is used for the transient status line above the composer.
 	ColorStatusText = tcell.NewHexColor(0x8a8a94)
-	// ColorBorder is used for modal borders: the same dark grey as the
+	// ColorBorder is used for modal borders: a lighter grey than the
 	// selection bar.
-	ColorBorder = tcell.NewHexColor(0x2a2a37)
+	ColorBorder = tcell.NewHexColor(0x54546d)
 	// ColorUnreadBadge marks rooms with unread messages in the room list.
 	ColorUnreadBadge = tcell.NewHexColor(0x7fb4ca)
 	// ColorUnreadHighlight marks rooms with unread mentions in the room list.
