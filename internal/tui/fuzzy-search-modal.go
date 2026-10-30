@@ -79,9 +79,10 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		SetBackgroundColor(tcell.ColorDefault)
 	fs.search.Focus()
 
-	// Telescope's proportions: the prompt on top (a search icon over the chat
-	// icons, typing over the names, the count at the right), a blank row, a
-	// centred label, then the list, best match first.
+	// Telescope's proportions with the prompt at the bottom: a centred label
+	// under the pill, the list growing up to a blank row, then the prompt (a
+	// search icon under the chat icons, typing under the names, the count at
+	// the right). The best match sits right above the prompt.
 	prompt := mauview.NewTextView().
 		SetText("  \uf002 ").
 		SetTextColor(ColorComposerBar)
@@ -92,11 +93,11 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		AddFixedComponent(&fuzzyCountView{parent: fs}, fuzzyCountWidth)
 	flex := mauview.NewFlex().
 		SetDirection(mauview.FlexRow).
-		AddFixedComponent(spacer{}, 1). // a row between the pill and the prompt
-		AddFixedComponent(inputRow, 1).
 		AddFixedComponent(spacer{}, 1).
 		AddFixedComponent(fuzzyLabel{}, 1).
-		AddProportionalComponent(fs.results, 1)
+		AddProportionalComponent(fs.results, 1).
+		AddFixedComponent(spacer{}, 1).
+		AddFixedComponent(inputRow, 1)
 
 	// A solid borderless panel with a centred pill title; the borderless box
 	// only keeps "click outside closes".
@@ -146,6 +147,18 @@ func (fs *FuzzySearchModal) changeHandler(str string) {
 }
 
 func (fs *FuzzySearchModal) OnKeyEvent(event mauview.KeyEvent) bool {
+	// The list grows up from the prompt, so the arrows follow the screen:
+	// ↑ moves away from the prompt (worse matches), ↓ back toward it.
+	if len(fs.matches) > 0 && event.Modifiers() == 0 {
+		switch event.Key() {
+		case tcell.KeyUp:
+			fs.selected = (fs.selected + 1) % len(fs.matches)
+			return true
+		case tcell.KeyDown:
+			fs.selected = (fs.selected - 1 + len(fs.matches)) % len(fs.matches)
+			return true
+		}
+	}
 	// Ctrl+p peeks: opens the chat without sending seen this visit.
 	if event.Key() == tcell.KeyCtrlP {
 		if fs.selected < len(fs.matches) {
@@ -205,8 +218,8 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 	accentStyle := tcell.StyleDefault.Foreground(ColorSelectionBackground)
 	for visRow := 0; visRow < height; visRow++ {
 		i := fs.scrollOffset + visRow
-		// Best match first, right under the prompt.
-		y := visRow
+		// Best match at the bottom, right above the prompt.
+		y := height - 1 - visRow
 		if i >= len(fs.matches) {
 			break
 		}

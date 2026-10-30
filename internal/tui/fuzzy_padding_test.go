@@ -71,12 +71,12 @@ func TestSwitcherIconGlows(t *testing.T) {
 		return f
 	}
 	_, brand := BridgeIconColor("whatsapp")
-	// The selected (best) match is the top row, under the prompt.
-	if fg(1) != brand {
-		t.Errorf("other rows keep the brand colour: %v", fg(1))
+	// The selected (best) match is the bottom row, above the prompt.
+	if fg(0) != brand {
+		t.Errorf("other rows keep the brand colour: %v", fg(0))
 	}
-	if want := vivid(brand); fg(0) != want || want == brand {
-		t.Errorf("the selected icon is lit: got %v want %v", fg(0), want)
+	if want := vivid(brand); fg(1) != want || want == brand {
+		t.Errorf("the selected icon is lit: got %v want %v", fg(1), want)
 	}
 	if got := vivid(tcell.NewHexColor(0x25d366)); got != tcell.NewHexColor(0x00ff5f) {
 		t.Errorf("WhatsApp green should go neon and stay green: %06x", got.Hex())

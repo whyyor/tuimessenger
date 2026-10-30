@@ -212,21 +212,23 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	if centre := (left + right) / 2; col < centre-4 || col > centre+2 {
 		t.Errorf("the pill is centred: %d in %d..%d", col, left, right)
 	}
-	// A blank row, prompt + count, a blank row, the label, then the list.
+	// A blank row and the label under the pill; at the bottom the list, a
+	// blank row, the prompt with its count, then a padding row.
 	if strings.TrimSpace(lines[top+1]) != "" || bgAt(left, top+1) != ColorPanel {
 		t.Errorf("a blank panel row under the pill: %q", lines[top+1])
 	}
-	if y := find("2 / 2"); y != top+2 {
-		t.Errorf("the count sits on the prompt row: %d", y)
+	if y := find("ctrl+p peek"); y != top+2 {
+		t.Errorf("the label sits under the pill: %d", y)
 	}
-	if strings.TrimSpace(lines[top+3]) != "" {
-		t.Errorf("a blank row under the prompt: %q", lines[top+3])
+	prompt := find("2 / 2")
+	if strings.TrimSpace(lines[prompt-1]) != "" {
+		t.Errorf("a blank row above the prompt: %q", lines[prompt-1])
 	}
-	if y := find("ctrl+p peek"); y != top+4 {
-		t.Errorf("the label follows: %d", y)
+	if r, _, _, _ := sim.GetContent(left+1, prompt-2); r != '▌' {
+		t.Error("the best match sits right above the prompt, selected")
 	}
-	if r, _, _, _ := sim.GetContent(left+1, top+5); r != '▌' {
-		t.Error("the best match is first, selected")
+	if bgAt(left, prompt+1) != ColorPanel || strings.TrimSpace(lines[prompt+1]) != "" || bgAt(left, prompt+2) == ColorPanel {
+		t.Error("the prompt is the last row before the bottom padding")
 	}
 	// One full row of panel padding at the bottom.
 	bottom := -1
@@ -240,18 +242,18 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	}
 }
 
-func TestSwitcherArrowsGoDownTheList(t *testing.T) {
+func TestSwitcherArrowsFollowTheScreen(t *testing.T) {
 	main := aliasMain(t)
 	main.config.Keybindings = config.ParsedKeybindings{Modal: map[config.Keybind]string{
 		{Key: tcell.KeyDown}: "select_next", {Key: tcell.KeyUp}: "select_prev",
 	}}
 	fs := NewFuzzySearchModal(main, 46, 16)
-	fs.OnKeyEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
-	if fs.selected != 1 {
-		t.Errorf("↓ moves to the next match below, got %d", fs.selected)
-	}
 	fs.OnKeyEvent(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone))
+	if fs.selected != 1 {
+		t.Errorf("↑ moves up the list to the next match, got %d", fs.selected)
+	}
+	fs.OnKeyEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
 	if fs.selected != 0 {
-		t.Errorf("↑ goes back up, got %d", fs.selected)
+		t.Errorf("↓ goes back toward the prompt, got %d", fs.selected)
 	}
 }
