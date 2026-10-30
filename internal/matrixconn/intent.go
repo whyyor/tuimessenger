@@ -72,6 +72,10 @@ func (i *Intent) SendState(ctx context.Context, roomID id.RoomID, evtType event.
 	}
 	if !ts.IsZero() {
 		evt.Timestamp = ts.UnixMilli()
+	} else {
+		// No time means bridgev2 is only syncing state (e.g. the group name when a chat first loads),
+		// not reporting a change someone made, so it shouldn't appear as a line in the chat.
+		setRaw(&evt.Content, "com.beeper.exclude_from_timeline", true)
 	}
 	err := i.c.store.Write(ctx, func(ctx context.Context, w *store.Writer) error {
 		// A join without a name gets the user's known profile, like a real server would.

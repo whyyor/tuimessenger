@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -95,7 +96,8 @@ func (c *Connector) SendBridgeStatus(ctx context.Context, state *status.BridgeSt
 
 // SendMessageStatus saves "delivered" / "failed" for a message you sent; the gomuks fork shows it as ticks.
 func (c *Connector) SendMessageStatus(ctx context.Context, st *bridgev2.MessageStatus, evt *bridgev2.MessageStatusEventInfo) {
-	if evt.RoomID == "" || evt.SourceEventID == "" {
+	// "Pending" changes nothing the client shows, so don't spend a disk write on it.
+	if evt.RoomID == "" || evt.SourceEventID == "" || st.Status == event.MessageStatusPending {
 		return
 	}
 	content := &event.Content{Parsed: st.ToMSSEvent(evt)}
@@ -273,8 +275,11 @@ func setRaw(content *event.Content, key string, value any) {
 	if content.Raw == nil && content.Parsed == nil && len(content.VeryRaw) > 0 {
 		_ = json.Unmarshal(content.VeryRaw, &content.Raw)
 	}
-	if content.Raw == nil {
-		content.Raw = make(map[string]any)
+	// Copy first: the map may belong to bridgev2, and changing it there would surprise it.
+	raw := maps.Clone(content.Raw)
+	if raw == nil {
+		raw = make(map[string]any)
 	}
-	content.Raw[key] = value
+	raw[key] = value
+	content.Raw = raw
 }

@@ -246,6 +246,61 @@ func TestOwnerSettings(t *testing.T) {
 	}
 }
 
+func TestStateTimelineVisibility(t *testing.T) {
+	ctx := context.Background()
+	c, st := newTestConnector(t)
+	roomID := createRoom(t, c, c.GhostIntent("alice").GetMXID())
+	ghost := c.GhostIntent("alice")
+
+	shared := map[string]any{"custom": "kept"}
+	synced, err := ghost.SendState(ctx, roomID, event.StateRoomName, "", &event.Content{
+		Parsed: &event.RoomNameEventContent{Name: "Synced"}, Raw: shared,
+	}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, err := ghost.SendState(ctx, roomID, event.StateRoomName, "", &event.Content{
+		Parsed: &event.RoomNameEventContent{Name: "Renamed"},
+	}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hidden := func(eventID id.EventID) bool {
+		evt, _ := st.GetEvent(ctx, eventID)
+		return evt.Content.Raw["com.beeper.exclude_from_timeline"] == true
+	}
+	if !hidden(synced.EventID) {
+		t.Error("state without a timestamp (a sync) should be hidden from the timeline")
+	}
+	if hidden(changed.EventID) {
+		t.Error("a real rename (with a timestamp) should show in the timeline")
+	}
+	if len(shared) != 1 {
+		t.Errorf("the caller's map was changed: %v", shared)
+	}
+	if evt, _ := st.GetEvent(ctx, synced.EventID); evt.Content.Raw["custom"] != "kept" {
+		t.Error("existing extra fields should be kept")
+	}
+}
+
+func TestMessageStatus(t *testing.T) {
+	ctx := context.Background()
+	c, st := newTestConnector(t)
+	roomID := createRoom(t, c, c.GhostIntent("alice").GetMXID())
+	info := &bridgev2.MessageStatusEventInfo{RoomID: roomID, SourceEventID: "$mine"}
+
+	before := st.LastPos()
+	c.SendMessageStatus(ctx, &bridgev2.MessageStatus{Status: event.MessageStatusPending}, info)
+	if st.LastPos() != before {
+		t.Error("a pending status should not be saved")
+	}
+	c.SendMessageStatus(ctx, &bridgev2.MessageStatus{Status: event.MessageStatusSuccess}, info)
+	if st.LastPos() != before+1 {
+		t.Errorf("a success status should add exactly one event, position went %d -> %d", before, st.LastPos())
+	}
+}
+
 func TestMediaRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	c, _ := newTestConnector(t)
