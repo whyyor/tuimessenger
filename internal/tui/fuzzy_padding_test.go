@@ -26,13 +26,14 @@ func TestFuzzyResultsSymmetricMargins(t *testing.T) {
 		_, b, _ := st.Decompose()
 		return b
 	}
-	if bg(0) == ColorBarBackground || bg(w-1) == ColorBarBackground {
-		t.Error("first and last columns should both be empty margins")
+	// The panel pads the edges now, so the bar runs edge to edge inside it.
+	if bg(0) != ColorBarBackground || bg(w-1) != ColorBarBackground {
+		t.Error("the bar should span the whole inner width")
 	}
-	if bg(1) != ColorBarBackground || bg(w-2) != ColorBarBackground {
-		t.Error("the bar should span columns 1..w-2")
+	if r, _, _, _ := sim.GetContent(0, 0); r != '▌' {
+		t.Error("the accent sits in column 0, like the prompt's ›")
 	}
-	if r, _, _, _ := sim.GetContent(w-3, 0); r != '●' {
+	if r, _, _, _ := sim.GetContent(w-2, 0); r != '●' {
 		t.Error("unread dot sits one cell inside the bar's right edge")
 	}
 }
@@ -49,10 +50,10 @@ func TestSwitcherIconNotBold(t *testing.T) {
 		_, _, a := st.Decompose()
 		return a
 	}
-	if attrs(3)&tcell.AttrBold != 0 {
+	if attrs(2)&tcell.AttrBold != 0 {
 		t.Error("the selected row's icon should not be bold")
 	}
-	if attrs(5)&tcell.AttrBold == 0 {
+	if attrs(4)&tcell.AttrBold == 0 {
 		t.Error("the selected row's name stays bold")
 	}
 }
@@ -65,7 +66,7 @@ func TestSwitcherIconGlows(t *testing.T) {
 	sim.SetSize(30, 2)
 	(&fuzzyResultsView{parent: fs}).Draw(sim)
 	fg := func(y int) tcell.Color {
-		_, _, st, _ := sim.GetContent(3, y)
+		_, _, st, _ := sim.GetContent(2, y)
 		f, _, _ := st.Decompose()
 		return f
 	}

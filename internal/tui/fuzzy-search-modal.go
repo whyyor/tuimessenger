@@ -81,11 +81,11 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 
 	// The palette's prompt: › in the composer's purple.
 	prompt := mauview.NewTextView().
-		SetText(" › ").
+		SetText("› ").
 		SetTextColor(ColorComposerBar)
 	inputRow := mauview.NewFlex().
 		SetDirection(mauview.FlexColumn).
-		AddFixedComponent(prompt, 3).
+		AddFixedComponent(prompt, 2).
 		AddProportionalComponent(fs.search, 1)
 
 	// fzf-style layout: results grow upward from a match counter and the
@@ -221,17 +221,13 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 			break
 		}
 		entry := fs.roomList[fs.matches[i].OriginalIndex]
+		// One grid for the whole switcher: ▌ and › in column 0, icons, the
+		// count and typed text in 2, names in 4. The panel pads the edges.
 		rowStyle := tcell.StyleDefault
 		if i == fs.selected {
-			// Subtle bar with a red accent; other rows have no gutter, which
-			// next to the border read as a second frame.
 			rowStyle = rowStyle.Background(ColorBarBackground).Bold(true)
-		}
-		// The bar starts at the red accent: no strip of it left of the ▌.
-		// Columns 0 and width-1 stay empty so both sides have the same margin.
-		widget.WriteLinePadded(screen, mauview.AlignLeft, "", 1, y, width-2, rowStyle)
-		if i == fs.selected {
-			screen.SetContent(1, y, '▌', nil, accentStyle.Background(ColorBarBackground))
+			widget.WriteLinePadded(screen, mauview.AlignLeft, "", 0, y, width, rowStyle)
+			screen.SetContent(0, y, '▌', nil, accentStyle.Background(ColorBarBackground))
 		}
 		icon, iconColor := BridgeIconColor(entry.Bridge)
 		// Icons never bold: Nerd Font glyphs have no bold face and render oddly.
@@ -239,13 +235,13 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 		if i == fs.selected {
 			iconStyle = iconStyle.Foreground(vivid(iconColor))
 		}
-		widget.WriteLine(screen, mauview.AlignLeft, icon, 3, y, 2, iconStyle)
-		nameMax := width - 7
+		widget.WriteLine(screen, mauview.AlignLeft, icon, 2, y, 2, iconStyle)
+		nameMax := width - 5
 		if entry.UnreadMessages > 0 || entry.UnreadNotifications > 0 || entry.UnreadHighlights > 0 || entry.MarkedUnread {
 			nameMax -= 2
-			widget.WriteLine(screen, mauview.AlignLeft, "●", width-3, y, 1, rowStyle.Foreground(tcell.ColorWhite))
+			widget.WriteLine(screen, mauview.AlignLeft, "●", width-2, y, 1, rowStyle.Foreground(tcell.ColorWhite))
 		}
-		writeNameAlias(screen, 5, y, nameMax, entry.Name, fs.parent.showAlias(entry.RoomID), rowStyle, aliasDim(rowStyle))
+		writeNameAlias(screen, 4, y, nameMax, entry.Name, fs.parent.showAlias(entry.RoomID), rowStyle, aliasDim(rowStyle))
 	}
 }
 
@@ -257,17 +253,18 @@ type fuzzyCountView struct {
 func (fc *fuzzyCountView) Draw(screen mauview.Screen) {
 	fs := fc.parent
 	width, _ := screen.Size()
-	count := fmt.Sprintf(" %d/%d ", len(fs.matches), len(fs.roomList))
-	widget.WriteLine(screen, mauview.AlignLeft, count, 1, 0, width, tcell.StyleDefault.Foreground(tcell.PaletteColor(3)))
+	// The count lines up with the icons (column 2), the rule runs to the edge.
+	count := fmt.Sprintf("%d/%d ", len(fs.matches), len(fs.roomList))
+	widget.WriteLine(screen, mauview.AlignLeft, count, 2, 0, width, tcell.StyleDefault.Foreground(tcell.PaletteColor(3)))
 	ruleStyle := tcell.StyleDefault.Foreground(ColorBorder)
-	end := width - 1
+	end := width
 	// The peek key, on the rule's right end, when there's room for it.
 	const peekHint = " ctrl+p peek "
-	if hw := runewidth.StringWidth(peekHint); end-hw > 1+runewidth.StringWidth(count)+4 {
+	if hw := runewidth.StringWidth(peekHint); end-hw > 2+runewidth.StringWidth(count)+4 {
 		end -= hw
 		widget.WriteLine(screen, mauview.AlignLeft, peekHint, end, 0, hw, tcell.StyleDefault.Foreground(ColorStatusText))
 	}
-	for x := 1 + runewidth.StringWidth(count); x < end; x++ {
+	for x := 2 + runewidth.StringWidth(count); x < end; x++ {
 		screen.SetContent(x, 0, '─', nil, ruleStyle)
 	}
 }
@@ -282,7 +279,8 @@ func (fr *fuzzyResultsView) OnMouseEvent(_ mauview.MouseEvent) bool { return fal
 
 // Switcher panel colours: a solid dark panel, a filled pink title pill.
 var (
-	ColorPanel       = tcell.NewHexColor(0x131318)
+	// Just above Ghostty's own background (#0b0e13): a deep, dark pane.
+	ColorPanel       = tcell.NewHexColor(0x0e0e13)
 	ColorTitlePill   = tcell.NewHexColor(0xca5681)
 	ColorOnTitlePill = tcell.ColorWhite
 )
