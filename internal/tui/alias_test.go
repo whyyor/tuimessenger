@@ -212,17 +212,20 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	if centre := (left + right) / 2; col < centre-4 || col > centre+2 {
 		t.Errorf("the pill is centred: %d in %d..%d", col, left, right)
 	}
-	// Prompt + count, a blank row, the label, then the list, best first.
-	if y := find("2 / 2"); y != top+1 {
+	// A blank row, prompt + count, a blank row, the label, then the list.
+	if strings.TrimSpace(lines[top+1]) != "" || bgAt(left, top+1) != ColorPanel {
+		t.Errorf("a blank panel row under the pill: %q", lines[top+1])
+	}
+	if y := find("2 / 2"); y != top+2 {
 		t.Errorf("the count sits on the prompt row: %d", y)
 	}
-	if strings.TrimSpace(lines[top+2]) != "" {
-		t.Errorf("a blank row under the prompt: %q", lines[top+2])
+	if strings.TrimSpace(lines[top+3]) != "" {
+		t.Errorf("a blank row under the prompt: %q", lines[top+3])
 	}
-	if y := find("ctrl+p peek"); y != top+3 {
+	if y := find("ctrl+p peek"); y != top+4 {
 		t.Errorf("the label follows: %d", y)
 	}
-	if r, _, _, _ := sim.GetContent(left+1, top+4); r != '▌' {
+	if r, _, _, _ := sim.GetContent(left+1, top+5); r != '▌' {
 		t.Error("the best match is first, selected")
 	}
 	// One full row of panel padding at the bottom.

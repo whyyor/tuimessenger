@@ -92,6 +92,7 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		AddFixedComponent(&fuzzyCountView{parent: fs}, fuzzyCountWidth)
 	flex := mauview.NewFlex().
 		SetDirection(mauview.FlexRow).
+		AddFixedComponent(spacer{}, 1). // a row between the pill and the prompt
 		AddFixedComponent(inputRow, 1).
 		AddFixedComponent(spacer{}, 1).
 		AddFixedComponent(fuzzyLabel{}, 1).
