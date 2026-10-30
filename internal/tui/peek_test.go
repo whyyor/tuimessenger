@@ -70,12 +70,15 @@ func TestPeekShowsPillAndReadHint(t *testing.T) {
 }
 
 func TestSwitcherShowsPeekKey(t *testing.T) {
-	fs := &FuzzySearchModal{}
 	sim := tcell.NewSimulationScreen("")
 	_ = sim.Init()
 	sim.SetSize(40, 1)
-	(&fuzzyCountView{parent: fs}).Draw(sim)
-	if row := screenText(sim, 40, 1)[0]; !strings.Contains(row, "ctrl+p peek") || !strings.Contains(row, "─") {
-		t.Errorf("the count line should mention ctrl+p peek: %q", row)
+	fuzzyLabel{}.Draw(sim)
+	row := screenText(sim, 40, 1)[0]
+	if !strings.Contains(row, "ctrl+p peek") {
+		t.Errorf("the label over the list mentions ctrl+p peek: %q", row)
+	}
+	if lead := len(row) - len(strings.TrimLeft(row, " ")); lead < 5 {
+		t.Errorf("the label is centred: %q", row)
 	}
 }

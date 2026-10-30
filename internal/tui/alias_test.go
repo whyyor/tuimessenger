@@ -165,17 +165,17 @@ func TestSwitcherSkipsOpenChat(t *testing.T) {
 }
 
 func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
-	fs := NewFuzzySearchModal(aliasMain(t), 42, 12)
-	const w, h = 60, 16
+	fs := NewFuzzySearchModal(aliasMain(t), 46, 16)
+	const w, h = 60, 18
 	sim := tcell.NewSimulationScreen("")
 	_ = sim.Init()
 	sim.SetSize(w, h)
 	fs.Draw(sim)
 	lines := screenText(sim, w, h)
 	text := strings.Join(lines, "\n")
-	for _, gone := range []string{"┌", "└", "╭", "│", "rooms", "room>"} {
+	for _, gone := range []string{"┌", "└", "╭", "│", "▀", "▄", "rooms", "room>"} {
 		if strings.Contains(text, gone) {
-			t.Errorf("no border or stock title (%q):\n%s", gone, text)
+			t.Errorf("no border, half-rows or stock title (%q):\n%s", gone, text)
 		}
 	}
 	bgAt := func(x, y int) tcell.Color {
@@ -183,21 +183,19 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 		_, bg, _ := st.Decompose()
 		return bg
 	}
-	top, left, right := -1, -1, -1
-	for y, line := range lines {
-		if x := strings.Index(line, "Chats"); x >= 0 && top < 0 {
-			top = y
-			col := len([]rune(line[:x]))
-			if bgAt(col, y) != ColorTitlePill {
-				t.Errorf("the title is a filled pill")
+	find := func(s string) int {
+		for y, l := range lines {
+			if strings.Contains(l, s) {
+				return y
 			}
 		}
+		t.Fatalf("no %q:\n%s", s, text)
+		return -1
 	}
-	if top < 0 {
-		t.Fatalf("no title:\n%s", text)
-	}
+	top := find("Chats")
+	left, right := -1, -1
 	for x := 0; x < w; x++ {
-		if bgAt(x, top+1) == ColorPanel {
+		if bgAt(x, top) == ColorPanel {
 			if left < 0 {
 				left = x
 			}
@@ -205,45 +203,52 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 		}
 	}
 	if left < 0 {
-		t.Fatal("the inside should be a solid panel, not the terminal background")
+		t.Fatal("the pill sits inside the panel's top row")
 	}
-	line := []rune(lines[top])
-	start := strings.Index(lines[top], "Chats")
-	pill := len([]rune(lines[top][:start])) - 1
-	if centre := (left + right) / 2; pill+3 < centre-1 || pill+3 > centre+1 || len(line) == 0 {
-		t.Errorf("the pill should be centred: pill at %d, panel %d..%d", pill, left, right)
+	col := len([]rune(lines[top][:strings.Index(lines[top], "Chats")]))
+	if bgAt(col, top) != ColorTitlePill || ColorTitlePill != ColorSelectionBackground {
+		t.Error("the title is a pill in the selection's red")
 	}
-	if !strings.Contains(text, "›") {
-		t.Error("the prompt stays")
+	if centre := (left + right) / 2; col < centre-4 || col > centre+2 {
+		t.Errorf("the pill is centred: %d in %d..%d", col, left, right)
 	}
-	if ColorTitlePill != ColorSelectionBackground {
-		t.Error("the pill matches the selection's red ▌")
+	// Prompt + count, a blank row, the label, then the list, best first.
+	if y := find("2 / 2"); y != top+1 {
+		t.Errorf("the count sits on the prompt row: %d", y)
 	}
-	// The pill above the panel, ▀ (half a row) under the prompt.
-	edgeAt := func(x, y int) (rune, tcell.Color) {
-		r, _, st, _ := sim.GetContent(x, y)
-		fg, _, _ := st.Decompose()
-		return r, fg
+	if strings.TrimSpace(lines[top+2]) != "" {
+		t.Errorf("a blank row under the prompt: %q", lines[top+2])
 	}
-	if bgAt(left, top) == ColorPanel || bgAt(left, top+1) != ColorPanel {
-		t.Error("the pill sits above the panel, which starts on the next row")
+	if y := find("ctrl+p peek"); y != top+3 {
+		t.Errorf("the label follows: %d", y)
 	}
-	count := -1
-	for y, l := range lines {
-		if strings.Contains(l, "ctrl+p peek") {
-			count = y
+	if r, _, _, _ := sim.GetContent(left+1, top+4); r != '▌' {
+		t.Error("the best match is first, selected")
+	}
+	// One full row of panel padding at the bottom.
+	bottom := -1
+	for y := h - 1; y >= 0 && bottom < 0; y-- {
+		if bgAt(left, y) == ColorPanel {
+			bottom = y
 		}
 	}
-	if count < 1 || strings.TrimSpace(lines[count-1]) != "" || bgAt(left, count-1) != ColorPanel {
-		t.Errorf("an empty panel row above the count line")
+	if strings.TrimSpace(lines[bottom]) != "" {
+		t.Errorf("the last panel row is padding: %q", lines[bottom])
 	}
-	prompt := -1
-	for y, l := range lines {
-		if strings.Contains(l, "›") {
-			prompt = y
-		}
+}
+
+func TestSwitcherArrowsGoDownTheList(t *testing.T) {
+	main := aliasMain(t)
+	main.config.Keybindings = config.ParsedKeybindings{Modal: map[config.Keybind]string{
+		{Key: tcell.KeyDown}: "select_next", {Key: tcell.KeyUp}: "select_prev",
+	}}
+	fs := NewFuzzySearchModal(main, 46, 16)
+	fs.OnKeyEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	if fs.selected != 1 {
+		t.Errorf("↓ moves to the next match below, got %d", fs.selected)
 	}
-	if r, fg := edgeAt(left, prompt+1); prompt < 0 || r != '▀' || fg != ColorPanel {
-		t.Errorf("half a row of panel under the prompt: %q", r)
+	fs.OnKeyEvent(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone))
+	if fs.selected != 0 {
+		t.Errorf("↑ goes back up, got %d", fs.selected)
 	}
 }

@@ -79,23 +79,23 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		SetBackgroundColor(tcell.ColorDefault)
 	fs.search.Focus()
 
-	// The palette's prompt: › in the composer's purple.
+	// Telescope's proportions: the prompt on top (a search icon over the chat
+	// icons, typing over the names, the count at the right), a blank row, a
+	// centred label, then the list, best match first.
 	prompt := mauview.NewTextView().
-		SetText("› ").
+		SetText("  \uf002 ").
 		SetTextColor(ColorComposerBar)
 	inputRow := mauview.NewFlex().
 		SetDirection(mauview.FlexColumn).
-		AddFixedComponent(prompt, 2).
-		AddProportionalComponent(fs.search, 1)
-
-	// fzf-style layout: results grow upward from a match counter and the
-	// prompt at the bottom.
+		AddFixedComponent(prompt, 4).
+		AddProportionalComponent(fs.search, 1).
+		AddFixedComponent(&fuzzyCountView{parent: fs}, fuzzyCountWidth)
 	flex := mauview.NewFlex().
 		SetDirection(mauview.FlexRow).
-		AddProportionalComponent(fs.results, 1).
-		AddFixedComponent(spacer{}, 1). // a row between the names and the count
-		AddFixedComponent(&fuzzyCountView{parent: fs}, 1).
-		AddFixedComponent(inputRow, 1)
+		AddFixedComponent(inputRow, 1).
+		AddFixedComponent(spacer{}, 1).
+		AddFixedComponent(fuzzyLabel{}, 1).
+		AddProportionalComponent(fs.results, 1)
 
 	// A solid borderless panel with a centred pill title; the borderless box
 	// only keeps "click outside closes".
@@ -145,18 +145,6 @@ func (fs *FuzzySearchModal) changeHandler(str string) {
 }
 
 func (fs *FuzzySearchModal) OnKeyEvent(event mauview.KeyEvent) bool {
-	// The list renders bottom-up, so the arrows work on visual rows: Down
-	// moves toward the prompt (better matches), Up away from it.
-	if len(fs.matches) > 0 && event.Modifiers() == 0 {
-		switch event.Key() {
-		case tcell.KeyUp:
-			fs.selected = (fs.selected + 1) % len(fs.matches)
-			return true
-		case tcell.KeyDown:
-			fs.selected = (fs.selected - 1 + len(fs.matches)) % len(fs.matches)
-			return true
-		}
-	}
 	// Ctrl+p peeks: opens the chat without sending seen this visit.
 	if event.Key() == tcell.KeyCtrlP {
 		if fs.selected < len(fs.matches) {
@@ -216,8 +204,8 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 	accentStyle := tcell.StyleDefault.Foreground(ColorSelectionBackground)
 	for visRow := 0; visRow < height; visRow++ {
 		i := fs.scrollOffset + visRow
-		// Best match sits at the bottom, next to the prompt.
-		y := height - 1 - visRow
+		// Best match first, right under the prompt.
+		y := visRow
 		if i >= len(fs.matches) {
 			break
 		}
@@ -246,29 +234,39 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 	}
 }
 
-// fuzzyCountView is the "12/775 ────" line between the results and the prompt.
+// fuzzyCountView is the dim "12 / 775" at the prompt's right, ending where
+// the unread dots do.
 type fuzzyCountView struct {
 	parent *FuzzySearchModal
 }
 
+const fuzzyCountWidth = 14
+
 func (fc *fuzzyCountView) Draw(screen mauview.Screen) {
 	fs := fc.parent
 	width, _ := screen.Size()
-	// The count lines up with the icons (column 2), the rule runs to the edge.
-	count := fmt.Sprintf("%d/%d ", len(fs.matches), len(fs.roomList))
-	widget.WriteLine(screen, mauview.AlignLeft, count, 2, 0, width, tcell.StyleDefault.Foreground(tcell.PaletteColor(3)))
-	ruleStyle := tcell.StyleDefault.Foreground(ColorBorder)
-	end := width
-	// The peek key, on the rule's right end, when there's room for it.
-	const peekHint = " ctrl+p peek "
-	if hw := runewidth.StringWidth(peekHint); end-hw > 2+runewidth.StringWidth(count)+4 {
-		end -= hw
-		widget.WriteLine(screen, mauview.AlignLeft, peekHint, end, 0, hw, tcell.StyleDefault.Foreground(ColorStatusText))
-	}
-	for x := 2 + runewidth.StringWidth(count); x < end; x++ {
-		screen.SetContent(x, 0, '─', nil, ruleStyle)
-	}
+	count := fmt.Sprintf("%d / %d", len(fs.matches), len(fs.roomList))
+	cw := runewidth.StringWidth(count)
+	widget.WriteLine(screen, mauview.AlignLeft, count, max(width-1-cw, 0), 0, cw, tcell.StyleDefault.Foreground(ColorStatusText))
 }
+
+// fuzzyLabel is the centred dim line over the list, like Telescope's
+// "Results", carrying the keys.
+type fuzzyLabel struct{}
+
+func (fuzzyLabel) Draw(screen mauview.Screen) {
+	width, _ := screen.Size()
+	label := "enter open  ·  ctrl+p peek"
+	if runewidth.StringWidth(label) > width {
+		label = "ctrl+p peek"
+	}
+	lw := runewidth.StringWidth(label)
+	widget.WriteLine(screen, mauview.AlignLeft, label, max((width-lw)/2, 0), 0, lw, tcell.StyleDefault.Foreground(ColorStatusText))
+}
+
+func (fuzzyLabel) OnKeyEvent(mauview.KeyEvent) bool     { return false }
+func (fuzzyLabel) OnPasteEvent(mauview.PasteEvent) bool { return false }
+func (fuzzyLabel) OnMouseEvent(mauview.MouseEvent) bool { return false }
 
 func (fc *fuzzyCountView) OnKeyEvent(_ mauview.KeyEvent) bool     { return false }
 func (fc *fuzzyCountView) OnPasteEvent(_ mauview.PasteEvent) bool { return false }
@@ -288,8 +286,8 @@ var (
 )
 
 // panelFrame draws a component on a solid panel with no border: the title
-// as a centred pill sitting on top of it like a tab, a cell of padding at
-// the sides, and half a row (a ▀ edge) below the prompt.
+// as a centred pill in the panel's top row, then the component with one
+// cell of padding at the sides and one row at the bottom.
 type panelFrame struct {
 	inner mauview.Component
 	title string
@@ -299,12 +297,6 @@ func (f *panelFrame) Draw(screen mauview.Screen) {
 	w, h := screen.Size()
 	panel := &panelScreen{Screen: screen, bg: ColorPanel}
 	panel.Fill(' ', tcell.StyleDefault)
-	// The title row is outside the panel; the last row is its upper half.
-	edge := tcell.StyleDefault.Foreground(ColorPanel)
-	for x := 0; x < w; x++ {
-		screen.SetContent(x, 0, ' ', nil, tcell.StyleDefault)
-		screen.SetContent(x, h-1, '▀', nil, edge)
-	}
 	if tw := runewidth.StringWidth(f.title); tw <= w {
 		widget.WriteLine(screen, mauview.AlignLeft, f.title, (w-tw)/2, 0, tw,
 			tcell.StyleDefault.Background(ColorTitlePill).Foreground(ColorOnTitlePill))
