@@ -42,6 +42,8 @@ type UserPreferences struct {
 	// ShowUserList turns on the member list (Ctrl+b); off by default.
 	ShowUserList bool `yaml:"-"`
 	HideRoomList bool `yaml:"hide_room_list"`
+	// SidebarOnStart shows the sidebar at launch (Ctrl+p toggles it).
+	SidebarOnStart bool `yaml:"sidebar_on_start"`
 	// HideAliases keeps chat aliases out of lists; they still match in search.
 	HideAliases          bool `yaml:"hide_aliases"`
 	HideTimestamp        bool `yaml:"hide_timestamp"`

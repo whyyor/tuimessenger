@@ -114,6 +114,12 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		sidebar = "Show sidebar"
 	}
 	items = append(items, cmd(sidebar, keyHint(main, "toggle_sidebar"), view.toggleSidebar))
+	onStart := view.config.Preferences.SidebarOnStart
+	items = append(items, cmd("Show sidebar on startup: "+onOff(onStart)+" → "+onOff(!onStart), "", func() {
+		view.config.Preferences.SidebarOnStart = !onStart
+		go view.config.Save()
+		toasts.Show(toastSuccess, "Sidebar on startup: "+onOff(!onStart))
+	}))
 	aliases := "Hide aliases"
 	if view.config.Preferences.HideAliases {
 		aliases = "Show aliases"

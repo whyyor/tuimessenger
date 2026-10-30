@@ -66,6 +66,9 @@ type MainView struct {
 	parent *GomuksTUI
 }
 
+// roomListWidth is the sidebar's width in columns.
+const roomListWidth = 25
+
 func (ui *GomuksTUI) NewMainView() mauview.Component {
 	mainView := &MainView{
 		flex:     mauview.NewFlex().SetDirection(mauview.FlexColumn),
@@ -81,7 +84,7 @@ func (ui *GomuksTUI) NewMainView() mauview.Component {
 	//mainView.cmdProcessor = NewCommandProcessor(mainView)
 
 	mainView.flex.
-		AddFixedComponent(mainView.roomList, 25).
+		AddFixedComponent(mainView.roomList, roomListWidth).
 		AddProportionalComponent(mainView.roomView, 1)
 	mainView.BumpFocus(nil)
 
@@ -117,6 +120,12 @@ func (view *MainView) Draw(screen mauview.Screen) {
 		}
 	} else {
 		view.flex.Draw(screen)
+		if view.currentRoom == nil {
+			// No chat open: the same hint, in the chat area beside the sidebar.
+			width, height := screen.Size()
+			view.drawEmptyHint(&mauview.ProxyScreen{Parent: screen, OffsetX: roomListWidth,
+				Width: max(width-roomListWidth, 0), Height: height})
+		}
 	}
 
 	if view.modal != nil {
@@ -187,9 +196,31 @@ func (view *MainView) drawEmptyHint(screen mauview.Screen) {
 	case n > 1:
 		hint = fmt.Sprintf("1–%d to open · ↑↓ browse · Ctrl+k search · Ctrl+p commands", n)
 	}
+	if runewidth.StringWidth(hint) > width {
+		hint = "↑↓ browse · Ctrl+k search · Ctrl+p commands"
+	}
 	x := max(0, (width-runewidth.StringWidth(hint))/2)
 	widget.WriteLine(screen, mauview.AlignLeft, hint, x, hintY, width,
 		tcell.StyleDefault.Foreground(ColorStatusText))
+}
+
+// hintClick opens the unread chat clicked on the hint screen; with the
+// sidebar shown, only clicks right of it count.
+func (view *MainView) hintClick(event mauview.MouseEvent) bool {
+	if view.currentRoom != nil || event.Buttons() != tcell.Button1 || event.HasMotion() {
+		return false
+	}
+	x, y := event.Position()
+	if !view.config.Preferences.HideRoomList && x < roomListWidth {
+		return false
+	}
+	for _, row := range view.hintRows {
+		if row.y == y {
+			view.SwitchRoom(row.roomID)
+			return true
+		}
+	}
+	return false
 }
 
 // hintRoomForKey maps a bare 1–9 to the matching unread row, or "".
@@ -380,7 +411,7 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		view.MarkUnread()
 		return true
 	}
-	if view.modal == nil && view.currentRoom == nil && view.config.Preferences.HideRoomList {
+	if view.modal == nil && view.currentRoom == nil {
 		if roomID := hintRoomForKey(view.hintRows, event); roomID != "" {
 			view.SwitchRoom(roomID)
 			return true
@@ -482,17 +513,10 @@ func (view *MainView) OnMouseEvent(event mauview.MouseEvent) bool {
 	if view.modal != nil {
 		return view.modal.OnMouseEvent(event)
 	}
+	if view.hintClick(event) {
+		return true
+	}
 	if view.config.Preferences.HideRoomList {
-		if view.currentRoom == nil && event.Buttons() == tcell.Button1 && !event.HasMotion() {
-			// A click on an unread row of the hint screen opens that chat.
-			_, y := event.Position()
-			for _, row := range view.hintRows {
-				if row.y == y {
-					view.SwitchRoom(row.roomID)
-					return true
-				}
-			}
-		}
 		return view.roomView.OnMouseEvent(event)
 	}
 	return view.flex.OnMouseEvent(event)
