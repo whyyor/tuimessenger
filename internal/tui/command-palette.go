@@ -504,36 +504,33 @@ func (p *CommandPalette) drawRow(screen mauview.Screen, row paletteRow, selected
 	}
 	base := tcell.StyleDefault
 	if selected {
-		base = tcell.StyleDefault.Background(ColorHighlight).Foreground(ColorOnHighlight)
-		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x, y, width, base)
+		// Like Ctrl+k's selection: a grey bar with a purple ▌, margins kept
+		// empty at both ends.
+		base = base.Background(ColorBarBackground)
+		dim = dim.Background(ColorBarBackground)
+		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x+1, y, width-2, base)
+		screen.SetContent(x+1, y, '▌', nil, base.Foreground(ColorHighlight))
 	}
 	item := row.item
 	detailW := runewidth.StringWidth(item.detail)
 	if detailW > 0 {
-		detailStyle := dim
-		if selected {
-			detailStyle = base
-		}
-		widget.WriteLine(screen, mauview.AlignLeft, item.detail, x+width-detailW-1, y, detailW, detailStyle)
+		widget.WriteLine(screen, mauview.AlignLeft, item.detail, x+width-detailW-2, y, detailW, dim)
 	}
-	titleX := x + 2
+	titleX := x + 3
 	if item.icon != "" {
-		iconStyle := base.Foreground(item.iconColor)
+		iconColor := item.iconColor
 		if selected {
-			iconStyle = base
+			iconColor = vivid(iconColor)
 		}
-		widget.WriteLine(screen, mauview.AlignLeft, item.icon, titleX, y, 2, iconStyle)
+		widget.WriteLine(screen, mauview.AlignLeft, item.icon, titleX, y, 2, base.Foreground(iconColor))
 		titleX += 2
 	}
-	titleMax := x + width - titleX - detailW - 2
+	titleMax := x + width - titleX - detailW - 3
 	if titleMax > 0 {
-		alias, aliasStyle := "", aliasDim(base)
+		alias := ""
 		if item.showAlias {
 			alias = item.alias
 		}
-		if selected {
-			aliasStyle = base
-		}
-		writeNameAlias(screen, titleX, y, titleMax, item.title, alias, base.Bold(selected), aliasStyle)
+		writeNameAlias(screen, titleX, y, titleMax, item.title, alias, base.Bold(selected), aliasDim(base))
 	}
 }

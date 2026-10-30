@@ -106,3 +106,30 @@ func TestPaletteRowsAndNavigation(t *testing.T) {
 		t.Errorf("no match should leave no rows")
 	}
 }
+
+func TestPaletteSelectionLikeSwitcher(t *testing.T) {
+	p := &CommandPalette{}
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(50, 1)
+	p.drawRow(sim, paletteRow{item: &paletteItem{title: "Resync with server", detail: "Ctrl+r"}}, true, 1, 0, 46)
+	cell := func(x int) (rune, tcell.Color, tcell.Color) {
+		r, _, st, _ := sim.GetContent(x, 0)
+		fg, bg, _ := st.Decompose()
+		return r, fg, bg
+	}
+	if r, fg, bg := cell(2); r != '▌' || fg != ColorHighlight || bg != ColorBarBackground {
+		t.Errorf("a purple ▌ on the grey bar: %q %v %v", r, fg, bg)
+	}
+	if _, _, bg := cell(45); bg != ColorBarBackground {
+		t.Error("the grey bar runs to the last inner column")
+	}
+	for _, x := range []int{1, 46} {
+		if _, _, bg := cell(x); bg == ColorBarBackground {
+			t.Errorf("column %d stays an empty margin", x)
+		}
+	}
+	if _, fg, _ := cell(4); fg == ColorOnHighlight {
+		t.Error("text keeps its own colour, not white-on-purple")
+	}
+}
