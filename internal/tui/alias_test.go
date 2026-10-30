@@ -164,7 +164,7 @@ func TestSwitcherSkipsOpenChat(t *testing.T) {
 	}
 }
 
-func TestSwitcherUsesOurFrame(t *testing.T) {
+func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	fs := NewFuzzySearchModal(aliasMain(t), 42, 12)
 	const w, h = 60, 16
 	sim := tcell.NewSimulationScreen("")
@@ -173,20 +173,47 @@ func TestSwitcherUsesOurFrame(t *testing.T) {
 	fs.Draw(sim)
 	lines := screenText(sim, w, h)
 	text := strings.Join(lines, "\n")
-	for _, want := range []string{"┌─", "Chats", "└", "┘", " › "} {
-		if !strings.Contains(text, want) {
-			t.Errorf("missing %q:\n%s", want, text)
+	for _, gone := range []string{"┌", "└", "╭", "│", "rooms", "room>"} {
+		if strings.Contains(text, gone) {
+			t.Errorf("no border or stock title (%q):\n%s", gone, text)
 		}
 	}
-	if strings.Contains(text, "rooms") || strings.Contains(text, "room>") {
-		t.Errorf("the stock title and prompt are gone:\n%s", text)
+	bgAt := func(x, y int) tcell.Color {
+		_, _, st, _ := sim.GetContent(x, y)
+		_, bg, _ := st.Decompose()
+		return bg
 	}
+	top, left, right := -1, -1, -1
 	for y, line := range lines {
-		if x := strings.Index(line, "Chats"); x >= 0 {
-			_, _, st, _ := sim.GetContent(len([]rune(line[:x])), y)
-			if fg, _, _ := st.Decompose(); fg != ColorPillYellow {
-				t.Errorf("title in the popups' yellow, got %v", fg)
+		if x := strings.Index(line, "Chats"); x >= 0 && top < 0 {
+			top = y
+			col := len([]rune(line[:x]))
+			if bgAt(col, y) != ColorTitlePill {
+				t.Errorf("the title is a filled pill")
 			}
 		}
+	}
+	if top < 0 {
+		t.Fatalf("no title:\n%s", text)
+	}
+	for x := 0; x < w; x++ {
+		if bgAt(x, top+1) == ColorPanel {
+			if left < 0 {
+				left = x
+			}
+			right = x
+		}
+	}
+	if left < 0 {
+		t.Fatal("the inside should be a solid panel, not the terminal background")
+	}
+	line := []rune(lines[top])
+	start := strings.Index(lines[top], "Chats")
+	pill := len([]rune(lines[top][:start])) - 1
+	if centre := (left + right) / 2; pill+3 < centre-1 || pill+3 > centre+1 || len(line) == 0 {
+		t.Errorf("the pill should be centred: pill at %d, panel %d..%d", pill, left, right)
+	}
+	if !strings.Contains(text, "›") {
+		t.Error("the prompt stays")
 	}
 }

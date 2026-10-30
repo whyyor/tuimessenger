@@ -96,9 +96,9 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		AddFixedComponent(&fuzzyCountView{parent: fs}, 1).
 		AddFixedComponent(inputRow, 1)
 
-	// Our own thin sharp frame and icon title, like the palette; the
-	// borderless box only keeps "click outside closes".
-	fs.container = mauview.NewBox(&thinFrame{inner: flex, title: " \uf086 Chats "}).
+	// A solid borderless panel with a centred pill title; the borderless box
+	// only keeps "click outside closes".
+	fs.container = mauview.NewBox(&panelFrame{inner: flex, title: " Chats "}).
 		SetBorder(false).
 		SetBlurCaptureFunc(func() bool {
 			fs.parent.HideModal()
@@ -280,30 +280,77 @@ func (fr *fuzzyResultsView) OnKeyEvent(_ mauview.KeyEvent) bool     { return fal
 func (fr *fuzzyResultsView) OnPasteEvent(_ mauview.PasteEvent) bool { return false }
 func (fr *fuzzyResultsView) OnMouseEvent(_ mauview.MouseEvent) bool { return false }
 
-// thinFrame draws a sharp-cornered box around a component, one cell in.
-type thinFrame struct {
+// Switcher panel colours: a solid dark panel, a filled pink title pill.
+var (
+	ColorPanel       = tcell.NewHexColor(0x131318)
+	ColorTitlePill   = tcell.NewHexColor(0xca5681)
+	ColorOnTitlePill = tcell.ColorWhite
+)
+
+// panelFrame draws a component on a solid panel with no border, a cell of
+// padding all round, and its title as a centred pill on the top row.
+type panelFrame struct {
 	inner mauview.Component
 	title string
 }
 
-func (f *thinFrame) Draw(screen mauview.Screen) {
+func (f *panelFrame) Draw(screen mauview.Screen) {
 	w, h := screen.Size()
-	drawSharpBox(screen, 0, 0, w, h, f.title)
-	f.inner.Draw(&mauview.ProxyScreen{Parent: screen, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-2, 0)})
+	panel := &panelScreen{Screen: screen, bg: ColorPanel}
+	panel.Fill(' ', tcell.StyleDefault)
+	if tw := runewidth.StringWidth(f.title); tw <= w {
+		widget.WriteLine(screen, mauview.AlignLeft, f.title, (w-tw)/2, 0, tw,
+			tcell.StyleDefault.Background(ColorTitlePill).Foreground(ColorOnTitlePill))
+	}
+	f.inner.Draw(&mauview.ProxyScreen{Parent: panel, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-2, 0)})
 }
 
-func (f *thinFrame) OnKeyEvent(event mauview.KeyEvent) bool     { return f.inner.OnKeyEvent(event) }
-func (f *thinFrame) OnPasteEvent(event mauview.PasteEvent) bool { return f.inner.OnPasteEvent(event) }
-func (f *thinFrame) OnMouseEvent(event mauview.MouseEvent) bool { return f.inner.OnMouseEvent(event) }
+func (f *panelFrame) OnKeyEvent(event mauview.KeyEvent) bool     { return f.inner.OnKeyEvent(event) }
+func (f *panelFrame) OnPasteEvent(event mauview.PasteEvent) bool { return f.inner.OnPasteEvent(event) }
+func (f *panelFrame) OnMouseEvent(event mauview.MouseEvent) bool { return f.inner.OnMouseEvent(event) }
 
-func (f *thinFrame) Focus() {
+func (f *panelFrame) Focus() {
 	if fc, ok := f.inner.(mauview.Focusable); ok {
 		fc.Focus()
 	}
 }
 
-func (f *thinFrame) Blur() {
+func (f *panelFrame) Blur() {
 	if fc, ok := f.inner.(mauview.Focusable); ok {
 		fc.Blur()
 	}
 }
+
+// panelScreen paints the panel colour wherever a cell would otherwise show
+// the (transparent) terminal background.
+type panelScreen struct {
+	mauview.Screen
+	bg tcell.Color
+}
+
+func (p *panelScreen) style(st tcell.Style) tcell.Style {
+	if _, bg, _ := st.Decompose(); bg == tcell.ColorDefault {
+		return st.Background(p.bg)
+	}
+	return st
+}
+
+func (p *panelScreen) SetContent(x, y int, mainc rune, combc []rune, st tcell.Style) {
+	p.Screen.SetContent(x, y, mainc, combc, p.style(st))
+}
+
+func (p *panelScreen) SetCell(x, y int, st tcell.Style, ch ...rune) {
+	p.Screen.SetCell(x, y, p.style(st), ch...)
+}
+
+func (p *panelScreen) Fill(r rune, st tcell.Style) {
+	w, h := p.Size()
+	st = p.style(st)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			p.Screen.SetContent(x, y, r, nil, st)
+		}
+	}
+}
+
+func (p *panelScreen) Clear() { p.Fill(' ', tcell.StyleDefault) }
