@@ -93,6 +93,7 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 	flex := mauview.NewFlex().
 		SetDirection(mauview.FlexRow).
 		AddProportionalComponent(fs.results, 1).
+		AddFixedComponent(spacer{}, 1). // a row between the names and the count
 		AddFixedComponent(&fuzzyCountView{parent: fs}, 1).
 		AddFixedComponent(inputRow, 1)
 
@@ -286,10 +287,9 @@ var (
 	ColorOnTitlePill = ColorSelectionText
 )
 
-// panelFrame draws a component on a solid panel with no border. Rows are
-// whole cells, so half-blocks give half-row edges: the panel starts halfway
-// down the title row (the centred pill straddles the edge like a tab) and
-// ends half a row below the prompt. A cell of padding at the sides.
+// panelFrame draws a component on a solid panel with no border: the title
+// as a centred pill sitting on top of it like a tab, a cell of padding at
+// the sides, and half a row (a ▀ edge) below the prompt.
 type panelFrame struct {
 	inner mauview.Component
 	title string
@@ -299,10 +299,10 @@ func (f *panelFrame) Draw(screen mauview.Screen) {
 	w, h := screen.Size()
 	panel := &panelScreen{Screen: screen, bg: ColorPanel}
 	panel.Fill(' ', tcell.StyleDefault)
-	// The lower half of the title row and the upper half of the last row.
+	// The title row is outside the panel; the last row is its upper half.
 	edge := tcell.StyleDefault.Foreground(ColorPanel)
 	for x := 0; x < w; x++ {
-		screen.SetContent(x, 0, '▄', nil, edge)
+		screen.SetContent(x, 0, ' ', nil, tcell.StyleDefault)
 		screen.SetContent(x, h-1, '▀', nil, edge)
 	}
 	if tw := runewidth.StringWidth(f.title); tw <= w {
@@ -361,3 +361,11 @@ func (p *panelScreen) Fill(r rune, st tcell.Style) {
 }
 
 func (p *panelScreen) Clear() { p.Fill(' ', tcell.StyleDefault) }
+
+// spacer is an empty row in a flex layout.
+type spacer struct{}
+
+func (spacer) Draw(mauview.Screen)                  {}
+func (spacer) OnKeyEvent(mauview.KeyEvent) bool     { return false }
+func (spacer) OnPasteEvent(mauview.PasteEvent) bool { return false }
+func (spacer) OnMouseEvent(mauview.MouseEvent) bool { return false }

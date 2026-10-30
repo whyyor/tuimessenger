@@ -219,17 +219,23 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	if ColorTitlePill != ColorSelectionBackground {
 		t.Error("the pill matches the selection's red ▌")
 	}
-	// Half-row edges: ▄ beside the pill (the panel starts mid-row), ▀ under the prompt.
+	// The pill above the panel, ▀ (half a row) under the prompt.
 	edgeAt := func(x, y int) (rune, tcell.Color) {
 		r, _, st, _ := sim.GetContent(x, y)
 		fg, _, _ := st.Decompose()
 		return r, fg
 	}
-	if r, fg := edgeAt(left, top); r != '▄' || fg != ColorPanel {
-		t.Errorf("the title row is the panel's lower half beside the pill: %q", r)
+	if bgAt(left, top) == ColorPanel || bgAt(left, top+1) != ColorPanel {
+		t.Error("the pill sits above the panel, which starts on the next row")
 	}
-	if strings.TrimSpace(lines[top+1]) != "" && !strings.Contains(lines[top+1], "Mariana") && !strings.Contains(lines[top+1], "Peter") {
-		t.Errorf("no extra gap row under the title: %q", lines[top+1])
+	count := -1
+	for y, l := range lines {
+		if strings.Contains(l, "ctrl+p peek") {
+			count = y
+		}
+	}
+	if count < 1 || strings.TrimSpace(lines[count-1]) != "" || bgAt(left, count-1) != ColorPanel {
+		t.Errorf("an empty panel row above the count line")
 	}
 	prompt := -1
 	for y, l := range lines {
