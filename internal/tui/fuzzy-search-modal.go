@@ -50,6 +50,10 @@ type FuzzySearchModal struct {
 	roomRecency []time.Time
 
 	parent *MainView
+
+	// The centred box and the size it wants; Draw fits it to the screen.
+	center       *mauview.Centerer
+	wantW, wantH int
 }
 
 func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearchModal {
@@ -105,12 +109,22 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 			return true
 		})
 
-	fs.Component = mauview.Center(fs.container, width, height).SetAlwaysFocusChild(true)
+	fs.center = mauview.Center(fs.container, width, height).SetAlwaysFocusChild(true)
+	fs.Component = fs.center
+	fs.wantW, fs.wantH = width, height
 
 	// SetChangedFunc only fires on edits, so seed the initial full list.
 	fs.changeHandler("")
 
 	return fs
+}
+
+// Draw centres the box at its wanted size, shrunk to fit small screens.
+func (fs *FuzzySearchModal) Draw(screen mauview.Screen) {
+	sw, sh := screen.Size()
+	fs.center.SetWidth(max(min(fs.wantW, sw-4), 1))
+	fs.center.SetHeight(max(min(fs.wantH, sh-2), 1))
+	fs.center.Draw(screen)
 }
 
 func (fs *FuzzySearchModal) Focus() {

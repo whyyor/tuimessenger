@@ -105,7 +105,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		return &paletteItem{section: sectionCommands, title: title, detail: detail, run: run}
 	}
 	items := []*paletteItem{
-		cmd("Search chats", keyHint(main, "search_rooms"), func() { view.ShowModal(NewFuzzySearchModal(view, 46, 16)) }),
+		cmd("Search chats", keyHint(main, "search_rooms"), func() { view.ShowModal(NewFuzzySearchModal(view, 60, 18)) }),
 		cmd("Resync with server", keyHint(main, "resync"), func() { go view.parent.Resync() }),
 		cmd("Next chat with activity", keyHint(main, "next_active_room"), func() { view.SwitchRoom(view.roomList.NextWithActivity()) }),
 	}

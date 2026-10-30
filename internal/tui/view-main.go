@@ -449,7 +449,7 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 	case "prev_room":
 		view.SwitchRoom(view.roomList.Previous())
 	case "search_rooms":
-		view.ShowModal(NewFuzzySearchModal(view, 46, 16))
+		view.ShowModal(NewFuzzySearchModal(view, 60, 18))
 	case "scroll_up":
 		msgView := view.currentRoom.MessageView()
 		msgView.AddScrollOffset(msgView.TotalHeight())

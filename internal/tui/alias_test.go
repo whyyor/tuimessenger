@@ -257,3 +257,27 @@ func TestSwitcherArrowsFollowTheScreen(t *testing.T) {
 		t.Errorf("↓ goes back toward the prompt, got %d", fs.selected)
 	}
 }
+
+func TestSwitcherFitsSmallScreens(t *testing.T) {
+	fs := NewFuzzySearchModal(aliasMain(t), 60, 18)
+	for _, size := range [][2]int{{100, 30}, {40, 12}} {
+		sim := tcell.NewSimulationScreen("")
+		_ = sim.Init()
+		sim.SetSize(size[0], size[1])
+		fs.Draw(sim)
+		left, right := -1, -1
+		for x := 0; x < size[0]; x++ {
+			_, _, st, _ := sim.GetContent(x, size[1]/2)
+			if _, bg, _ := st.Decompose(); bg == ColorPanel || bg == ColorBarBackground {
+				if left < 0 {
+					left = x
+				}
+				right = x
+			}
+		}
+		want := min(60, size[0]-4)
+		if right-left+1 != want || left < 2 {
+			t.Errorf("%dx%d: panel %d..%d, want %d wide inside the edges", size[0], size[1], left, right, want)
+		}
+	}
+}
