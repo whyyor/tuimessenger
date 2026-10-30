@@ -286,9 +286,10 @@ var (
 	ColorOnTitlePill = ColorSelectionText
 )
 
-// panelFrame draws a component on a solid panel with no border: its title
-// as a centred pill on the top row, a blank row under it, a cell of padding
-// at the sides and none at the bottom (the prompt is the last row).
+// panelFrame draws a component on a solid panel with no border. Rows are
+// whole cells, so half-blocks give half-row edges: the panel starts halfway
+// down the title row (the centred pill straddles the edge like a tab) and
+// ends half a row below the prompt. A cell of padding at the sides.
 type panelFrame struct {
 	inner mauview.Component
 	title string
@@ -298,11 +299,17 @@ func (f *panelFrame) Draw(screen mauview.Screen) {
 	w, h := screen.Size()
 	panel := &panelScreen{Screen: screen, bg: ColorPanel}
 	panel.Fill(' ', tcell.StyleDefault)
+	// The lower half of the title row and the upper half of the last row.
+	edge := tcell.StyleDefault.Foreground(ColorPanel)
+	for x := 0; x < w; x++ {
+		screen.SetContent(x, 0, '▄', nil, edge)
+		screen.SetContent(x, h-1, '▀', nil, edge)
+	}
 	if tw := runewidth.StringWidth(f.title); tw <= w {
 		widget.WriteLine(screen, mauview.AlignLeft, f.title, (w-tw)/2, 0, tw,
 			tcell.StyleDefault.Background(ColorTitlePill).Foreground(ColorOnTitlePill))
 	}
-	f.inner.Draw(&mauview.ProxyScreen{Parent: panel, OffsetX: 1, OffsetY: 2, Width: max(w-2, 0), Height: max(h-2, 0)})
+	f.inner.Draw(&mauview.ProxyScreen{Parent: panel, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-2, 0)})
 }
 
 func (f *panelFrame) OnKeyEvent(event mauview.KeyEvent) bool     { return f.inner.OnKeyEvent(event) }

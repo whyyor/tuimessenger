@@ -219,9 +219,17 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	if ColorTitlePill != ColorSelectionBackground {
 		t.Error("the pill matches the selection's red ▌")
 	}
-	// A blank panel row under the title; the prompt is the panel's last row.
-	if strings.TrimSpace(lines[top+1]) != "" || bgAt(left, top+1) != ColorPanel {
-		t.Errorf("a padding row under the title: %q", lines[top+1])
+	// Half-row edges: ▄ beside the pill (the panel starts mid-row), ▀ under the prompt.
+	edgeAt := func(x, y int) (rune, tcell.Color) {
+		r, _, st, _ := sim.GetContent(x, y)
+		fg, _, _ := st.Decompose()
+		return r, fg
+	}
+	if r, fg := edgeAt(left, top); r != '▄' || fg != ColorPanel {
+		t.Errorf("the title row is the panel's lower half beside the pill: %q", r)
+	}
+	if strings.TrimSpace(lines[top+1]) != "" && !strings.Contains(lines[top+1], "Mariana") && !strings.Contains(lines[top+1], "Peter") {
+		t.Errorf("no extra gap row under the title: %q", lines[top+1])
 	}
 	prompt := -1
 	for y, l := range lines {
@@ -229,7 +237,7 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 			prompt = y
 		}
 	}
-	if prompt < 0 || bgAt(left, prompt+1) == ColorPanel {
-		t.Errorf("no padding below the prompt (row %d)", prompt)
+	if r, fg := edgeAt(left, prompt+1); prompt < 0 || r != '▀' || fg != ColorPanel {
+		t.Errorf("half a row of panel under the prompt: %q", r)
 	}
 }
