@@ -7,8 +7,9 @@ import (
 // A quiet slate palette to replace the stock 16-color greens. Truecolor is
 // safe here: this fork targets Ghostty.
 var (
-	// ColorBarBackground is used for the topic bar at the top of a room.
-	ColorBarBackground = tcell.NewHexColor(0x2a2a37)
+	// ColorBarBackground is the selected row's bar in Ctrl+p and Ctrl+k: the
+	// same grey as the borders, so the two always match.
+	ColorBarBackground = ColorBorder
 	// ColorBarText is the foreground on top of ColorBarBackground.
 	ColorBarText = tcell.NewHexColor(0xc8c9c5)
 	// ColorSelectionBackground marks the selected room in the room list.

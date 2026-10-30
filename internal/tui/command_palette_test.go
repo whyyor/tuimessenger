@@ -133,3 +133,9 @@ func TestPaletteSelectionLikeSwitcher(t *testing.T) {
 		t.Error("text keeps its own colour, not white-on-purple")
 	}
 }
+
+func TestSelectionBarMatchesBorder(t *testing.T) {
+	if ColorBarBackground != ColorBorder {
+		t.Errorf("selection bar %06x should match the border %06x", ColorBarBackground.Hex(), ColorBorder.Hex())
+	}
+}
