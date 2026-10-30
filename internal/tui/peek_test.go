@@ -68,17 +68,3 @@ func TestPeekShowsPillAndReadHint(t *testing.T) {
 		t.Errorf("both pills should show: %q", row)
 	}
 }
-
-func TestSwitcherShowsPeekKey(t *testing.T) {
-	sim := tcell.NewSimulationScreen("")
-	_ = sim.Init()
-	sim.SetSize(40, 1)
-	fuzzyLabel{}.Draw(sim)
-	row := screenText(sim, 40, 1)[0]
-	if !strings.Contains(row, "ctrl+p peek") {
-		t.Errorf("the label over the list mentions ctrl+p peek: %q", row)
-	}
-	if lead := len(row) - len(strings.TrimLeft(row, " ")); lead < 5 {
-		t.Errorf("the label is centred: %q", row)
-	}
-}
