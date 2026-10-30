@@ -212,8 +212,8 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	if centre := (left + right) / 2; col < centre-4 || col > centre+2 {
 		t.Errorf("the pill is centred: %d in %d..%d", col, left, right)
 	}
-	// Top: the faint caption right under the pill. Bottom: the list, a
-	// blank row, the prompt with its count, then a padding row.
+	// Top: the faint caption right under the pill. Bottom: the list straight
+	// into the prompt, which is the panel's last row.
 	if y := find("ctrl+p peek"); y != top+1 {
 		t.Errorf("the caption sits right under the pill: %d", y)
 	} else {
@@ -224,14 +224,11 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 		}
 	}
 	prompt := find("2 / 2")
-	if strings.TrimSpace(lines[prompt-1]) != "" {
-		t.Errorf("a blank row above the prompt: %q", lines[prompt-1])
+	if r, _, _, _ := sim.GetContent(left+1, prompt-1); r != '▌' {
+		t.Error("the best match sits right above the prompt, no gap")
 	}
-	if r, _, _, _ := sim.GetContent(left+1, prompt-2); r != '▌' {
-		t.Error("the best match sits right above the prompt, selected")
-	}
-	if bgAt(left, prompt+1) != ColorPanel || strings.TrimSpace(lines[prompt+1]) != "" || bgAt(left, prompt+2) == ColorPanel {
-		t.Error("one padding row under the prompt")
+	if bgAt(left, prompt) != ColorPanel || bgAt(left, prompt+1) == ColorPanel {
+		t.Error("the prompt is the panel's last row")
 	}
 }
 

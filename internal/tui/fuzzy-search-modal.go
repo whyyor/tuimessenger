@@ -79,10 +79,10 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		SetBackgroundColor(tcell.ColorDefault)
 	fs.search.Focus()
 
-	// Telescope's proportions with the prompt at the bottom: a faint keys
-	// caption right under the pill, the list growing up to a blank row, then
-	// the prompt (a search icon under the chat icons, typing under the names,
-	// the count at the right). The best match sits right above the prompt.
+	// No gaps, top or bottom: a faint keys caption right under the pill, the
+	// list growing up from the prompt (a search icon under the chat icons,
+	// typing under the names, the count at the right), which is the panel's
+	// last row. The best match sits right above the prompt.
 	prompt := mauview.NewTextView().
 		SetText("  \uf002 ").
 		SetTextColor(ColorComposerBar)
@@ -95,7 +95,6 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		SetDirection(mauview.FlexRow).
 		AddFixedComponent(fuzzyLabel{}, 1).
 		AddProportionalComponent(fs.results, 1).
-		AddFixedComponent(spacer{}, 1).
 		AddFixedComponent(inputRow, 1)
 
 	// A solid borderless panel with a centred pill title; the borderless box
@@ -302,7 +301,7 @@ var (
 
 // panelFrame draws a component on a solid panel with no border: the title
 // as a centred pill in the panel's top row, then the component with one
-// cell of padding at the sides and one row at the bottom.
+// cell of padding at the sides, down to the last row.
 type panelFrame struct {
 	inner mauview.Component
 	title string
@@ -316,7 +315,7 @@ func (f *panelFrame) Draw(screen mauview.Screen) {
 		widget.WriteLine(screen, mauview.AlignLeft, f.title, (w-tw)/2, 0, tw,
 			tcell.StyleDefault.Background(ColorTitlePill).Foreground(ColorOnTitlePill))
 	}
-	f.inner.Draw(&mauview.ProxyScreen{Parent: panel, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-2, 0)})
+	f.inner.Draw(&mauview.ProxyScreen{Parent: panel, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-1, 0)})
 }
 
 func (f *panelFrame) OnKeyEvent(event mauview.KeyEvent) bool     { return f.inner.OnKeyEvent(event) }
