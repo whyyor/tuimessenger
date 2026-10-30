@@ -79,11 +79,10 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		SetBackgroundColor(tcell.ColorDefault)
 	fs.search.Focus()
 
-	// Telescope's proportions with the prompt at the bottom: a row under the
-	// pill, the list growing up to a blank row, the prompt (a search icon
-	// under the chat icons, typing under the names, the count at the right),
-	// and the keys centred in the last row. The best match sits right above
-	// the prompt.
+	// Telescope's proportions with the prompt at the bottom: a faint keys
+	// caption right under the pill, the list growing up to a blank row, then
+	// the prompt (a search icon under the chat icons, typing under the names,
+	// the count at the right). The best match sits right above the prompt.
 	prompt := mauview.NewTextView().
 		SetText("  \uf002 ").
 		SetTextColor(ColorComposerBar)
@@ -94,11 +93,10 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		AddFixedComponent(&fuzzyCountView{parent: fs}, fuzzyCountWidth)
 	flex := mauview.NewFlex().
 		SetDirection(mauview.FlexRow).
-		AddFixedComponent(spacer{}, 1).
+		AddFixedComponent(fuzzyLabel{}, 1).
 		AddProportionalComponent(fs.results, 1).
 		AddFixedComponent(spacer{}, 1).
-		AddFixedComponent(inputRow, 1).
-		AddFixedComponent(fuzzyLabel{}, 1)
+		AddFixedComponent(inputRow, 1)
 
 	// A solid borderless panel with a centred pill title; the borderless box
 	// only keeps "click outside closes".
@@ -265,7 +263,10 @@ func (fc *fuzzyCountView) Draw(screen mauview.Screen) {
 	widget.WriteLine(screen, mauview.AlignLeft, count, max(width-1-cw, 0), 0, cw, tcell.StyleDefault.Foreground(ColorStatusText))
 }
 
-// fuzzyLabel is the centred dim line of keys in the panel's last row.
+// fuzzyLabel is the faint centred caption of keys under the pill.
+// ColorCaption is dimmer than the status grey: a caption, not content.
+var ColorCaption = tcell.NewHexColor(0x5a5a66)
+
 type fuzzyLabel struct{}
 
 func (fuzzyLabel) Draw(screen mauview.Screen) {
@@ -275,7 +276,7 @@ func (fuzzyLabel) Draw(screen mauview.Screen) {
 		label = "ctrl+p peek"
 	}
 	lw := runewidth.StringWidth(label)
-	widget.WriteLine(screen, mauview.AlignLeft, label, max((width-lw)/2, 0), 0, lw, tcell.StyleDefault.Foreground(ColorStatusText))
+	widget.WriteLine(screen, mauview.AlignLeft, label, max((width-lw)/2, 0), 0, lw, tcell.StyleDefault.Foreground(ColorCaption))
 }
 
 func (fuzzyLabel) OnKeyEvent(mauview.KeyEvent) bool     { return false }
@@ -301,7 +302,7 @@ var (
 
 // panelFrame draws a component on a solid panel with no border: the title
 // as a centred pill in the panel's top row, then the component with one
-// cell of padding at the sides, down to the last row.
+// cell of padding at the sides and one row at the bottom.
 type panelFrame struct {
 	inner mauview.Component
 	title string
@@ -315,7 +316,7 @@ func (f *panelFrame) Draw(screen mauview.Screen) {
 		widget.WriteLine(screen, mauview.AlignLeft, f.title, (w-tw)/2, 0, tw,
 			tcell.StyleDefault.Background(ColorTitlePill).Foreground(ColorOnTitlePill))
 	}
-	f.inner.Draw(&mauview.ProxyScreen{Parent: panel, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-1, 0)})
+	f.inner.Draw(&mauview.ProxyScreen{Parent: panel, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-2, 0)})
 }
 
 func (f *panelFrame) OnKeyEvent(event mauview.KeyEvent) bool     { return f.inner.OnKeyEvent(event) }
