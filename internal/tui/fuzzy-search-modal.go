@@ -17,7 +17,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -80,17 +79,16 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 	fs.search.Focus()
 
 	// One row of space everywhere: under the pill, the list growing up to a
-	// blank row, the prompt (a search icon under the chat icons, typing under
-	// the names, the count at the right), then a padding row. The best match
-	// sits nearest the prompt.
+	// blank row, the prompt (a search icon just left of the chat icons, typing
+	// under the names), then a padding row. The best match sits nearest it.
 	prompt := mauview.NewTextView().
-		SetText("  \uf002 ").
+		// nf-md-magnify: a larger, bolder glyph than Font Awesome's search.
+		SetText(searchPrompt).
 		SetTextColor(ColorComposerBar)
 	inputRow := mauview.NewFlex().
 		SetDirection(mauview.FlexColumn).
 		AddFixedComponent(prompt, 4).
-		AddProportionalComponent(fs.search, 1).
-		AddFixedComponent(&fuzzyCountView{parent: fs}, fuzzyCountWidth)
+		AddProportionalComponent(fs.search, 1)
 	flex := mauview.NewFlex().
 		SetDirection(mauview.FlexRow).
 		AddFixedComponent(spacer{}, 1).
@@ -247,25 +245,9 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 	}
 }
 
-// fuzzyCountView is the dim "12 / 775" at the prompt's right, ending where
-// the unread dots do.
-type fuzzyCountView struct {
-	parent *FuzzySearchModal
-}
-
-const fuzzyCountWidth = 14
-
-func (fc *fuzzyCountView) Draw(screen mauview.Screen) {
-	fs := fc.parent
-	width, _ := screen.Size()
-	count := fmt.Sprintf("%d / %d", len(fs.matches), len(fs.roomList))
-	cw := runewidth.StringWidth(count)
-	widget.WriteLine(screen, mauview.AlignLeft, count, max(width-1-cw, 0), 0, cw, tcell.StyleDefault.Foreground(ColorStatusText))
-}
-
-func (fc *fuzzyCountView) OnKeyEvent(_ mauview.KeyEvent) bool     { return false }
-func (fc *fuzzyCountView) OnPasteEvent(_ mauview.PasteEvent) bool { return false }
-func (fc *fuzzyCountView) OnMouseEvent(_ mauview.MouseEvent) bool { return false }
+// searchPrompt puts the magnifier in column 1 and typing in column 4,
+// under the chat names.
+const searchPrompt = " \U000f0349  "
 
 func (fr *fuzzyResultsView) OnKeyEvent(_ mauview.KeyEvent) bool     { return false }
 func (fr *fuzzyResultsView) OnPasteEvent(_ mauview.PasteEvent) bool { return false }

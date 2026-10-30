@@ -220,7 +220,14 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	if strings.TrimSpace(lines[top+1]) != "" || bgAt(left, top+1) != ColorPanel {
 		t.Errorf("a blank panel row under the pill: %q", lines[top+1])
 	}
-	prompt := find("2 / 2")
+	prompt := find("\U000f0349")
+	if strings.Contains(text, "2 / 2") {
+		t.Error("no match count")
+	}
+	// The panel pads one column; the magnifier sits one left of the chat icons.
+	if x := len([]rune(lines[prompt][:strings.Index(lines[prompt], "\U000f0349")])); x != left+2 {
+		t.Errorf("the magnifier sits just left of the chat icons: col %d, panel from %d", x, left)
+	}
 	if strings.TrimSpace(lines[prompt-1]) != "" {
 		t.Errorf("a blank row above the prompt: %q", lines[prompt-1])
 	}
