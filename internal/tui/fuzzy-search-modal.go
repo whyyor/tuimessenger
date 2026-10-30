@@ -98,7 +98,7 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 
 	// A solid borderless panel with a centred pill title; the borderless box
 	// only keeps "click outside closes".
-	fs.container = mauview.NewBox(&panelFrame{inner: flex, title: " Chats "}).
+	fs.container = mauview.NewBox(&panelFrame{inner: flex, title: " \uf086 Chats "}).
 		SetBorder(false).
 		SetBlurCaptureFunc(func() bool {
 			fs.parent.HideModal()
@@ -280,13 +280,15 @@ func (fr *fuzzyResultsView) OnMouseEvent(_ mauview.MouseEvent) bool { return fal
 // Switcher panel colours: a solid dark panel, a filled pink title pill.
 var (
 	// Just above Ghostty's own background (#0b0e13): a deep, dark pane.
-	ColorPanel       = tcell.NewHexColor(0x0e0e13)
-	ColorTitlePill   = tcell.NewHexColor(0xca5681)
-	ColorOnTitlePill = tcell.ColorWhite
+	ColorPanel = tcell.NewHexColor(0x0e0e13)
+	// The pill is the selection's ▌ red, with the sidebar's off-white text.
+	ColorTitlePill   = ColorSelectionBackground
+	ColorOnTitlePill = ColorSelectionText
 )
 
-// panelFrame draws a component on a solid panel with no border, a cell of
-// padding all round, and its title as a centred pill on the top row.
+// panelFrame draws a component on a solid panel with no border: its title
+// as a centred pill on the top row, a blank row under it, a cell of padding
+// at the sides and none at the bottom (the prompt is the last row).
 type panelFrame struct {
 	inner mauview.Component
 	title string
@@ -300,7 +302,7 @@ func (f *panelFrame) Draw(screen mauview.Screen) {
 		widget.WriteLine(screen, mauview.AlignLeft, f.title, (w-tw)/2, 0, tw,
 			tcell.StyleDefault.Background(ColorTitlePill).Foreground(ColorOnTitlePill))
 	}
-	f.inner.Draw(&mauview.ProxyScreen{Parent: panel, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-2, 0)})
+	f.inner.Draw(&mauview.ProxyScreen{Parent: panel, OffsetX: 1, OffsetY: 2, Width: max(w-2, 0), Height: max(h-2, 0)})
 }
 
 func (f *panelFrame) OnKeyEvent(event mauview.KeyEvent) bool     { return f.inner.OnKeyEvent(event) }

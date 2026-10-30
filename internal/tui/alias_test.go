@@ -216,4 +216,20 @@ func TestSwitcherIsAPanelWithPillTitle(t *testing.T) {
 	if !strings.Contains(text, "›") {
 		t.Error("the prompt stays")
 	}
+	if ColorTitlePill != ColorSelectionBackground {
+		t.Error("the pill matches the selection's red ▌")
+	}
+	// A blank panel row under the title; the prompt is the panel's last row.
+	if strings.TrimSpace(lines[top+1]) != "" || bgAt(left, top+1) != ColorPanel {
+		t.Errorf("a padding row under the title: %q", lines[top+1])
+	}
+	prompt := -1
+	for y, l := range lines {
+		if strings.Contains(l, "›") {
+			prompt = y
+		}
+	}
+	if prompt < 0 || bgAt(left, prompt+1) == ColorPanel {
+		t.Errorf("no padding below the prompt (row %d)", prompt)
+	}
 }
