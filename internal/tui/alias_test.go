@@ -163,3 +163,30 @@ func TestSwitcherSkipsOpenChat(t *testing.T) {
 		t.Errorf("the store's room list must not change: %d", n)
 	}
 }
+
+func TestSwitcherUsesOurFrame(t *testing.T) {
+	fs := NewFuzzySearchModal(aliasMain(t), 42, 12)
+	const w, h = 60, 16
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(w, h)
+	fs.Draw(sim)
+	lines := screenText(sim, w, h)
+	text := strings.Join(lines, "\n")
+	for _, want := range []string{"╭─", "Chats", "╰", " › "} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "rooms") || strings.Contains(text, "room>") {
+		t.Errorf("the stock title and prompt are gone:\n%s", text)
+	}
+	for y, line := range lines {
+		if x := strings.Index(line, "Chats"); x >= 0 {
+			_, _, st, _ := sim.GetContent(len([]rune(line[:x])), y)
+			if fg, _, _ := st.Decompose(); fg != ColorPillYellow {
+				t.Errorf("title in the popups' yellow, got %v", fg)
+			}
+		}
+	}
+}

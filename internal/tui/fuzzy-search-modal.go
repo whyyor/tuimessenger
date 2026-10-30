@@ -79,12 +79,13 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		SetBackgroundColor(tcell.ColorDefault)
 	fs.search.Focus()
 
+	// The palette's prompt: › in the composer's purple.
 	prompt := mauview.NewTextView().
-		SetText(" room> ").
-		SetTextColor(tcell.PaletteColor(5))
+		SetText(" › ").
+		SetTextColor(ColorComposerBar)
 	inputRow := mauview.NewFlex().
 		SetDirection(mauview.FlexColumn).
-		AddFixedComponent(prompt, 7).
+		AddFixedComponent(prompt, 3).
 		AddProportionalComponent(fs.search, 1)
 
 	// fzf-style layout: results grow upward from a match counter and the
@@ -95,10 +96,10 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		AddFixedComponent(&fuzzyCountView{parent: fs}, 1).
 		AddFixedComponent(inputRow, 1)
 
-	fs.container = mauview.NewBox(flex).
-		SetBorder(true).
-		SetBorderStyle(tcell.StyleDefault.Foreground(ColorBorder)).
-		SetTitle(" rooms ").
+	// Our own thin rounded frame and icon title, like the other popups; the
+	// borderless box only keeps "click outside closes".
+	fs.container = mauview.NewBox(&thinFrame{inner: flex, title: " \uf086 Chats "}).
+		SetBorder(false).
 		SetBlurCaptureFunc(func() bool {
 			fs.parent.HideModal()
 			return true
@@ -278,3 +279,31 @@ func (fc *fuzzyCountView) OnMouseEvent(_ mauview.MouseEvent) bool { return false
 func (fr *fuzzyResultsView) OnKeyEvent(_ mauview.KeyEvent) bool     { return false }
 func (fr *fuzzyResultsView) OnPasteEvent(_ mauview.PasteEvent) bool { return false }
 func (fr *fuzzyResultsView) OnMouseEvent(_ mauview.MouseEvent) bool { return false }
+
+// thinFrame draws drawThinBox around a component, one cell in on each side.
+type thinFrame struct {
+	inner mauview.Component
+	title string
+}
+
+func (f *thinFrame) Draw(screen mauview.Screen) {
+	w, h := screen.Size()
+	drawThinBox(screen, 0, 0, w, h, f.title)
+	f.inner.Draw(&mauview.ProxyScreen{Parent: screen, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-2, 0)})
+}
+
+func (f *thinFrame) OnKeyEvent(event mauview.KeyEvent) bool     { return f.inner.OnKeyEvent(event) }
+func (f *thinFrame) OnPasteEvent(event mauview.PasteEvent) bool { return f.inner.OnPasteEvent(event) }
+func (f *thinFrame) OnMouseEvent(event mauview.MouseEvent) bool { return f.inner.OnMouseEvent(event) }
+
+func (f *thinFrame) Focus() {
+	if fc, ok := f.inner.(mauview.Focusable); ok {
+		fc.Focus()
+	}
+}
+
+func (f *thinFrame) Blur() {
+	if fc, ok := f.inner.(mauview.Focusable); ok {
+		fc.Blur()
+	}
+}
