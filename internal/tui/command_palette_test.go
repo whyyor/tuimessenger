@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
@@ -118,8 +119,8 @@ func TestPaletteSelectionLikeSwitcher(t *testing.T) {
 		fg, bg, _ := st.Decompose()
 		return r, fg, bg
 	}
-	if r, fg, bg := cell(2); r != '▌' || fg != ColorHighlight || bg != ColorBarBackground {
-		t.Errorf("a purple ▌ on the grey bar: %q %v %v", r, fg, bg)
+	if r, fg, bg := cell(2); r != '▌' || fg != ColorPaletteAccent || bg != ColorBarBackground {
+		t.Errorf("a green ▌ on the dark bar: %q %v %v", r, fg, bg)
 	}
 	if _, _, bg := cell(45); bg != ColorBarBackground {
 		t.Error("the grey bar runs to the last inner column")
@@ -138,5 +139,49 @@ func TestBorderLighterThanSelectionBar(t *testing.T) {
 	luma := func(c tcell.Color) int32 { r, g, b := c.RGB(); return r + g + b }
 	if luma(ColorBorder) <= luma(ColorBarBackground) {
 		t.Errorf("border %06x should be lighter than the selection bar %06x", ColorBorder.Hex(), ColorBarBackground.Hex())
+	}
+}
+
+func TestPaletteIsAGreenPanel(t *testing.T) {
+	p := testPalette()
+	const w, h = 70, 24
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(w, h)
+	p.Draw(sim)
+	lines := screenText(sim, w, h)
+	text := strings.Join(lines, "\n")
+	for _, gone := range []string{"┌", "└", "╭", "│", "─"} {
+		if strings.Contains(text, gone) {
+			t.Errorf("no border or rule (%q):\n%s", gone, text)
+		}
+	}
+	at := func(x, y int) (rune, tcell.Color, tcell.Color) {
+		r, _, st, _ := sim.GetContent(x, y)
+		fg, bg, _ := st.Decompose()
+		return r, fg, bg
+	}
+	col := len([]rune(lines[p.y][:strings.Index(lines[p.y], "Command palette")]))
+	if _, fg, bg := at(col, p.y); bg != ColorPalettePill || fg != ColorOnPalettePill || ColorPalettePill != ColorMonokaiGreen {
+		t.Errorf("a Monokai green pill with black text: %v on %v", fg, bg)
+	}
+	if centre := p.x + p.w/2; col < centre-12 || col > centre {
+		t.Errorf("the pill is centred: col %d, panel %d+%d", col, p.x, p.w)
+	}
+	if _, _, bg := at(p.x, p.y); bg != ColorPanel {
+		t.Error("panel background around the pill")
+	}
+	if strings.TrimSpace(lines[p.y+1]) != "" {
+		t.Errorf("a blank row under the pill: %q", lines[p.y+1])
+	}
+	if r, _, _ := at(p.x+1, p.listY+1); r != '▌' {
+		t.Error("the first item is selected, with the ▌ one column in")
+	}
+	prompt := p.listY + p.listH + 1
+	if strings.TrimSpace(lines[prompt-1]) != "" || !strings.Contains(lines[prompt], "\U000f0349") {
+		t.Errorf("a blank row, then the prompt at the bottom: %q / %q", lines[prompt-1], lines[prompt])
+	}
+	if _, _, bg := at(p.x, prompt+1); bg != ColorPanel || strings.TrimSpace(lines[prompt+1]) != "" || prompt+2 != p.y+p.h {
+		t.Error("one padding row under the prompt, then the panel ends")
 	}
 }

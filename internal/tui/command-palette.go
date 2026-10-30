@@ -448,38 +448,56 @@ func (p *CommandPalette) OnPasteEvent(event mauview.PasteEvent) bool {
 func (p *CommandPalette) Focus() {}
 func (p *CommandPalette) Blur()  {}
 
+// The palette's panel, like Ctrl+k's but in Monokai green: a green pill
+// with black text, and a green ▌ on the selected row.
+var (
+	ColorPalettePill   = ColorMonokaiGreen
+	ColorOnPalettePill = tcell.NewHexColor(0x000000)
+	ColorPaletteAccent = ColorMonokaiGreen
+)
+
+// Draw lays the palette out like Ctrl+k: a borderless panel, the title as a
+// centred pill, a blank row, the list, a blank row, the prompt, a padding row.
 func (p *CommandPalette) Draw(screen mauview.Screen) {
 	sw, sh := screen.Size()
-	if sw < 24 || sh < 8 {
+	if sw < 24 || sh < 9 {
 		return
 	}
 	p.w = min(sw-4, 72)
 	p.x = (sw - p.w) / 2
 	p.y = sh / 6
-	maxList := max(3, sh*3/5-4)
+	maxList := max(3, sh*3/5-5)
 	p.listH = max(1, min(len(p.rows), maxList))
-	p.h = p.listH + 4
-	p.listY = p.y + 3
-	drawSharpBox(screen, p.x, p.y, p.w, p.h, " \uf120 Command palette ")
+	p.h = p.listH + 5
+	p.listY = p.y + 2
+	promptY := p.listY + p.listH + 1
 
-	inner := p.w - 2
-	accent := tcell.StyleDefault.Foreground(ColorComposerBar).Bold(true)
-	dim := tcell.StyleDefault.Foreground(ColorStatusText)
-	qx := p.x + 1
-	widget.WriteLine(screen, mauview.AlignLeft, " › ", qx, p.y+1, 3, accent)
-	query := string(p.query)
-	widget.WriteLine(screen, mauview.AlignLeft, query, qx+3, p.y+1, inner-4, tcell.StyleDefault)
-	screen.ShowCursor(qx+3+runewidth.StringWidth(query), p.y+1)
-	if len(p.query) == 0 {
-		hint := "@ chats  > commands  ? keys "
-		widget.WriteLine(screen, mauview.AlignRight, hint, qx, p.y+1, inner, dim)
+	panel := &panelScreen{Screen: screen, bg: ColorPanel}
+	for y := p.y; y < p.y+p.h; y++ {
+		for x := p.x; x < p.x+p.w; x++ {
+			panel.SetContent(x, y, ' ', nil, tcell.StyleDefault)
+		}
 	}
-	for cx := p.x + 1; cx < p.x+p.w-1; cx++ {
-		screen.SetContent(cx, p.y+2, '─', nil, tcell.StyleDefault.Foreground(ColorBorder))
+	const title = " \uf120 Command palette "
+	if tw := runewidth.StringWidth(title); tw <= p.w {
+		widget.WriteLine(screen, mauview.AlignLeft, title, p.x+(p.w-tw)/2, p.y, tw,
+			tcell.StyleDefault.Background(ColorPalettePill).Foreground(ColorOnPalettePill))
+	}
+
+	// The prompt: the magnifier one column in, typing under the titles.
+	dim := tcell.StyleDefault.Foreground(ColorStatusText)
+	widget.WriteLine(panel, mauview.AlignLeft, searchPrompt, p.x+1, promptY, 4, tcell.StyleDefault.Foreground(ColorPaletteAccent))
+	query := string(p.query)
+	textX := p.x + 5
+	widget.WriteLine(panel, mauview.AlignLeft, query, textX, promptY, p.w-6, tcell.StyleDefault)
+	screen.ShowCursor(textX+runewidth.StringWidth(query), promptY)
+	if len(p.query) == 0 {
+		hint := "@ chats  > commands  ? keys"
+		widget.WriteLine(panel, mauview.AlignRight, hint, p.x+1, promptY, p.w-3, dim)
 	}
 
 	if len(p.rows) == 0 {
-		widget.WriteLine(screen, mauview.AlignLeft, "  No matches", qx, p.listY, inner, dim)
+		widget.WriteLine(panel, mauview.AlignLeft, "No matches", p.x+3, p.listY, p.w-4, dim)
 		return
 	}
 	if p.selected < p.scroll {
@@ -492,7 +510,7 @@ func (p *CommandPalette) Draw(screen mauview.Screen) {
 		p.scroll = p.selected - p.listH + 1
 	}
 	for i := 0; i < p.listH && p.scroll+i < len(p.rows); i++ {
-		p.drawRow(screen, p.rows[p.scroll+i], p.scroll+i == p.selected, qx, p.listY+i, inner)
+		p.drawRow(panel, p.rows[p.scroll+i], p.scroll+i == p.selected, p.x, p.listY+i, p.w)
 	}
 }
 
@@ -504,12 +522,12 @@ func (p *CommandPalette) drawRow(screen mauview.Screen, row paletteRow, selected
 	}
 	base := tcell.StyleDefault
 	if selected {
-		// Like Ctrl+k's selection: a grey bar with a purple ▌, margins kept
-		// empty at both ends.
+		// Like Ctrl+k's selection: a dark bar with the pill's colour as ▌,
+		// one column of panel padding at both ends.
 		base = base.Background(ColorBarBackground)
 		dim = dim.Background(ColorBarBackground)
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x+1, y, width-2, base)
-		screen.SetContent(x+1, y, '▌', nil, base.Foreground(ColorHighlight))
+		screen.SetContent(x+1, y, '▌', nil, base.Foreground(ColorPaletteAccent))
 	}
 	item := row.item
 	detailW := runewidth.StringWidth(item.detail)
