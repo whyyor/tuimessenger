@@ -69,8 +69,10 @@ type toaster struct {
 	mu      sync.Mutex
 	current *toast
 	queue   []*toast
-	timer   *time.Timer
-	render  func()
+	// status is a sticky toast for an ongoing state, drawn above the rest.
+	status *toast
+	timer  *time.Timer
+	render func()
 	// The last drawn box, for clicks.
 	x, y, w, h int
 }
@@ -191,21 +193,46 @@ func wrapText(text string, width int) []string {
 	return lines
 }
 
-// Draw paints the toast at the top right, on the terminal background.
+// SetStatus shows a sticky toast for an ongoing state (reconnecting, sync
+// failing) until it's cleared with an empty text; it has no timer and no x.
+func (t *toaster) SetStatus(kind toastKind, text string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	switch {
+	case text == "":
+		t.status = nil
+	case t.status == nil || t.status.text != text || t.status.kind != kind:
+		t.status = &toast{kind: kind, text: text}
+	}
+}
+
+// Draw paints the status toast, if any, at the top right, and the current
+// toast under it.
 func (t *toaster) Draw(screen mauview.Screen) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	cur := t.current
-	if cur == nil {
-		t.w, t.h = 0, 0
-		return
+	y := 1
+	if t.status != nil {
+		if _, _, h := t.drawBox(screen, t.status, y, false); h > 0 {
+			y += h + 1
+		}
 	}
+	t.w, t.h = 0, 0
+	if t.current != nil {
+		t.x, t.w, t.h = t.drawBox(screen, t.current, y, true)
+		t.y = y
+	}
+}
+
+// drawBox draws one toast with its top at y; extras adds the x and
+// "+N more". It returns the box's x, width and height (0 when it can't fit).
+func (t *toaster) drawBox(screen mauview.Screen, cur *toast, y int, extras bool) (int, int, int) {
 	width, height := screen.Size()
 	// ┃, two cells of padding, the icon and a space, the text, two cells,
 	// x, three cells.
 	textMax := min(toastMaxWidth, width-6) - 11
-	if textMax < 8 {
-		return
+	if textMax < 8 || y >= height-1 {
+		return 0, 0, 0
 	}
 	lines := wrapText(cur.text, textMax)
 	if len(lines) > toastMaxLines {
@@ -218,12 +245,11 @@ func (t *toaster) Draw(screen mauview.Screen) {
 	}
 	w := textW + 11
 	h := len(lines) + 2
-	if len(t.queue) > 0 {
+	if extras && len(t.queue) > 0 {
 		h += 2
 	}
-	h = min(h, height-1)
-	x, y := width-w-2, 1
-	t.x, t.y, t.w, t.h = x, y, w, h
+	h = min(h, height-1-y)
+	x := width - w - 2
 
 	color := toastColors[cur.kind]
 	bar := tcell.StyleDefault.Foreground(color)
@@ -239,10 +265,13 @@ func (t *toaster) Draw(screen mauview.Screen) {
 		}
 		widget.WriteLine(screen, mauview.AlignLeft, l, x+5, y+1+i, textW, tcell.StyleDefault)
 	}
-	screen.SetContent(x+w-4, y+1, 'x', nil, muted)
-	if n := len(t.queue); n > 0 && y+h-2 > y+len(lines) {
-		widget.WriteLine(screen, mauview.AlignLeft, "+"+strconv.Itoa(n)+" more", x+5, y+h-2, textW, muted)
+	if extras {
+		screen.SetContent(x+w-4, y+1, 'x', nil, muted)
+		if n := len(t.queue); n > 0 && y+h-2 > y+len(lines) {
+			widget.WriteLine(screen, mauview.AlignLeft, "+"+strconv.Itoa(n)+" more", x+5, y+h-2, textW, muted)
+		}
 	}
+	return x, w, h
 }
 
 // classifyNotice picks the toast colour from how gomuks words its notices.

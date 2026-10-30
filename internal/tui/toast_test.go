@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+
+	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"go.mau.fi/gomuks/pkg/rpc"
 )
 
 // fakeToasts gives a fresh toaster with a controllable clock and timers.
@@ -154,5 +157,72 @@ func TestServiceMessageIsToastNotTimeline(t *testing.T) {
 	}
 	if room.TimelineCache.Current() != before {
 		t.Error("notices must not touch the timeline")
+	}
+}
+
+func TestStatusToastIsStickyAndStacks(t *testing.T) {
+	ts, _, expire := fakeToasts(t)
+	ts.SetStatus(toastError, "Sync failed")
+	ts.Show(toastSuccess, "Copied 2 messages")
+	sim, text := drawToast(ts)
+	statusY := strings.Index(text, "Sync failed")
+	if statusY < 0 || !strings.Contains(text, "Copied 2 messages") {
+		t.Fatalf("both show:\n%s", text)
+	}
+	lines := screenText(sim, 100, 20)
+	sy, cy := -1, -1
+	for y, l := range lines {
+		if strings.Contains(l, "Sync failed") {
+			sy = y
+		}
+		if strings.Contains(l, "Copied") {
+			cy = y
+		}
+	}
+	if sy != 2 || cy <= sy+1 {
+		t.Errorf("status on top, the toast stacked under it: status row %d, toast row %d", sy, cy)
+	}
+	if strings.Count(text, "x") != 1 {
+		t.Error("only the normal toast has an x")
+	}
+	if ts.Hit(ts.x+3, sy) {
+		t.Error("clicks don't dismiss the status")
+	}
+	expire()
+	_, text = drawToast(ts)
+	if !strings.Contains(text, "Sync failed") || strings.Contains(text, "Copied") {
+		t.Errorf("the status outlives toasts:\n%s", text)
+	}
+	ts.SetStatus(toastInfo, "")
+	if _, text = drawToast(ts); strings.TrimSpace(text) != "" {
+		t.Errorf("cleared when things recover:\n%s", text)
+	}
+}
+
+func TestConnStateBecomesStatusToast(t *testing.T) {
+	ts, _, _ := fakeToasts(t)
+	main := &MainView{parent: &GomuksTUI{}}
+	for _, c := range []struct {
+		state rpc.ConnState
+		sync  jsoncmd.SyncStatusType
+		want  string
+		kind  toastKind
+	}{
+		{rpc.ConnStateReconnecting, "", "Reconnecting…", toastInfo},
+		{rpc.ConnStateConnected, jsoncmd.SyncStatusErroring, "Sync erroring…", toastWarning},
+		{rpc.ConnStateConnected, jsoncmd.SyncStatusFailed, "Sync failed", toastError},
+		{rpc.ConnStateConnected, "", "", 0},
+	} {
+		main.parent.ConnState, main.parent.SyncStatus = c.state, c.sync
+		main.updateConnStatus()
+		ts.mu.Lock()
+		got, kind := "", toastKind(0)
+		if ts.status != nil {
+			got, kind = ts.status.text, ts.status.kind
+		}
+		ts.mu.Unlock()
+		if got != c.want || kind != c.kind {
+			t.Errorf("%v/%v: got %q (%d), want %q (%d)", c.state, c.sync, got, kind, c.want, c.kind)
+		}
 	}
 }

@@ -131,55 +131,32 @@ func (view *MainView) Draw(screen mauview.Screen) {
 	if view.modal != nil {
 		view.modal.Draw(screen)
 	}
+	view.updateConnStatus()
 	toasts.Draw(screen)
-	view.drawConnDialog(screen)
 }
 
-// drawConnDialog overlays a small centered dialog while the connection is
-// anything but healthy, or while a manual resync streams fresh data. Drawn
-// last so it sits on top of modals too: connectivity trumps everything.
-func (view *MainView) drawConnDialog(screen mauview.Screen) {
-	var text string
+// updateConnStatus shows a sticky toast while the connection is anything
+// but healthy, or while a manual resync streams fresh data; it goes away by
+// itself once things recover.
+func (view *MainView) updateConnStatus() {
 	switch {
+	case view.parent.ConnState == rpc.ConnStateConnecting:
+		toasts.SetStatus(toastInfo, "Connecting…")
+	case view.parent.ConnState == rpc.ConnStateReconnecting:
+		toasts.SetStatus(toastInfo, "Reconnecting…")
 	case view.parent.ConnState != rpc.ConnStateConnected:
-		text = view.parent.ConnState.String() + "…"
+		toasts.SetStatus(toastWarning, "Disconnected from the gomuks backend")
 	case view.parent.SyncStatus == jsoncmd.SyncStatusErroring:
 		// The daemon is connected to us but cannot sync with the homeserver;
-		// this is what actually delays new messages, so the dialog stays up
-		// until a sync succeeds.
-		text = "sync erroring…"
+		// this is what actually delays new messages.
+		toasts.SetStatus(toastWarning, "Sync erroring…")
 	case view.parent.SyncStatus == jsoncmd.SyncStatusFailed:
-		text = "sync failed"
+		toasts.SetStatus(toastError, "Sync failed")
 	case view.parent.Resyncing:
-		text = "resyncing…"
+		toasts.SetStatus(toastInfo, "Resyncing…")
 	default:
-		return
+		toasts.SetStatus(toastInfo, "")
 	}
-	width, height := screen.Size()
-	boxWidth := runewidth.StringWidth(text) + 6
-	boxX := (width - boxWidth) / 2
-	boxY := height/2 - 1
-	if boxX < 0 || boxY < 0 {
-		return
-	}
-	// Default background so the box inherits the terminal's translucency;
-	// the interior is still cleared so chat text doesn't bleed through.
-	borderStyle := tcell.StyleDefault.Foreground(ColorBorder)
-	textStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true)
-	for y := boxY; y < boxY+3; y++ {
-		widget.WriteLinePadded(screen, mauview.AlignLeft, "", boxX, y, boxWidth, tcell.StyleDefault)
-	}
-	screen.SetContent(boxX, boxY, '╭', nil, borderStyle)
-	screen.SetContent(boxX+boxWidth-1, boxY, '╮', nil, borderStyle)
-	screen.SetContent(boxX, boxY+2, '╰', nil, borderStyle)
-	screen.SetContent(boxX+boxWidth-1, boxY+2, '╯', nil, borderStyle)
-	for x := boxX + 1; x < boxX+boxWidth-1; x++ {
-		screen.SetContent(x, boxY, '─', nil, borderStyle)
-		screen.SetContent(x, boxY+2, '─', nil, borderStyle)
-	}
-	screen.SetContent(boxX, boxY+1, '│', nil, borderStyle)
-	screen.SetContent(boxX+boxWidth-1, boxY+1, '│', nil, borderStyle)
-	widget.WriteLine(screen, mauview.AlignLeft, text, boxX+3, boxY+1, boxWidth-6, textStyle)
 }
 
 // hintMaxUnread caps the unread list on the hint screen.
