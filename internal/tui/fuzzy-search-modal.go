@@ -96,7 +96,7 @@ func NewFuzzySearchModal(mainView *MainView, width int, height int) *FuzzySearch
 		AddFixedComponent(&fuzzyCountView{parent: fs}, 1).
 		AddFixedComponent(inputRow, 1)
 
-	// Our own thin rounded frame and icon title, like the other popups; the
+	// Our own thin sharp frame and icon title, like the palette; the
 	// borderless box only keeps "click outside closes".
 	fs.container = mauview.NewBox(&thinFrame{inner: flex, title: " \uf086 Chats "}).
 		SetBorder(false).
@@ -280,7 +280,7 @@ func (fr *fuzzyResultsView) OnKeyEvent(_ mauview.KeyEvent) bool     { return fal
 func (fr *fuzzyResultsView) OnPasteEvent(_ mauview.PasteEvent) bool { return false }
 func (fr *fuzzyResultsView) OnMouseEvent(_ mauview.MouseEvent) bool { return false }
 
-// thinFrame draws drawThinBox around a component, one cell in on each side.
+// thinFrame draws a sharp-cornered box around a component, one cell in.
 type thinFrame struct {
 	inner mauview.Component
 	title string
@@ -288,7 +288,7 @@ type thinFrame struct {
 
 func (f *thinFrame) Draw(screen mauview.Screen) {
 	w, h := screen.Size()
-	drawThinBox(screen, 0, 0, w, h, f.title)
+	drawSharpBox(screen, 0, 0, w, h, f.title)
 	f.inner.Draw(&mauview.ProxyScreen{Parent: screen, OffsetX: 1, OffsetY: 1, Width: max(w-2, 0), Height: max(h-2, 0)})
 }
 

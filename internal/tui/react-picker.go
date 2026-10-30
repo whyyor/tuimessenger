@@ -313,8 +313,23 @@ func (p *ReactPicker) searchRows() [][]pickerCell {
 	return rows
 }
 
+// Box corners: rounded for popups, sharp for the two prompts (Ctrl+p, Ctrl+k).
+var (
+	roundCorners = [4]rune{'╭', '╮', '╰', '╯'}
+	sharpCorners = [4]rune{'┌', '┐', '└', '┘'}
+)
+
 // drawThinBox clears an area and frames it with single-line borders.
 func drawThinBox(screen mauview.Screen, x, y, w, h int, title string) {
+	drawBox(screen, x, y, w, h, title, roundCorners)
+}
+
+// drawSharpBox is drawThinBox with square corners.
+func drawSharpBox(screen mauview.Screen, x, y, w, h int, title string) {
+	drawBox(screen, x, y, w, h, title, sharpCorners)
+}
+
+func drawBox(screen mauview.Screen, x, y, w, h int, title string, corners [4]rune) {
 	border := tcell.StyleDefault.Foreground(ColorBorder)
 	for row := y; row < y+h; row++ {
 		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x, row, w, tcell.StyleDefault)
@@ -327,10 +342,10 @@ func drawThinBox(screen mauview.Screen, x, y, w, h int, title string) {
 		screen.SetContent(x, row, '│', nil, border)
 		screen.SetContent(x+w-1, row, '│', nil, border)
 	}
-	screen.SetContent(x, y, '╭', nil, border)
-	screen.SetContent(x+w-1, y, '╮', nil, border)
-	screen.SetContent(x, y+h-1, '╰', nil, border)
-	screen.SetContent(x+w-1, y+h-1, '╯', nil, border)
+	screen.SetContent(x, y, corners[0], nil, border)
+	screen.SetContent(x+w-1, y, corners[1], nil, border)
+	screen.SetContent(x, y+h-1, corners[2], nil, border)
+	screen.SetContent(x+w-1, y+h-1, corners[3], nil, border)
 	if title != "" && w > 4 {
 		widget.WriteLine(screen, mauview.AlignLeft, title, x+2, y, w-4, tcell.StyleDefault.Foreground(ColorPillYellow))
 	}

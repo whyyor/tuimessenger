@@ -173,7 +173,7 @@ func TestSwitcherUsesOurFrame(t *testing.T) {
 	fs.Draw(sim)
 	lines := screenText(sim, w, h)
 	text := strings.Join(lines, "\n")
-	for _, want := range []string{"╭─", "Chats", "╰", " › "} {
+	for _, want := range []string{"┌─", "Chats", "└", "┘", " › "} {
 		if !strings.Contains(text, want) {
 			t.Errorf("missing %q:\n%s", want, text)
 		}

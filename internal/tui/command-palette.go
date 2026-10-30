@@ -460,7 +460,7 @@ func (p *CommandPalette) Draw(screen mauview.Screen) {
 	p.listH = max(1, min(len(p.rows), maxList))
 	p.h = p.listH + 4
 	p.listY = p.y + 3
-	drawThinBox(screen, p.x, p.y, p.w, p.h, " \uf120 Command palette ")
+	drawSharpBox(screen, p.x, p.y, p.w, p.h, " \uf120 Command palette ")
 
 	inner := p.w - 2
 	accent := tcell.StyleDefault.Foreground(ColorComposerBar).Bold(true)
