@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"go.mau.fi/mauview"
 
@@ -63,5 +64,25 @@ func TestPaletteTogglesFilePicker(t *testing.T) {
 	run("File picker: yazi → Finder")
 	if main.config.Preferences.FilePicker != "" {
 		t.Errorf("back to Finder, got %q", main.config.Preferences.FilePicker)
+	}
+}
+
+// Suspend only queues work for the UI loop; the picker must wait for yazi.
+func TestYaziPickerWaitsForYazi(t *testing.T) {
+	dir := t.TempDir()
+	yazi := filepath.Join(dir, "yazi")
+	script := "#!/bin/sh\nfor a; do case $a in --chooser-file=*) f=${a#--chooser-file=};; esac; done\n" +
+		"sleep 0.2\necho /Users/me/Downloads/cat.png > \"$f\"\n"
+	if err := os.WriteFile(yazi, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := suspendTerminal
+	t.Cleanup(func() { suspendTerminal = old })
+	suspendTerminal = func(_ *RoomView, fn func()) {
+		go func() { time.Sleep(50 * time.Millisecond); fn() }() // like the UI loop, later
+	}
+	got, err := (&RoomView{}).pickWithYazi(yazi)
+	if err != nil || !slices.Equal(got, []string{"/Users/me/Downloads/cat.png"}) {
+		t.Errorf("the pick should come back after yazi exits, got %q %v", got, err)
 	}
 }

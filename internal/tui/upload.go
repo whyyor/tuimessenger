@@ -148,6 +148,11 @@ func pickFiles() ([]string, error) {
 // finderPicker is the Finder dialog; swapped out in tests.
 var finderPicker = pickFiles
 
+// suspendTerminal hands the terminal to fn via the UI loop; swapped in tests.
+var suspendTerminal = func(view *RoomView, fn func()) {
+	view.parent.parent.app.Suspend(fn)
+}
+
 // pickWithYazi runs yazi full-screen as a chooser: Enter on a file (Space
 // marks several) picks it, q cancels. It starts in ~/Downloads.
 func (view *RoomView) pickWithYazi(yazi string) ([]string, error) {
@@ -163,14 +168,19 @@ func (view *RoomView) pickWithYazi(yazi string) ([]string, error) {
 	if dl := filepath.Join(start, "Downloads"); dirExists(dl) {
 		start = dl
 	}
+	// Suspend only queues the function for the UI loop, so wait for yazi to
+	// exit before reading its choice. Callers run off the UI goroutine.
 	var runErr error
-	view.parent.parent.app.Suspend(func() {
+	done := make(chan struct{})
+	suspendTerminal(view, func() {
+		defer close(done)
 		print("\033[2J\033[0;0H")
 		cmd := exec.Command(yazi, "--chooser-file="+chooser, start)
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 		runErr = cmd.Run()
 		print("\033[2J\033[0;0H")
 	})
+	<-done
 	RequestRepaint()
 	if runErr != nil {
 		return nil, runErr
