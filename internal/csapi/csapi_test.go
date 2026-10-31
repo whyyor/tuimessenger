@@ -35,11 +35,15 @@ type fakeBridges struct {
 	lock   sync.Mutex
 	queued []*event.Event
 	older  func(roomID id.RoomID) (bool, error)
+	refuse error // when set, the "network" rejects everything with this error
 }
 
 func (f *fakeBridges) Queue(ctx context.Context, evt *event.Event) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	if f.refuse != nil {
+		return f.refuse
+	}
 	f.queued = append(f.queued, evt)
 	return nil
 }
@@ -388,19 +392,39 @@ func TestPushRulesMediaAndLeave(t *testing.T) {
 		t.Errorf("download: %q %v", data, err)
 	}
 
+}
+
+func TestLeave(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
 	first, _ := e.cli.FullSyncRequest(ctx, mautrix.ReqSync{})
-	if _, err = e.cli.LeaveRoom(ctx, e.roomID); err != nil {
+
+	// A network that can't leave chats: nothing changes, and the client is told.
+	e.bridges.refuse = errors.New("leaving chats is not supported")
+	if _, err := e.cli.LeaveRoom(ctx, e.roomID); !errors.Is(err, mautrix.MForbidden) {
+		t.Errorf("refused leave: %v", err)
+	}
+	if rooms, _ := e.cli.JoinedRooms(ctx); len(rooms.JoinedRooms) != 1 {
+		t.Error("the room should stay joined when the network refuses")
+	}
+
+	// A network that can: the leave goes to the bridge first, then the room is left here.
+	e.bridges.refuse = nil
+	if _, err := e.cli.LeaveRoom(ctx, e.roomID); err != nil {
 		t.Fatal(err)
+	}
+	leave := e.bridges.waitQueued(t, event.StateMember)
+	if leave.GetStateKey() != owner.String() || leave.Content.AsMember().Membership != event.MembershipLeave {
+		t.Errorf("bridge got %+v", leave)
+	}
+	if prev := leave.Unsigned.PrevContent; prev == nil || prev.AsMember().Membership != event.MembershipJoin {
+		t.Error("bridgev2 needs the previous membership (join) to see this as leaving")
 	}
 	next, err := e.cli.FullSyncRequest(ctx, mautrix.ReqSync{Since: first.NextBatch, Timeout: 1000})
 	if err != nil || next.Rooms.Leave[e.roomID] == nil {
 		t.Errorf("left room should be in the leave section: %+v %v", next.Rooms, err)
 	}
-	e.bridges.lock.Lock()
-	defer e.bridges.lock.Unlock()
-	for _, evt := range e.bridges.queued {
-		if evt.Type == event.StateMember {
-			t.Error("leaving should stay local, not leave the chat on the network")
-		}
+	if _, err = e.cli.LeaveRoom(ctx, e.roomID); err != nil {
+		t.Errorf("leaving twice should be fine: %v", err)
 	}
 }

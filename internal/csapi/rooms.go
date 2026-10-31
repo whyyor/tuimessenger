@@ -120,7 +120,7 @@ func (s *Server) sendFromClient(ctx context.Context, roomID id.RoomID, evtType e
 // forward hands an event to the bridge in the background. Delivery results come back as message status events.
 func (s *Server) forward(evt *event.Event) {
 	if evt.Type == event.StateMember {
-		// Joining or leaving chats on the network from here isn't supported (yet), so it stays local.
+		// Leaving goes through leave(), which waits for the network's answer; other membership changes stay local.
 		return
 	}
 	ctx, cancel := context.WithTimeout(s.Log.WithContext(context.Background()), forwardTimeout)
@@ -392,40 +392,65 @@ func (s *Server) forwardEphemeral(roomID id.RoomID, evtType event.Type, content 
 	}()
 }
 
-// leave only hides the room here; it doesn't leave the chat on the network.
+// leave leaves the chat on its network first; only if that works is the room marked as left here.
+// Networks that can't leave chats (e.g. Telegram here) return an error, so nothing changes silently.
 func (s *Server) leave(r *http.Request) (any, error) {
-	return nil, s.setOwnMembership(r.Context(), id.RoomID(r.PathValue("roomID")), event.MembershipLeave)
+	ctx := r.Context()
+	roomID := id.RoomID(r.PathValue("roomID"))
+	evt, err := s.ownMembershipChange(ctx, roomID, event.MembershipLeave)
+	if err != nil || evt == nil {
+		return nil, err
+	}
+	// bridgev2 works out "join -> leave" from the previous membership.
+	evt.Unsigned.PrevContent = &event.Content{Parsed: &event.MemberEventContent{Membership: event.MembershipJoin}}
+	queueCtx, cancel := context.WithTimeout(s.Log.WithContext(ctx), forwardTimeout)
+	defer cancel()
+	if err = s.Bridges.Queue(queueCtx, evt); err != nil {
+		return nil, mautrix.MForbidden.WithMessage("Couldn't leave the chat on the network: %v", err)
+	}
+	return nil, s.saveOwnMembership(ctx, evt)
 }
 
+// join only rejoins here, e.g. a chat you left by mistake; it can't rejoin the chat on the network.
 func (s *Server) join(r *http.Request) (any, error) {
+	ctx := r.Context()
 	roomID := id.RoomID(r.PathValue("roomID"))
-	if err := s.setOwnMembership(r.Context(), roomID, event.MembershipJoin); err != nil {
+	evt, err := s.ownMembershipChange(ctx, roomID, event.MembershipJoin)
+	if err != nil {
 		return nil, err
+	} else if evt != nil {
+		if err = s.saveOwnMembership(ctx, evt); err != nil {
+			return nil, err
+		}
 	}
 	return &mautrix.RespJoinRoom{RoomID: roomID}, nil
 }
 
-func (s *Server) setOwnMembership(ctx context.Context, roomID id.RoomID, membership event.Membership) error {
+// ownMembershipChange builds your member event for a new membership, or returns nil if it's already that.
+func (s *Server) ownMembershipChange(ctx context.Context, roomID id.RoomID, membership event.Membership) (*event.Event, error) {
 	current, err := s.ownMembership(ctx, roomID)
 	if err != nil {
-		return err
+		return nil, err
 	} else if current == "" {
-		return mautrix.MNotFound.WithMessage("Room not found")
+		return nil, mautrix.MNotFound.WithMessage("Room not found")
 	} else if current == membership {
-		return nil
+		return nil, nil
 	}
 	profile, err := s.Store.GetProfile(ctx, s.Owner)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	key := s.Owner.String()
-	evt := &event.Event{
+	return &event.Event{
 		ID: id.EventID("$" + randomString(24) + ":" + s.ServerName), RoomID: roomID, Sender: s.Owner,
-		Type: event.StateMember, StateKey: &key,
+		Type: event.StateMember, StateKey: &key, Timestamp: time.Now().UnixMilli(),
 		Content: event.Content{Parsed: &event.MemberEventContent{
 			Membership: membership, Displayname: profile.Displayname, AvatarURL: profile.AvatarURL,
 		}},
-	}
+	}, nil
+}
+
+func (s *Server) saveOwnMembership(ctx context.Context, evt *event.Event) error {
 	return s.Store.Write(ctx, func(ctx context.Context, w *store.Writer) error {
 		_, err := w.AddEvent(ctx, evt)
 		return err
