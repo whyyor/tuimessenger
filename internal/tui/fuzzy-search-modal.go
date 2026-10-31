@@ -226,7 +226,7 @@ func (fr *fuzzyResultsView) Draw(screen mauview.Screen) {
 	} else if fs.selected >= fs.scrollOffset+height {
 		fs.scrollOffset = fs.selected - height + 1
 	}
-	accentStyle := tcell.StyleDefault.Foreground(ColorSelectionBackground)
+	accentStyle := tcell.StyleDefault.Foreground(ColorTitlePill)
 	for visRow := 0; visRow < height; visRow++ {
 		i := fs.scrollOffset + visRow
 		// Best match at the bottom, right above the prompt.

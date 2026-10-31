@@ -120,12 +120,14 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 	}
 	items = append(items, cmd("File picker: "+picker+" → "+nextPicker, "/upload", func() {
 		view.config.Preferences.FilePicker = map[string]string{"yazi": "yazi", "Finder": ""}[nextPicker]
+		pinnedNote("file_picker")
 		view.config.Save() // a small file; saving inline avoids racing the next change
 		toasts.Show(toastSuccess, "File picker: "+nextPicker)
 	}))
 	onStart := view.config.Preferences.SidebarOnStart
 	items = append(items, cmd("Show sidebar on startup: "+onOff(onStart)+" → "+onOff(!onStart), "", func() {
 		view.config.Preferences.SidebarOnStart = !onStart
+		pinnedNote("sidebar_on_start")
 		go view.config.Save()
 		toasts.Show(toastSuccess, "Sidebar on startup: "+onOff(!onStart))
 	}))
@@ -135,6 +137,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 	}
 	items = append(items, cmd(aliases, "", func() {
 		view.config.Preferences.HideAliases = !view.config.Preferences.HideAliases
+		pinnedNote("hide_aliases")
 		go view.config.Save()
 		RequestRepaint()
 	}))
@@ -156,11 +159,13 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 	next := styles[(slices.Index(styles, cur)+1)%len(styles)]
 	items = append(items, cmd("Timestamps: "+labels[cur]+" → "+labels[next], "", func() {
 		view.config.Preferences.TimestampStyle = next
+		pinnedNote("timestamp_style")
 		go view.config.Save()
 		RequestRepaint()
 	}))
 	items = append(items, cmd(layout, "", func() {
 		view.config.Preferences.ClassicLayout = !view.config.Preferences.ClassicLayout
+		pinnedNote("classic_layout")
 		go view.config.Save()
 		RequestRepaint()
 	}))

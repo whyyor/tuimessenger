@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/gdamore/tcell/v2"
@@ -110,6 +111,10 @@ func NewGomuksTUI() *GomuksTUI {
 
 func (ui *GomuksTUI) Run() {
 	ui.Config.LoadAll()
+	// gomuks.yaml (yours, in dotfiles) wins over terminal.yaml.
+	if problems := applyStyleFile(ui.Config); len(problems) > 0 {
+		toasts.Show(toastWarning, styleFileName+": "+strings.Join(problems, "; "))
+	}
 	// The Ctrl+s sidebar toggle is session-only: launch follows the
 	// "sidebar on start" setting (off by default), not the last toggle.
 	ui.Config.Preferences.HideRoomList = !ui.Config.Preferences.SidebarOnStart
