@@ -199,8 +199,6 @@ func (msg *UIMessage) TextColor() tcell.Color {
 		return stateColor
 	case msg.IsService, msg.MsgType == event.MsgNotice:
 		return tcell.ColorGray
-	case msg.UnreadType.Is(database.UnreadTypeHighlight):
-		return tcell.ColorYellow
 	case msg.Type == event.StateMember.Type:
 		return tcell.ColorGreen
 	default:

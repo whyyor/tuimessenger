@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"go.mau.fi/util/jsontime"
 
 	"go.mau.fi/gomuks/pkg/hicli/database"
@@ -30,5 +31,18 @@ func TestMentionsShowNamesNotIDs(t *testing.T) {
 	text := msg.PlainText()
 	if strings.Contains(text, "whatsapp_lid") || !strings.Contains(text, "Mariana") || !strings.Contains(text, "Alex Rivera") {
 		t.Errorf("mentions should read as names: %q", text)
+	}
+}
+
+// A reply to you counts as a mention; its body must not turn yellow.
+func TestMentionKeepsNormalTextColour(t *testing.T) {
+	_, room := bubbleView(t)
+	content, _ := json.Marshal(map[string]any{"msgtype": "m.text", "body": "Tldr buddy: not a recession"})
+	evt := &database.Event{ID: "$h:x", RoomID: room.ID, Sender: "@keenu:x", Type: "m.room.message",
+		Content: content, Timestamp: jsontime.UM(time.Now()), UnreadType: database.UnreadTypeHighlight}
+	prefs := config.UserPreferences{}
+	msg := messages.ParseEvent(nil, &prefs, room, evt)
+	if msg.TextColor() != tcell.ColorDefault {
+		t.Errorf("a highlighted message keeps the normal text colour, got %v", msg.TextColor())
 	}
 }

@@ -235,7 +235,9 @@ func (parser *htmlParser) linkToEntity(node *html.Node) Entity {
 			// Their colour, as on their bubble's name and bar.
 			text.Style = text.Style.Foreground(widget.GetHashColor(userID))
 			if userID == parser.room.OwnUserID() {
-				text.Style = text.Style.Foreground(tcell.NewHexColor(0xe6c384)).Bold(true)
+				// You: bold Monokai yellow. The rest of a message mentioning
+				// you keeps its normal colour.
+				text.Style = text.Style.Foreground(tcell.NewHexColor(0xf9cc6c)).Bold(true)
 			}
 			entity.Children = []Entity{text}
 		} else if matrixURI.Sigil1 == '#' {
