@@ -139,8 +139,8 @@ func (parser *htmlParser) basicFormatToEntity(node *html.Node) Entity {
 	case "u", "ins":
 		entity.AdjustStyle(AdjustStyleUnderline, AdjustStyleReasonNormal)
 	case "code":
-		bgColor := tcell.ColorDarkSlateGray
-		fgColor := tcell.ColorWhite
+		bgColor := CodeBackground
+		fgColor := InlineCodeText
 		entity.AdjustStyle(AdjustStyleBackgroundColor(bgColor), AdjustStyleReasonNormal)
 		entity.AdjustStyle(AdjustStyleTextColor(fgColor), AdjustStyleReasonNormal)
 	case "font", "span":
@@ -285,11 +285,40 @@ func styleEntryToStyle(se chroma.StyleEntry) tcell.Style {
 		Background(colourToColor(se.Background))
 }
 
+// Code blocks use Monokai with its colours swapped for the Monokai Pro
+// shades in the terminal's palette (Ghostty, Monokai Remastered).
+var (
+	CodeBackground = tcell.NewHexColor(0x1a1a22)
+	InlineCodeText = tcell.NewHexColor(0xf38d70)
+	monokaiPro     = map[int32]tcell.Color{
+		0xf92672: tcell.NewHexColor(0xfd6883), // keywords, operators, tags
+		0xa6e22e: tcell.NewHexColor(0xadda78), // functions, attributes
+		0xe6db74: tcell.NewHexColor(0xf9cc6c), // strings
+		0xae81ff: tcell.NewHexColor(0xa8a9eb), // numbers, constants
+		0x66d9ef: tcell.NewHexColor(0x85dacc), // types, builtins
+		0xfd971f: tcell.NewHexColor(0xf38d70), // parameters
+		0x75715e: tcell.NewHexColor(0x72696a), // comments
+		0xf8f8f2: tcell.NewHexColor(0xdedede), // plain text
+	}
+)
+
+// codeStyle maps a Monokai entry onto the palette, on the code background.
+func codeStyle(se chroma.StyleEntry) tcell.Style {
+	st := styleEntryToStyle(se)
+	fg, _, _ := st.Decompose()
+	if pro, ok := monokaiPro[fg.Hex()]; ok {
+		st = st.Foreground(pro)
+	} else if fg == tcell.ColorDefault {
+		st = st.Foreground(monokaiPro[0xf8f8f2])
+	}
+	return st.Background(CodeBackground)
+}
+
 func tokenToTextEntity(style *chroma.Style, token *chroma.Token) *TextEntity {
 	return &TextEntity{
 		BaseEntity: &BaseEntity{
 			Tag:           token.Type.String(),
-			Style:         styleEntryToStyle(style.Get(token.Type)),
+			Style:         codeStyle(style.Get(token.Type)),
 			DefaultHeight: 1,
 		},
 		Text: token.Value,
@@ -305,8 +334,7 @@ func (parser *htmlParser) syntaxHighlight(text, language string) Entity {
 	if err != nil {
 		return nil
 	}
-	// TODO allow changing theme
-	style := styles.Get("solarized-dark")
+	style := styles.Get("monokai")
 
 	tokens := iter.Tokens()
 
@@ -330,7 +358,7 @@ func (parser *htmlParser) syntaxHighlight(text, language string) Entity {
 		}
 	}
 
-	return NewCodeBlockEntity(children, styleEntryToStyle(style.Get(chroma.Background)))
+	return NewCodeBlockEntity(children, codeStyle(style.Get(chroma.Background)))
 }
 
 func (parser *htmlParser) codeblockToEntity(node *html.Node) Entity {

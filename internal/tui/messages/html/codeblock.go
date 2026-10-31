@@ -46,9 +46,37 @@ func (ce *CodeBlockEntity) Clone() Entity {
 	}
 }
 
+// codePadX is the padding at each side of a code block; top and bottom get
+// half a row each, drawn with half blocks in the block's colour.
+const codePadX = 2
+
+func (ce *CodeBlockEntity) CalculateBuffer(width, startX int, ctx DrawContext) int {
+	return ce.ContainerEntity.CalculateBuffer(max(width-2*codePadX, 1), startX, ctx)
+}
+
+// Height adds the two half-row edges.
+func (ce *CodeBlockEntity) Height() int {
+	return ce.ContainerEntity.Height() + 2
+}
+
 func (ce *CodeBlockEntity) Draw(screen mauview.Screen, ctx DrawContext) {
-	screen.Fill(' ', ce.Background)
-	ce.ContainerEntity.Draw(screen, ctx)
+	w, h := screen.Size()
+	if h < 3 || w <= 2*codePadX {
+		screen.Fill(' ', ce.Background)
+		ce.ContainerEntity.Draw(screen, ctx)
+		return
+	}
+	_, bg, _ := ce.Background.Decompose()
+	edge := tcell.StyleDefault.Foreground(bg)
+	for x := 0; x < w; x++ {
+		screen.SetContent(x, 0, '▄', nil, edge)
+		screen.SetContent(x, h-1, '▀', nil, edge)
+		for y := 1; y < h-1; y++ {
+			screen.SetContent(x, y, ' ', nil, ce.Background)
+		}
+	}
+	ce.ContainerEntity.Draw(&mauview.ProxyScreen{Parent: screen, OffsetX: codePadX, OffsetY: 1,
+		Width: w - 2*codePadX, Height: h - 2, Style: ce.Background}, ctx)
 }
 
 func (ce *CodeBlockEntity) AdjustStyle(fn AdjustStyleFunc, reason AdjustStyleReason) Entity {
