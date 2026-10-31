@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"time"
 
@@ -51,23 +52,23 @@ func (view *RoomView) setBridgeMute(muted bool) error {
 	})
 }
 
-// SyncMutes copies every push-rule mute into com.beeper.mute so bridges mute them on the network.
-func (view *RoomView) SyncMutes() {
+// SyncMutes (any chat or none open) copies every push-rule mute into com.beeper.mute so bridges mute them on the network.
+func (view *MainView) SyncMutes() {
 	defer debug.Recover()
-	list := view.parent.roomList
+	list := view.roomList
 	muted := maps.Clone(list.mutedSet())
 	// Push rules outlive left/deleted chats; the server 404s on those.
-	joined := joinedMuted(view.parent.matrix.ReversedRoomList.Current(), muted)
-	view.AddServiceMessage("Syncing %d muted chats to their networks…", len(joined))
-	view.parent.parent.Render()
+	joined := joinedMuted(view.matrix.ReversedRoomList.Current(), muted)
+	view.notify("Syncing %d muted chats to their networks…", len(joined))
+	view.parent.Render()
 	var synced, skipped, failed int
 	raw := json.RawMessage(`{"muted_until":-1}`)
 	for _, roomID := range joined {
-		if bridgeMuted(view.parent.matrix.GetRoom(roomID)) {
+		if bridgeMuted(view.matrix.GetRoom(roomID)) {
 			skipped++
 			continue
 		}
-		err := view.parent.matrix.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
+		err := view.matrix.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
 			RoomID:  roomID,
 			Type:    event.AccountDataBeeperMute.Type,
 			Content: raw,
@@ -80,20 +81,20 @@ func (view *RoomView) SyncMutes() {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	view.AddServiceMessage("Mute sync done: %d synced, %d already synced, %d failed (%d rules for chats you left ignored)",
+	view.notify("Mute sync done: %d synced, %d already synced, %d failed (%d rules for chats you left ignored)",
 		synced, skipped, failed, len(muted)-len(joined))
-	view.parent.parent.Render()
+	view.parent.Render()
 }
 
 // PruneMutes deletes mute rules left behind by chats you've left or deleted.
-func (view *RoomView) PruneMutes() {
+func (view *MainView) PruneMutes() {
 	defer debug.Recover()
-	list := view.parent.roomList
+	list := view.roomList
 	muted := maps.Clone(list.mutedSet())
-	rooms := view.parent.matrix.ReversedRoomList.Current()
+	rooms := view.matrix.ReversedRoomList.Current()
 	if len(rooms) == 0 {
-		view.AddServiceMessage("Room list not loaded yet; try again in a moment")
-		view.parent.parent.Render()
+		view.notify("Room list not loaded yet; try again in a moment")
+		view.parent.Render()
 		return
 	}
 	for _, roomID := range joinedMuted(rooms, muted) {
@@ -101,11 +102,11 @@ func (view *RoomView) PruneMutes() {
 	}
 	var removed, failed, kept int
 	for roomID := range muted {
-		if view.parent.matrix.GetRoom(roomID) != nil {
+		if view.matrix.GetRoom(roomID) != nil {
 			kept++
 			continue
 		}
-		_, err := view.parent.matrix.MuteRoom(context.TODO(), &jsoncmd.MuteRoomParams{RoomID: roomID, Muted: false})
+		_, err := view.matrix.MuteRoom(context.TODO(), &jsoncmd.MuteRoomParams{RoomID: roomID, Muted: false})
 		if err != nil {
 			debug.Print("Failed to prune mute rule for", roomID, err)
 			failed++
@@ -114,8 +115,8 @@ func (view *RoomView) PruneMutes() {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	view.AddServiceMessage("Mute prune done: %d stale rules removed, %d failed, %d kept (chat still known locally)", removed, failed, kept)
-	view.parent.parent.Render()
+	view.notify("Mute prune done: %d stale rules removed, %d failed, %d kept (chat still known locally)", removed, failed, kept)
+	view.parent.Render()
 }
 
 func joinedMuted(rooms []*store.RoomListEntry, muted map[id.RoomID]bool) []id.RoomID {
@@ -172,4 +173,12 @@ func mutedRooms(content json.RawMessage) map[id.RoomID]bool {
 		}
 	}
 	return muted
+}
+
+// notify shows a gomuks notice as a toast; for commands that need no chat.
+func (view *MainView) notify(text string, args ...any) {
+	if len(args) > 0 {
+		text = fmt.Sprintf(text, args...)
+	}
+	toasts.Show(classifyNotice(text), text)
 }

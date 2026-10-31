@@ -198,15 +198,19 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 			cmd("Copy a message", "y", func() { room.StartSelecting(SelectCopy, "clipboard") }),
 			cmd("Play a voice note or video", "p", func() { room.StartSelecting(SelectPlay, "") }),
 			cmd("Download media", "d", func() { room.StartSelecting(SelectDownload, "") }),
+			cmd("Open media with the system app", "o", func() { room.StartSelecting(SelectOpen, "") }),
 			cmd("Close chat", "Escape", view.CloseCurrentRoom),
 		)
-		items = append(items,
-			cmd("Mute sync: mute on WhatsApp, Instagram, Telegram", "/mute-sync", func() { go room.SyncMutes() }),
-			cmd("Mute prune: delete rules of left chats", "/mute-prune", func() { go room.PruneMutes() }),
-			cmd("Delete played media cache", "/cache", func() { go room.ClearMediaCache() }),
-		)
+		if current := chatAlias(room.Room); current != "" {
+			items = append(items, cmd("Remove alias ("+current+")", "/unalias", func() { go room.SetAlias("") }))
+		}
 	}
-	return append(items, cmd("Quit", keyHint(main, "force_quit"), view.parent.Finish))
+	// These act on every chat, so they're here with or without one open.
+	return append(items,
+		cmd("Mute sync: mute muted chats on WhatsApp, Instagram, Telegram", "/mute-sync", func() { go view.SyncMutes() }),
+		cmd("Mute prune: delete mute rules of chats you left", "/mute-prune", func() { go view.PruneMutes() }),
+		cmd("Delete played media cache", "/cache", func() { go view.ClearMediaCache() }),
+		cmd("Quit", keyHint(main, "force_quit"), view.parent.Finish))
 }
 
 func (p *CommandPalette) chatItems() []*paletteItem {

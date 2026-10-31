@@ -59,11 +59,11 @@ func clearMediaCache() (int, int64) {
 	return n1 + n2, s1 + s2
 }
 
-func (view *RoomView) ClearMediaCache() {
+func (view *MainView) ClearMediaCache() {
 	defer debug.Recover()
 	count, size := clearMediaCache()
-	view.AddServiceMessage("Cleared %d files (%s)", count, humanSize(size))
-	view.parent.parent.Render()
+	view.notify("Cleared %d files (%s)", count, humanSize(size))
+	view.parent.Render()
 }
 
 func humanSize(n int64) string {

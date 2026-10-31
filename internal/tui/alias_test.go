@@ -281,3 +281,37 @@ func TestSwitcherFitsSmallScreens(t *testing.T) {
 		}
 	}
 }
+
+func paletteTitles(main *MainView) []string {
+	var titles []string
+	for _, item := range (&CommandPalette{parent: main}).commandItems() {
+		titles = append(titles, item.title)
+	}
+	return titles
+}
+
+func hasTitle(titles []string, prefix string) bool {
+	return slices.ContainsFunc(titles, func(s string) bool { return strings.HasPrefix(s, prefix) })
+}
+
+func TestPaletteHasEveryCommand(t *testing.T) {
+	main := aliasMain(t)
+	// No chat open: the commands that act on every chat are still there.
+	none := paletteTitles(main)
+	for _, want := range []string{"Mute sync", "Mute prune", "Delete played media cache", "Quit"} {
+		if !hasTitle(none, want) {
+			t.Errorf("without a chat open, missing %q", want)
+		}
+	}
+	if hasTitle(none, "Remove alias") || hasTitle(none, "Open media") {
+		t.Error("chat commands need a chat")
+	}
+	// A chat with an alias open: the chat commands too.
+	main.currentRoom = &RoomView{Room: main.matrix.GetRoom("!mariana:x"), parent: main}
+	open := paletteTitles(main)
+	for _, want := range []string{"Remove alias (sis)", "Change alias (sis)", "Open media with the system app", "Mute sync"} {
+		if !hasTitle(open, want) {
+			t.Errorf("with a chat open, missing %q", want)
+		}
+	}
+}

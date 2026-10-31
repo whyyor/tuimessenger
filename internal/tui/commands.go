@@ -273,7 +273,7 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 	case CmdUnmute:
 		go view.SetMuted(false)
 	case CmdMuteSync:
-		go view.SyncMutes()
+		go view.parent.SyncMutes()
 	case CmdTyping:
 		state := gjson.GetBytes(cmd.Arguments, "state").Str
 		go view.SetPrivacy(func(p *ChatPrivacy) { p.Typing = parseToggle(state, p.Typing) })
@@ -293,13 +293,13 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 	case CmdUnread:
 		view.parent.MarkUnread()
 	case CmdMutePrune:
-		go view.PruneMutes()
+		go view.parent.PruneMutes()
 	case CmdClear:
 		go view.SetCleared(true)
 	case CmdUnclear:
 		go view.SetCleared(false)
 	case CmdCache:
-		go view.ClearMediaCache()
+		go view.parent.ClearMediaCache()
 	case CmdQuit:
 		view.parent.parent.Stop()
 	default:
