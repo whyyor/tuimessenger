@@ -145,6 +145,59 @@ func pickFiles() ([]string, error) {
 	return paths, nil
 }
 
+// finderPicker is the Finder dialog; swapped out in tests.
+var finderPicker = pickFiles
+
+// pickWithYazi runs yazi full-screen as a chooser: Enter on a file (Space
+// marks several) picks it, q cancels. It starts in ~/Downloads.
+func (view *RoomView) pickWithYazi(yazi string) ([]string, error) {
+	// Not "gomuks-…": the media cache cleaner deletes those from the temp dir.
+	f, err := os.CreateTemp("", "yazi-chooser-*")
+	if err != nil {
+		return nil, err
+	}
+	chooser := f.Name()
+	_ = f.Close()
+	defer os.Remove(chooser)
+	start, _ := os.UserHomeDir()
+	if dl := filepath.Join(start, "Downloads"); dirExists(dl) {
+		start = dl
+	}
+	var runErr error
+	view.parent.parent.app.Suspend(func() {
+		print("\033[2J\033[0;0H")
+		cmd := exec.Command(yazi, "--chooser-file="+chooser, start)
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+		runErr = cmd.Run()
+		print("\033[2J\033[0;0H")
+	})
+	RequestRepaint()
+	if runErr != nil {
+		return nil, runErr
+	}
+	return readChooserFile(chooser)
+}
+
+// readChooserFile reads the paths yazi wrote, one per line; none means cancelled.
+func readChooserFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, line := range strings.Split(string(data), "\n") {
+		if line = strings.TrimRight(line, "\r"); line != "" {
+			paths = append(paths, line)
+		}
+	}
+	return paths, nil
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
 // SendFiles is /upload: no argument opens the file picker to attach files;
 // with paths (one, or several as a terminal drop escapes them) it sends now.
 func (view *RoomView) SendFiles(arg string) {

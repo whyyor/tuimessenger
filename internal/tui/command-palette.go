@@ -114,6 +114,15 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		sidebar = "Show sidebar"
 	}
 	items = append(items, cmd(sidebar, keyHint(main, "toggle_sidebar"), view.toggleSidebar))
+	picker, nextPicker := "Finder", "yazi"
+	if view.config.Preferences.FilePicker == "yazi" {
+		picker, nextPicker = "yazi", "Finder"
+	}
+	items = append(items, cmd("File picker: "+picker+" → "+nextPicker, "/upload", func() {
+		view.config.Preferences.FilePicker = map[string]string{"yazi": "yazi", "Finder": ""}[nextPicker]
+		view.config.Save() // a small file; saving inline avoids racing the next change
+		toasts.Show(toastSuccess, "File picker: "+nextPicker)
+	}))
 	onStart := view.config.Preferences.SidebarOnStart
 	items = append(items, cmd("Show sidebar on startup: "+onOff(onStart)+" → "+onOff(!onStart), "", func() {
 		view.config.Preferences.SidebarOnStart = !onStart

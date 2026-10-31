@@ -181,10 +181,22 @@ func (view *RoomView) AttachClipboard() {
 	view.attachTemp(tmp)
 }
 
-// AttachPicked opens the native file picker and attaches the choice.
+// AttachPicked opens the file picker (Finder, or yazi when chosen) and
+// attaches the choice.
 func (view *RoomView) AttachPicked() {
 	defer debug.Recover()
-	paths, err := pickFiles()
+	var paths []string
+	var err error
+	if view.config != nil && view.config.Preferences.FilePicker == "yazi" {
+		if yazi, lookErr := exec.LookPath("yazi"); lookErr == nil {
+			paths, err = view.pickWithYazi(yazi)
+		} else {
+			toasts.Show(toastWarning, "yazi isn't installed; using Finder")
+			paths, err = finderPicker()
+		}
+	} else {
+		paths, err = finderPicker()
+	}
 	if err != nil {
 		view.AddServiceMessage("Couldn't open the file picker: %v", err)
 		view.requestRender()
