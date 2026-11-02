@@ -53,6 +53,7 @@ const (
 	CmdSeen      = "seen"
 	CmdAlias     = "alias"
 	CmdUnalias   = "unalias"
+	CmdHideDel   = "hide-deleted"
 
 	CmdClear   = "clear"
 	CmdUnclear = "unclear"
@@ -162,6 +163,15 @@ var LocalCommands = []*cmdschema.EventContent{{
 		Optional: true,
 	}},
 	TailParam: "name",
+}, {
+	Command:     CmdHideDel,
+	Description: event.MakeExtensibleText("Hide deleted messages in this chat: on, off, or toggle (nothing is removed)"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:      "state",
+		Schema:   cmdschema.Enum("on", "off"),
+		Optional: true,
+	}},
+	TailParam: "state",
 }, {
 	Command:     CmdUnalias,
 	Description: event.MakeExtensibleText("Remove this chat's alias"),
@@ -288,6 +298,9 @@ func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) b
 		} else {
 			view.AddServiceMessage("No alias yet: /alias <name> sets one")
 		}
+	case CmdHideDel:
+		state := gjson.GetBytes(cmd.Arguments, "state").Str
+		go view.SetHideDeleted(parseToggle(state, chatView(view.Room).HideDeleted))
 	case CmdUnalias:
 		go view.SetAlias("")
 	case CmdUnread:

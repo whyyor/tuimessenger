@@ -63,6 +63,8 @@ type MessageView struct {
 	// account data it came from, replaced by sync on every change.
 	clearedAt time.Time
 	clearAD   *database.AccountData
+	// viewAD is the chat-view account data (hide deleted) it was built with.
+	viewAD *database.AccountData
 	// drawWidth is the width of the last frame, for rebuilding outside Draw.
 	drawWidth int
 	// followSelection asks the next Draw to scroll the selected message into
@@ -682,10 +684,12 @@ func (view *MessageView) isDM() bool {
 func (view *MessageView) update(width int) {
 	timelinePtr := view.parent.Room.TimelineCache.Current()
 	clearAD := view.parent.Room.GetAccountData(store.AccountDataCleared)
-	if timelinePtr == nil || timelinePtr == view.prevTimeline && width == view.prevWidth && clearAD == view.clearAD {
+	viewAD := view.parent.Room.GetAccountData(AccountDataChatView)
+	if timelinePtr == nil || timelinePtr == view.prevTimeline && width == view.prevWidth && clearAD == view.clearAD && viewAD == view.viewAD {
 		return
 	}
-	view.clearAD = clearAD
+	view.clearAD, view.viewAD = clearAD, viewAD
+	chatViewOpts := chatView(view.parent.Room)
 	clearState := view.parent.Room.ClearState()
 	cleared := clearState.At()
 	view.clearedAt = cleared
@@ -756,7 +760,7 @@ func (view *MessageView) update(width int) {
 			startIncreasingScrollOffset = true
 			prevLastEventNotFound = true
 		}
-		if hiddenByClear(evt, cleared) || clearState.IsHidden(evt.ID) {
+		if hiddenByClear(evt, cleared) || clearState.IsHidden(evt.ID) || hiddenAsDeleted(evt, chatViewOpts) {
 			increaseScrollOffset = increaseScrollOffset || startIncreasingScrollOffset
 			continue
 		}

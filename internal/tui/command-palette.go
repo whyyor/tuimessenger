@@ -178,6 +178,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 			aliasTitle = "Change alias (" + current + ")"
 		}
 		cleared := !clearedAt(room.Room).IsZero()
+		hideDeleted := chatView(room.Room).HideDeleted
 		muteTitle, muteCmd := "Mute this chat", "/mute"
 		if muted {
 			muteTitle, muteCmd = "Unmute this chat", "/unmute"
@@ -203,6 +204,8 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 				func() { go room.SetPrivacy(func(p *ChatPrivacy) { p.ReadReceipts = !p.ReadReceipts }) }),
 			cmd(muteTitle, muteCmd, func() { go room.SetMuted(!muted) }),
 			cmd(clearTitle, clearCmd, func() { go room.SetCleared(!cleared) }),
+			cmd("Hide deleted messages in this chat: "+onOff(hideDeleted)+" → "+onOff(!hideDeleted), "/hide-deleted",
+				func() { go room.SetHideDeleted(!hideDeleted) }),
 			cmd("Attach files…", "/upload", func() { go room.AttachPicked() }),
 			cmd("Attach copied files or image", "Ctrl+v", func() { go room.AttachClipboard() }),
 			cmd("Reply to a message", "r", func() { room.StartSelecting(SelectReply, "") }),
