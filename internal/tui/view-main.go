@@ -80,7 +80,9 @@ func (ui *GomuksTUI) NewMainView() mauview.Component {
 	}
 	mainView.roomList = NewRoomList(mainView)
 	onFocusGained = func() { mainView.autoRead(nil) }
+	onFocusChanged = mainView.reportViewing
 	go mainView.tickRelativeTimes()
+	go mainView.tickViewing()
 	//mainView.cmdProcessor = NewCommandProcessor(mainView)
 
 	mainView.flex.
@@ -578,6 +580,7 @@ func (view *MainView) CloseCurrentRoom() {
 	view.currentRoom = nil
 	view.roomView.SetInnerComponent(nil)
 	view.roomList.SetSelected("")
+	view.reportViewing()
 	// Every way of closing (Escape, browse Escape) wipes leftover cells.
 	RequestRepaint()
 	view.parent.Render()
@@ -615,6 +618,7 @@ func (view *MainView) switchRoom(roomID id.RoomID, peek bool) {
 	view.roomView.SetInnerComponent(currentRoom)
 	view.roomView.Focus()
 	view.MarkRead(currentRoom)
+	view.reportViewing()
 	go view.loadReceipts(roomData)
 	if len(ptr.Val(roomData.TimelineCache.Current())) < 50 {
 		go view.LoadHistory(roomID)

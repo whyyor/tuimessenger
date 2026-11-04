@@ -151,22 +151,30 @@ func (h *HiClient) postLogin(ctx context.Context, acc *database.Account) error {
 	if err != nil {
 		return fmt.Errorf("failed to load olm machine: %w", err)
 	}
-	// FIXME if this fails, the login still appears to go through
-	log.Debug().Msg("Generating and uploading e2ee device keys to server")
-	err = h.Crypto.ShareKeys(ctx, 0)
-	if err != nil {
-		return err
-	}
-	log.Debug().Msg("Fetching own device list from server")
-	_, err = h.Crypto.FetchKeys(ctx, []id.UserID{h.Account.UserID}, true)
-	if err != nil {
-		return fmt.Errorf("failed to fetch own devices: %w", err)
+	if h.ServerHasNoE2EE {
+		log.Debug().Msg("Server has no end-to-end encryption, skipping key upload")
+	} else {
+		// FIXME if this fails, the login still appears to go through
+		log.Debug().Msg("Generating and uploading e2ee device keys to server")
+		err = h.Crypto.ShareKeys(ctx, 0)
+		if err != nil {
+			return err
+		}
+		log.Debug().Msg("Fetching own device list from server")
+		_, err = h.Crypto.FetchKeys(ctx, []id.UserID{h.Account.UserID}, true)
+		if err != nil {
+			return fmt.Errorf("failed to fetch own devices: %w", err)
+		}
 	}
 	h.VerificationState, err = h.checkIsCurrentDeviceVerified(ctx)
 	if err != nil {
 		return err
 	}
 	h.VerificationState.StateChecked = true
+	if h.ServerHasNoE2EE && !h.IsSyncing() {
+		// Normally syncing starts after verifying the device; without encryption there's nothing to verify.
+		go h.Sync()
+	}
 	return nil
 }
 

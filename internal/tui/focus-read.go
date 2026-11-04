@@ -47,6 +47,9 @@ func (a *attention) looking(now time.Time) bool {
 // OnFocusEvent receives terminal focus changes from the patched mauview.
 func (br *bufferedRoot) OnFocusEvent(focused bool) bool {
 	userAttention.setFocus(focused)
+	if onFocusChanged != nil {
+		onFocusChanged()
+	}
 	if focused && onFocusGained != nil {
 		// Coming back to the window: what's on screen now counts as seen.
 		onFocusGained()
@@ -55,6 +58,9 @@ func (br *bufferedRoot) OnFocusEvent(focused bool) bool {
 }
 
 var onFocusGained func()
+
+// onFocusChanged runs on every focus change, e.g. to tell the server whether a chat is still being looked at.
+var onFocusChanged func()
 
 // autoRead marks the open chat read if new messages arrived in it while
 // you're looking; MarkRead still skips arrow browsing and scrolled-up views.

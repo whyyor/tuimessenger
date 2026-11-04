@@ -73,6 +73,8 @@ func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any
 		return jsoncmd.MarkRead.RunCtx(ctx, req.Data, h.API.MarkRead)
 	case jsoncmd.ReqSetTyping:
 		return jsoncmd.SetTyping.RunCtx(ctx, req.Data, h.API.SetTyping)
+	case jsoncmd.ReqSetViewingRoom:
+		return jsoncmd.SetViewingRoom.RunCtx(ctx, req.Data, h.API.SetViewingRoom)
 	case jsoncmd.ReqGetProfile:
 		return jsoncmd.GetProfile.RunCtx(ctx, req.Data, h.API.GetProfile)
 	case jsoncmd.ReqSetProfileField:
@@ -273,6 +275,10 @@ func (h *JSONAPI) MarkRead(ctx context.Context, params *jsoncmd.MarkReadParams) 
 
 func (h *JSONAPI) SetTyping(ctx context.Context, params *jsoncmd.SetTypingParams) error {
 	return h.HiClient.SetTyping(ctx, params.RoomID, time.Duration(params.Timeout)*time.Millisecond)
+}
+
+func (h *JSONAPI) SetViewingRoom(ctx context.Context, params *jsoncmd.SetViewingRoomParams) error {
+	return h.HiClient.SetViewingRoom(ctx, params.RoomID)
 }
 
 func (h *JSONAPI) GetProfile(ctx context.Context, params *jsoncmd.GetProfileParams) (*jsoncmd.GetProfileResponse, error) {
