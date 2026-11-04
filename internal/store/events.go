@@ -17,10 +17,17 @@ import (
 // Event is a Matrix event plus its position in the store.
 type Event struct {
 	Pos int64
+	// Hidden events are bookkeeping (e.g. a contact joining a chat) that clients shouldn't show as a line.
+	Hidden bool
 	*event.Event
 }
 
-const eventColumns = `pos, event_id, room_id, sender, type, state_key, content, redacts, unsigned, stream_order, stream_suborder, timestamp`
+const eventColumns = `pos, event_id, room_id, sender, type, state_key, content, redacts, unsigned, stream_order, stream_suborder, timestamp, hidden`
+
+// hideMarker is the content field bridgev2 and we use to say "don't show this in the timeline".
+type hideMarker struct {
+	Hidden bool `json:"com.beeper.exclude_from_timeline"`
+}
 
 // AddEvent saves one event. State events also become the room's current state.
 // The room order comes from evt.Unsigned.BeeperHSOrder; 0 means "newest", which uses the position.
@@ -43,13 +50,16 @@ func (w *Writer) AddEvent(ctx context.Context, evt *event.Event) (int64, error) 
 		return 0, fmt.Errorf("failed to encode unsigned: %w", err)
 	}
 
+	var marker hideMarker
+	_ = json.Unmarshal(content, &marker)
+
 	pos := w.nextPos()
 	if evt.Unsigned.BeeperHSOrder == 0 {
 		evt.Unsigned.BeeperHSOrder = pos
 	}
-	_, err = w.store.db.Exec(ctx, `INSERT INTO local_events (`+eventColumns+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+	_, err = w.store.db.Exec(ctx, `INSERT INTO local_events (`+eventColumns+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		pos, evt.ID, evt.RoomID, evt.Sender, evt.Type.Type, evt.StateKey, content, dbutil.StrPtr(evt.Redacts),
-		unsigned, evt.Unsigned.BeeperHSOrder, evt.Unsigned.BeeperHSSuborder, evt.Timestamp)
+		unsigned, evt.Unsigned.BeeperHSOrder, evt.Unsigned.BeeperHSSuborder, evt.Timestamp, marker.Hidden)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert event %s: %w", evt.ID, err)
 	}
@@ -139,9 +149,10 @@ func scanEvent(row dbutil.Scannable) (*Event, error) {
 		stateKey, redacts sql.NullString
 		content, unsigned []byte
 		order, suborder   int64
+		hidden            bool
 	)
 	err := row.Scan(&pos, &evt.ID, &evt.RoomID, &evt.Sender, &evtType, &stateKey, &content, &redacts,
-		&unsigned, &order, &suborder, &evt.Timestamp)
+		&unsigned, &order, &suborder, &evt.Timestamp, &hidden)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
@@ -164,7 +175,7 @@ func scanEvent(row dbutil.Scannable) (*Event, error) {
 	}
 	evt.Unsigned.BeeperHSOrder = order
 	evt.Unsigned.BeeperHSSuborder = int16(suborder)
-	return &Event{Pos: pos, Event: &evt}, nil
+	return &Event{Pos: pos, Hidden: hidden, Event: &evt}, nil
 }
 
 // prefixed turns "a, b" into "e.a, e.b" for queries that join two tables.

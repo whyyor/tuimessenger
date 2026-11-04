@@ -118,8 +118,9 @@ func (i *Intent) MarkUnread(ctx context.Context, roomID id.RoomID, unread bool) 
 	})
 }
 
-// Typing is short-lived, so it isn't stored; the /sync server (next milestone) will keep it in memory.
+// MarkTyping is only kept in memory: it lasts seconds, so writing it to disk would be wasted flash wear.
 func (i *Intent) MarkTyping(ctx context.Context, roomID id.RoomID, typingType bridgev2.TypingType, timeout time.Duration) error {
+	i.c.typing.Set(roomID, i.mxid, timeout)
 	return nil
 }
 
@@ -282,6 +283,8 @@ func (i *Intent) CreateRoom(ctx context.Context, req *mautrix.ReqCreateRoom) (id
 			if saved.StateKey == nil {
 				saved.StateKey = new("")
 			}
+			// Setting up a new chat isn't something to show as lines in it.
+			setRaw(&saved.Content, "com.beeper.exclude_from_timeline", true)
 			if _, err := w.AddEvent(ctx, &saved); err != nil {
 				return err
 			}
@@ -352,7 +355,7 @@ func (i *Intent) TagRoom(ctx context.Context, roomID id.RoomID, tag event.RoomTa
 	})
 }
 
-// MuteRoom saves com.beeper.mute, the same setting the gomuks fork writes with /mute.
+// MuteRoom saves com.beeper.mute, the same setting the tuimessenger client writes with /mute.
 func (i *Intent) MuteRoom(ctx context.Context, roomID id.RoomID, until time.Time) error {
 	content := &event.BeeperMuteEventContent{}
 	switch {

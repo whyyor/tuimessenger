@@ -18,6 +18,7 @@ import (
 
 	"github.com/whyyor/tuimessenger/internal/media"
 	"github.com/whyyor/tuimessenger/internal/store"
+	"github.com/whyyor/tuimessenger/internal/typing"
 )
 
 // Connector is what one network's bridge sees as "the Matrix server".
@@ -26,6 +27,7 @@ type Connector struct {
 	log        zerolog.Logger
 	store      *store.Store
 	media      *media.Store
+	typing     *typing.Tracker
 	bridgeKey  string
 	serverName string
 	owner      id.UserID
@@ -38,11 +40,12 @@ var (
 )
 
 // New creates the connector for one network; bridgeKey (e.g. "whatsapp") prefixes its ghost and bot IDs.
-func New(log zerolog.Logger, st *store.Store, med *media.Store, bridgeKey, serverName string, owner id.UserID) *Connector {
+func New(log zerolog.Logger, st *store.Store, med *media.Store, typ *typing.Tracker, bridgeKey, serverName string, owner id.UserID) *Connector {
 	c := &Connector{
 		log:        log.With().Str("component", "matrix").Logger(),
 		store:      st,
 		media:      med,
+		typing:     typ,
 		bridgeKey:  bridgeKey,
 		serverName: serverName,
 		owner:      owner,
@@ -94,7 +97,7 @@ func (c *Connector) SendBridgeStatus(ctx context.Context, state *status.BridgeSt
 	return nil
 }
 
-// SendMessageStatus saves "delivered" / "failed" for a message you sent; the gomuks fork shows it as ticks.
+// SendMessageStatus saves "delivered" / "failed" for a message you sent; the tuimessenger client shows it as ticks.
 func (c *Connector) SendMessageStatus(ctx context.Context, st *bridgev2.MessageStatus, evt *bridgev2.MessageStatusEventInfo) {
 	// "Pending" changes nothing the client shows, so don't spend a disk write on it.
 	if evt.RoomID == "" || evt.SourceEventID == "" || st.Status == event.MessageStatusPending {

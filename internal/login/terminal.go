@@ -161,6 +161,11 @@ func (t *Terminal) cookies(ctx context.Context, proc bridgev2.LoginProcess, para
 	return submitter.SubmitCookies(ctx, values)
 }
 
+// AskSecret asks for something like a password without showing what's typed.
+func (t *Terminal) AskSecret(prompt string) (string, error) {
+	return t.ask(prompt, true)
+}
+
 // ask prints a prompt and reads one line; secret input is not echoed on screen.
 func (t *Terminal) ask(prompt string, secret bool) (string, error) {
 	fmt.Fprint(t.out, prompt)

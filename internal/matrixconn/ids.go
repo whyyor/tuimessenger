@@ -14,7 +14,7 @@ import (
 )
 
 // Ghost IDs look like "@whatsapp_123:server" and the bot like "@whatsappbot:server";
-// the gomuks fork reads the part before "_" to pick the network icon.
+// the tuimessenger client reads the part before "_" to pick the network icon.
 
 func (c *Connector) FormatGhostMXID(userID networkid.UserID) id.UserID {
 	return id.NewUserID(c.bridgeKey+"_"+id.EncodeUserLocalpart(string(userID)), c.serverName)
