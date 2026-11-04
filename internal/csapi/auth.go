@@ -38,6 +38,7 @@ func (s *Server) versions(r *http.Request) (any, error) {
 	return &mautrix.RespVersions{
 		Versions: []mautrix.SpecVersion{mautrix.SpecV11, mautrix.SpecV12, mautrix.SpecV13, mautrix.SpecV14,
 			mautrix.SpecV15, mautrix.SpecV16, mautrix.SpecV17, mautrix.SpecV18, mautrix.SpecV19, mautrix.SpecV110, mautrix.SpecV111},
+		UnstableFeatures: map[string]bool{noE2EEFeature: true, viewingFeature: true},
 	}, nil
 }
 

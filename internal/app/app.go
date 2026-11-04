@@ -206,3 +206,32 @@ func (a *App) portalFor(ctx context.Context, roomID id.RoomID) (*bridgev2.Bridge
 	}
 	return nil, nil, fmt.Errorf("room %s doesn't belong to any network", roomID)
 }
+
+// SetViewing tells every logged-in account which chat is open: the one it belongs to gets the chat, the others nil.
+func (a *App) SetViewing(ctx context.Context, roomID id.RoomID) {
+	var viewedBridge *bridgev2.Bridge
+	var viewedPortal *bridgev2.Portal
+	if roomID != "" {
+		var err error
+		if viewedBridge, viewedPortal, err = a.portalFor(ctx, roomID); err != nil {
+			zerolog.Ctx(ctx).Debug().Err(err).Msg("Viewing a room that isn't a chat")
+		}
+	}
+	for _, br := range a.bridges {
+		user, err := br.GetUserByMXID(ctx, a.opts.Owner)
+		if err != nil {
+			continue
+		}
+		msg := &bridgev2.MatrixViewingChat{}
+		if br == viewedBridge {
+			msg.Portal = viewedPortal
+		}
+		for _, login := range user.GetUserLogins() {
+			if viewer, ok := login.Client.(bridgev2.ChatViewingNetworkAPI); ok {
+				if err = viewer.HandleMatrixViewingChat(ctx, msg); err != nil {
+					zerolog.Ctx(ctx).Warn().Err(err).Str("network", string(br.ID)).Msg("Failed to update viewed chat")
+				}
+			}
+		}
+	}
+}

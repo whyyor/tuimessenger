@@ -32,10 +32,11 @@ const (
 
 // fakeBridges records what the API would hand to the networks.
 type fakeBridges struct {
-	lock   sync.Mutex
-	queued []*event.Event
-	older  func(roomID id.RoomID) (bool, error)
-	refuse error // when set, the "network" rejects everything with this error
+	lock    sync.Mutex
+	queued  []*event.Event
+	older   func(roomID id.RoomID) (bool, error)
+	refuse  error // when set, the "network" rejects everything with this error
+	viewing []id.RoomID
 }
 
 func (f *fakeBridges) Queue(ctx context.Context, evt *event.Event) error {
@@ -46,6 +47,18 @@ func (f *fakeBridges) Queue(ctx context.Context, evt *event.Event) error {
 	}
 	f.queued = append(f.queued, evt)
 	return nil
+}
+
+func (f *fakeBridges) SetViewing(ctx context.Context, roomID id.RoomID) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.viewing = append(f.viewing, roomID)
+}
+
+func (f *fakeBridges) viewed() []id.RoomID {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return append([]id.RoomID(nil), f.viewing...)
 }
 
 func (f *fakeBridges) LoadOlder(ctx context.Context, roomID id.RoomID) (bool, error) {
@@ -176,7 +189,7 @@ func TestLoginRules(t *testing.T) {
 	if err != nil || who.UserID != owner || who.DeviceID == "" {
 		t.Errorf("whoami: %+v %v", who, err)
 	}
-	if _, err = e.cli.MakeRequest(ctx, "GET", e.cli.BuildClientURL("v3", "keys", "changes"), nil, nil); !errors.Is(err, mautrix.MUnrecognized) {
+	if _, err = e.cli.MakeRequest(ctx, "POST", e.cli.BuildClientURL("v3", "search"), map[string]any{}, nil); !errors.Is(err, mautrix.MUnrecognized) {
 		t.Errorf("unsupported endpoint: %v", err)
 	}
 }
@@ -426,5 +439,49 @@ func TestLeave(t *testing.T) {
 	}
 	if _, err = e.cli.LeaveRoom(ctx, e.roomID); err != nil {
 		t.Errorf("leaving twice should be fine: %v", err)
+	}
+}
+
+func TestNoEncryption(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	versions, err := e.cli.Versions(ctx)
+	if err != nil || !versions.UnstableFeatures["com.tuimessenger.no_e2ee"] || !versions.UnstableFeatures["com.tuimessenger.viewing"] {
+		t.Errorf("versions should announce no_e2ee: %+v %v", versions, err)
+	}
+	var upload struct {
+		Counts map[string]int `json:"one_time_key_counts"`
+	}
+	_, err = e.cli.MakeRequest(ctx, "POST", e.cli.BuildClientURL("v3", "keys", "upload"), map[string]any{}, &upload)
+	if err != nil || upload.Counts["signed_curve25519"] == 0 {
+		t.Errorf("keys/upload: %+v %v", upload, err)
+	}
+	resp, err := e.cli.FullSyncRequest(ctx, mautrix.ReqSync{})
+	if err != nil || resp.DeviceOTKCount.SignedCurve25519 == 0 {
+		t.Errorf("sync should report a full key count so clients don't keep uploading: %+v %v", resp.DeviceOTKCount, err)
+	}
+	if _, err = e.cli.GetKeyBackupLatestVersion(ctx); !errors.Is(err, mautrix.MNotFound) {
+		t.Errorf("key backup: %v", err)
+	}
+}
+
+func TestViewing(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	url := e.cli.BuildURL(mautrix.BaseURLPath{"_matrix", "client", "unstable", "com.tuimessenger", "viewing"})
+	view := func(roomID id.RoomID) {
+		t.Helper()
+		if _, err := e.cli.MakeRequest(ctx, "PUT", url, map[string]any{"room_id": roomID}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	view(e.roomID)
+	view(e.roomID) // a refresh, which bridgev2 expects
+	view("")
+	view("") // closing twice only clears once
+	time.Sleep(200 * time.Millisecond)
+	got := e.bridges.viewed()
+	if len(got) != 3 || got[0] != e.roomID || got[1] != e.roomID || got[2] != "" {
+		t.Errorf("bridges saw %v, want [room room \"\"]", got)
 	}
 }
