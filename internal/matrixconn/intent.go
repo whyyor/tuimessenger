@@ -355,7 +355,7 @@ func (i *Intent) TagRoom(ctx context.Context, roomID id.RoomID, tag event.RoomTa
 	})
 }
 
-// MuteRoom saves com.beeper.mute, the same setting the gomuks fork writes with /mute.
+// MuteRoom saves com.beeper.mute, the same setting the tuimessenger client writes with /mute.
 func (i *Intent) MuteRoom(ctx context.Context, roomID id.RoomID, until time.Time) error {
 	content := &event.BeeperMuteEventContent{}
 	switch {

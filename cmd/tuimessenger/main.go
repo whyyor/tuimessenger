@@ -1,4 +1,4 @@
-// Command tuimessenger runs chat bridges locally, with a Matrix client API for gomuks on top.
+// Command tuimessenger runs chat bridges locally, with a Matrix client API for the tuimessenger client on top.
 package main
 
 import (
@@ -107,7 +107,7 @@ func ensurePassword(ctx context.Context, a *app.App, term *login.Terminal, chang
 	if !isTerminal() {
 		return errors.New("no client password is set yet: run tuimessenger once in a terminal to choose one")
 	}
-	fmt.Println("Choose the password gomuks will log in with (user \"" + ownerMXID.Localpart() + "\").")
+	fmt.Println("Choose the password tuimessenger will log in with (user \"" + ownerMXID.Localpart() + "\").")
 	for {
 		first, err := term.AskSecret("Password: ")
 		if err != nil {
@@ -163,7 +163,7 @@ func serve(ctx context.Context, log zerolog.Logger, a *app.App, addr string) err
 		defer cancel()
 		_ = server.Shutdown(shutdownCtx)
 	}()
-	log.Info().Msgf("Ready. In gomuks, log in to http://%s as %s. Press Ctrl+C to stop.", listener.Addr(), ownerMXID.Localpart())
+	log.Info().Msgf("Ready. In tuimessenger, log in to http://%s as %s. Press Ctrl+C to stop.", listener.Addr(), ownerMXID.Localpart())
 	if err = server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

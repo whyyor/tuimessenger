@@ -138,7 +138,7 @@ func (s *Server) forward(evt *event.Event) {
 	}
 }
 
-// saveFailure stores a "failed" delivery status, which the gomuks fork shows as a red mark on the message.
+// saveFailure stores a "failed" delivery status, which the tuimessenger client shows as a red mark on the message.
 func (s *Server) saveFailure(ctx context.Context, evt *event.Event, cause error) {
 	content := &event.BeeperMessageStatusEventContent{
 		RelatesTo: event.RelatesTo{Type: event.RelReference, EventID: evt.ID},

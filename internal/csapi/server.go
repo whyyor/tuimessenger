@@ -1,4 +1,4 @@
-// Package csapi is a small Matrix client-server API over our store, enough for gomuks to log in, sync and chat.
+// Package csapi is a small Matrix client-server API over our store, enough for the tuimessenger client to log in, sync and chat.
 package csapi
 
 import (

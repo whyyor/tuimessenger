@@ -367,7 +367,7 @@ func addRoom(resp *mautrix.RespSync, roomID id.RoomID, room *mautrix.SyncJoinedR
 }
 
 // summarize picks the "heroes" clients name a room after (e.g. the other person in a DM) and counts members.
-// Bridge bots are left out unless nobody else is there, as the gomuks fork reads the network from these IDs.
+// Bridge bots are left out unless nobody else is there, as the tuimessenger client reads the network from these IDs.
 func summarize(state []*store.Event, owner id.UserID) mautrix.LazyLoadSummary {
 	var heroes, bots []id.UserID
 	joined, invited := 0, 0

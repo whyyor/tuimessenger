@@ -127,7 +127,7 @@ type ruleset struct {
 	Underride pushrules.PushRuleArray `json:"underride"`
 }
 
-// Push rules decide which messages notify. gomuks evaluates them itself; we only store them (as m.push_rules).
+// Push rules decide which messages notify. the tuimessenger client evaluates them itself; we only store them (as m.push_rules).
 func (s *Server) loadPushRules(ctx context.Context) (*ruleset, error) {
 	raw, err := s.Store.GetAccountData(ctx, "", event.AccountDataPushRules)
 	if err != nil {

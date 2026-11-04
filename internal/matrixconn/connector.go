@@ -97,7 +97,7 @@ func (c *Connector) SendBridgeStatus(ctx context.Context, state *status.BridgeSt
 	return nil
 }
 
-// SendMessageStatus saves "delivered" / "failed" for a message you sent; the gomuks fork shows it as ticks.
+// SendMessageStatus saves "delivered" / "failed" for a message you sent; the tuimessenger client shows it as ticks.
 func (c *Connector) SendMessageStatus(ctx context.Context, st *bridgev2.MessageStatus, evt *bridgev2.MessageStatusEventInfo) {
 	// "Pending" changes nothing the client shows, so don't spend a disk write on it.
 	if evt.RoomID == "" || evt.SourceEventID == "" || st.Status == event.MessageStatusPending {
