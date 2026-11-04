@@ -13,6 +13,7 @@ require (
 	go.mau.fi/mautrix-telegram v0.2609.1-0.20261002042725-e94715f823b5
 	go.mau.fi/mautrix-whatsapp v0.2609.1-0.20260930163414-a0325e76df33
 	go.mau.fi/util v0.10.2-0.20260918225449-a4c0d5b86aa8
+	go.mau.fi/whatsmeow v0.0.0-20260929112325-8b41cfe6d9c4
 	golang.org/x/crypto v0.57.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/term v0.47.0
@@ -65,7 +66,6 @@ require (
 	github.com/yuin/goldmark v1.8.6 // indirect
 	go.mau.fi/libsignal v0.2.2 // indirect
 	go.mau.fi/webp v0.3.0 // indirect
-	go.mau.fi/whatsmeow v0.0.0-20260929112325-8b41cfe6d9c4 // indirect
 	go.mau.fi/zeroconfig v0.2.0 // indirect
 	go.mau.fi/zerozap v0.1.2 // indirect
 	go.opentelemetry.io/otel v1.45.0 // indirect
