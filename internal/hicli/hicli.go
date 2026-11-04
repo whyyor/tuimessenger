@@ -49,6 +49,11 @@ type HiClient struct {
 
 	Initialized       *exsync.Event
 	VerificationState jsoncmd.VerificationState
+	// ServerHasNoE2EE is set when the server says it doesn't do end-to-end encryption (tuimessenger), so key
+	// setup and device verification are skipped.
+	ServerHasNoE2EE bool
+	// ServerWantsViewingRoom is set when the server wants to know which room is open (tuimessenger).
+	ServerWantsViewingRoom bool
 
 	KeyBackupVersion id.KeyBackupVersion
 	KeyBackupKey     *backup.MegolmBackupKey
@@ -299,6 +304,12 @@ var ErrFailedToCheckServerVersions = errors.New("failed to check server versions
 var ErrOutdatedServer = errors.New("homeserver is outdated")
 var MinimumSpecVersion = mautrix.SpecV11
 
+// NoE2EEFeature is the /versions unstable feature tuimessenger uses to say it has no end-to-end encryption.
+const NoE2EEFeature = "com.tuimessenger.no_e2ee"
+
+// ViewingRoomFeature is the /versions unstable feature for tuimessenger's "which room is open" endpoint.
+const ViewingRoomFeature = "com.tuimessenger.viewing"
+
 func (h *HiClient) CheckServerVersions(ctx context.Context) error {
 	return h.checkServerVersions(ctx, h.Client)
 }
@@ -310,6 +321,8 @@ func (h *HiClient) checkServerVersions(ctx context.Context, cli *mautrix.Client)
 	} else if !versions.Contains(MinimumSpecVersion) {
 		return fmt.Errorf("%w (minimum: %s, highest supported: %s)", ErrOutdatedServer, MinimumSpecVersion, versions.GetLatest())
 	}
+	h.ServerHasNoE2EE = versions.UnstableFeatures[NoE2EEFeature]
+	h.ServerWantsViewingRoom = versions.UnstableFeatures[ViewingRoomFeature]
 	return nil
 }
 

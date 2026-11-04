@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -738,4 +739,16 @@ func (h *HiClient) shouldShareKeysToInvitedUsers(ctx context.Context, roomID id.
 	return hv.HistoryVisibility == event.HistoryVisibilityInvited ||
 		hv.HistoryVisibility == event.HistoryVisibilityShared ||
 		hv.HistoryVisibility == event.HistoryVisibilityWorldReadable
+}
+
+// SetViewingRoom tells a tuimessenger server which room is open on screen ("" for none), so networks can act like
+// their own apps (WhatsApp is online, and sends typing notices, only while a chat is open). Other servers don't
+// have this, so it does nothing there.
+func (h *HiClient) SetViewingRoom(ctx context.Context, roomID id.RoomID) error {
+	if !h.ServerWantsViewingRoom {
+		return nil
+	}
+	url := h.Client.BuildURL(mautrix.BaseURLPath{"_matrix", "client", "unstable", "com.tuimessenger", "viewing"})
+	_, err := h.Client.MakeRequest(ctx, http.MethodPut, url, map[string]any{"room_id": roomID}, nil)
+	return err
 }

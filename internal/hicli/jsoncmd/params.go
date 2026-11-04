@@ -118,6 +118,10 @@ type SetTypingParams struct {
 	Timeout int       `json:"timeout"`
 }
 
+type SetViewingRoomParams struct {
+	RoomID id.RoomID `json:"room_id"`
+}
+
 type GetProfileParams struct {
 	UserID id.UserID `json:"user_id"`
 }

@@ -26,6 +26,10 @@ import (
 )
 
 func (h *HiClient) checkIsCurrentDeviceVerified(ctx context.Context) (state jsoncmd.VerificationState, err error) {
+	if h.ServerHasNoE2EE {
+		// Nothing to verify without encryption; treat the device as fully set up so syncing can start.
+		return jsoncmd.VerificationState{IsVerified: true, HasCrossSigning: true, HasSSSS: true}, nil
+	}
 	var keys *crypto.CrossSigningPublicKeysCache
 	keys, err = h.Crypto.GetOwnCrossSigningPublicKeys(ctx)
 	if err != nil {

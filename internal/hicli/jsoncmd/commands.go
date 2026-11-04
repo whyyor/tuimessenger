@@ -51,6 +51,7 @@ const (
 	ReqSetAccountData           Name = "set_account_data"
 	ReqMarkRead                 Name = "mark_read"
 	ReqSetTyping                Name = "set_typing"
+	ReqSetViewingRoom           Name = "set_viewing_room"
 	ReqGetProfile               Name = "get_profile"
 	ReqSetProfileField          Name = "set_profile_field"
 	ReqGetMutualRooms           Name = "get_mutual_rooms"
@@ -166,6 +167,9 @@ var (
 	MarkRead = &CommandSpecWithoutResponse[*MarkReadParams]{Name: ReqMarkRead}
 	// SetTyping starts or stops sending typing notifications in a room.
 	SetTyping = &CommandSpecWithoutResponse[*SetTypingParams]{Name: ReqSetTyping}
+	// SetViewingRoom tells the server which room is open on screen ("" for none). Only tuimessenger servers use it,
+	// e.g. so WhatsApp only shows you online, and sends you typing notices, while a chat is open.
+	SetViewingRoom = &CommandSpecWithoutResponse[*SetViewingRoomParams]{Name: ReqSetViewingRoom}
 	// GetProfile returns a Matrix user profile from the homeserver.
 	GetProfile = &CommandSpec[*GetProfileParams, *GetProfileResponse]{Name: ReqGetProfile}
 	// SetProfileField sets a field in the current user's Matrix profile.
@@ -387,6 +391,7 @@ var AllNames = []Name{
 	ReqSetAccountData,
 	ReqMarkRead,
 	ReqSetTyping,
+	ReqSetViewingRoom,
 	ReqGetProfile,
 	ReqSetProfileField,
 	ReqGetMutualRooms,
