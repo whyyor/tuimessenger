@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -28,6 +29,9 @@ type Bridges interface {
 	LoadOlder(ctx context.Context, roomID id.RoomID) (bool, error)
 	// SetViewing tells the networks which chat is open on screen; "" means none.
 	SetViewing(ctx context.Context, roomID id.RoomID)
+	// FetchMedia opens direct media (a file still on its network), downloading it the first time. It also
+	// returns the content type, which may be "" if the network didn't say.
+	FetchMedia(ctx context.Context, fileID string, params map[string]string) (*os.File, string, error)
 }
 
 type Options struct {

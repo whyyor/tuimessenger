@@ -14,6 +14,7 @@ require (
 	go.mau.fi/mautrix-whatsapp v0.2609.1-0.20260930163414-a0325e76df33
 	go.mau.fi/util v0.10.2-0.20260918225449-a4c0d5b86aa8
 	golang.org/x/crypto v0.57.0
+	golang.org/x/sync v0.23.0
 	golang.org/x/term v0.47.0
 	gopkg.in/yaml.v3 v3.0.1
 	maunium.net/go/mautrix v0.31.1-0.20261004173030-ec81c20abd25
@@ -75,7 +76,6 @@ require (
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect

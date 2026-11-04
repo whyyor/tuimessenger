@@ -109,13 +109,21 @@ func (c *Connector) SendMessageStatus(ctx context.Context, st *bridgev2.MessageS
 	}
 }
 
-// Direct media (fetching files from the network only when opened) comes later.
+// GenerateContentURI makes a link for direct media: the file stays on the network until a client opens it.
 func (c *Connector) GenerateContentURI(ctx context.Context, mediaID networkid.MediaID) (id.ContentURIString, error) {
-	return "", bridgev2.ErrDirectMediaNotEnabled
+	return id.ContentURI{Homeserver: c.serverName, FileID: media.DirectID(c.bridgeKey, mediaID)}.CUString(), nil
 }
 
 func (c *Connector) ParseContentURI(ctx context.Context, uri id.ContentURIString) (networkid.MediaID, error) {
-	return nil, bridgev2.ErrDirectMediaNotEnabled
+	parsed, err := uri.Parse()
+	if err != nil {
+		return nil, err
+	}
+	network, mediaID, ok := media.ParseDirectID(parsed.FileID)
+	if !ok || parsed.Homeserver != c.serverName || network != c.bridgeKey {
+		return nil, fmt.Errorf("%s isn't direct media from %s", uri, c.bridgeKey)
+	}
+	return mediaID, nil
 }
 
 func (c *Connector) GetStateEvent(ctx context.Context, roomID id.RoomID, evtType event.Type, stateKey string) (*event.Event, error) {

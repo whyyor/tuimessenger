@@ -28,7 +28,7 @@ func newWhatsApp(_ *config.Config) (*Network, error) {
 	cfg.DirectMediaAutoRequest = true
 	cfg.InitialAutoReconnect = true
 	cfg.UseWhatsAppRetryStore = true
-	cfg.LazyAvatars = false // needs direct media, which we don't have yet
+	cfg.LazyAvatars = true // profile photos are fetched only when shown (needs direct media, which the app turns on)
 
 	cfg.HistorySync.RequestFullSync = false // careful: only recent history at pairing; older pages load when you scroll
 	cfg.HistorySync.DispatchWait = 5 * time.Second
