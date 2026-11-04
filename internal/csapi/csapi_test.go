@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -16,6 +17,8 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 	"maunium.net/go/mautrix/pushrules"
+
+	"io"
 
 	"github.com/whyyor/tuimessenger/internal/csapi"
 	"github.com/whyyor/tuimessenger/internal/matrixconn"
@@ -37,6 +40,8 @@ type fakeBridges struct {
 	older   func(roomID id.RoomID) (bool, error)
 	refuse  error // when set, the "network" rejects everything with this error
 	viewing []id.RoomID
+	remote  map[string]string // direct media "still on the network", by file ID
+	fetches int
 }
 
 func (f *fakeBridges) Queue(ctx context.Context, evt *event.Event) error {
@@ -59,6 +64,25 @@ func (f *fakeBridges) viewed() []id.RoomID {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return append([]id.RoomID(nil), f.viewing...)
+}
+
+// FetchMedia serves "network" files from f.remote, like a bridge downloading direct media.
+func (f *fakeBridges) FetchMedia(ctx context.Context, fileID string, params map[string]string) (*os.File, string, error) {
+	f.lock.Lock()
+	data, ok := f.remote[fileID]
+	f.fetches++
+	f.lock.Unlock()
+	if !ok {
+		return nil, "", mautrix.MNotFound.WithMessage("Unknown media")
+	}
+	tmp, err := os.CreateTemp("", "fake-media-*")
+	if err != nil {
+		return nil, "", err
+	}
+	_ = os.Remove(tmp.Name()) // stays readable while open
+	_, _ = tmp.WriteString(data)
+	_, _ = tmp.Seek(0, 0)
+	return tmp, "image/jpeg", nil
 }
 
 func (f *fakeBridges) LoadOlder(ctx context.Context, roomID id.RoomID) (bool, error) {
@@ -483,5 +507,26 @@ func TestViewing(t *testing.T) {
 	got := e.bridges.viewed()
 	if len(got) != 3 || got[0] != e.roomID || got[1] != e.roomID || got[2] != "" {
 		t.Errorf("bridges saw %v, want [room room \"\"]", got)
+	}
+}
+
+func TestDirectMediaDownload(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	fileID := media.DirectID("whatsapp", []byte("photo-123"))
+	e.bridges.remote = map[string]string{fileID: "jpeg bytes"}
+
+	resp, err := e.cli.Download(ctx, id.ContentURI{Homeserver: server, FileID: fileID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if string(data) != "jpeg bytes" || resp.Header.Get("Content-Type") != "image/jpeg" {
+		t.Errorf("got %q as %q", data, resp.Header.Get("Content-Type"))
+	}
+	_, err = e.cli.DownloadBytes(ctx, id.ContentURI{Homeserver: server, FileID: media.DirectID("whatsapp", []byte("gone"))})
+	if !errors.Is(err, mautrix.MNotFound) {
+		t.Errorf("unknown direct media: %v", err)
 	}
 }

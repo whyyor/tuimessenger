@@ -318,3 +318,23 @@ func TestMediaRoundTrip(t *testing.T) {
 		t.Error("media from another server should be refused")
 	}
 }
+
+func TestDirectMediaURIs(t *testing.T) {
+	ctx := context.Background()
+	c, _ := newTestConnector(t)
+	uri, err := c.GenerateContentURI(ctx, networkid.MediaID("media-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mediaID, err := c.ParseContentURI(ctx, uri)
+	if err != nil || string(mediaID) != "media-1" {
+		t.Errorf("round trip: %q %v", mediaID, err)
+	}
+	other := New(zerolog.Nop(), nil, nil, nil, "telegram", server, owner)
+	if _, err = other.ParseContentURI(ctx, uri); err == nil {
+		t.Error("telegram must not accept whatsapp's media links")
+	}
+	if _, err = c.ParseContentURI(ctx, "mxc://"+server+"/0123abcd"); err == nil {
+		t.Error("a stored file isn't direct media")
+	}
+}

@@ -25,6 +25,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/media"
 	"github.com/whyyor/tuimessenger/internal/store"
 	"github.com/whyyor/tuimessenger/internal/typing"
+	"golang.org/x/sync/singleflight"
 )
 
 type Options struct {
@@ -42,6 +43,9 @@ type App struct {
 	API     *csapi.Server
 	bridges []*bridgev2.Bridge
 	dbs     []*dbutil.Database
+
+	mediaCache *media.Cache
+	downloads  singleflight.Group // one download per file, even if it's opened twice at once
 
 	roomLock    sync.Mutex
 	roomBridges map[id.RoomID]*bridgev2.Bridge // which network each room belongs to, learnt on first use
@@ -65,6 +69,10 @@ func New(ctx context.Context, opts Options) (*App, error) {
 	}
 	med, err := media.New(filepath.Join(opts.DataDir, "media"))
 	if err != nil {
+		a.Close()
+		return nil, err
+	}
+	if a.mediaCache, err = media.NewCache(filepath.Join(opts.DataDir, "media", "cache"), mediaCacheSize); err != nil {
 		a.Close()
 		return nil, err
 	}
@@ -99,6 +107,11 @@ func (a *App) addBridge(name string, med *media.Store, typ *typing.Tracker) erro
 	a.dbs = append(a.dbs, db)
 	conn := matrixconn.New(log, a.Store, med, typ, name, a.opts.ServerName, a.opts.Owner)
 	br := bridgev2.NewBridge(networkid.BridgeID(name), db, log, &network.Config, conn, network.Connector, commands.NewProcessor)
+	// Direct media: files stay on the network until opened. This must come after NewBridge (which sets the
+	// network up) and before Start.
+	if dmn, ok := network.Connector.(bridgev2.DirectMediableNetwork); ok {
+		dmn.SetUseDirectMedia()
+	}
 	a.bridges = append(a.bridges, br)
 	return nil
 }

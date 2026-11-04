@@ -52,7 +52,19 @@ func (s *Server) download(w http.ResponseWriter, r *http.Request) {
 		writeError(w, mautrix.MNotFound.WithMessage("Media from other servers isn't available"))
 		return
 	}
-	file, err := s.Media.Open(r.PathValue("mediaID"))
+	mediaID := r.PathValue("mediaID")
+	var file *os.File
+	var err error
+	if media.IsDirect(mediaID) {
+		// Still on the network: the bridge fetches it now (the first time) and we pass it on.
+		var contentType string
+		file, contentType, err = s.Bridges.FetchMedia(r.Context(), mediaID, firstValues(r.URL.Query()))
+		if contentType != "" {
+			w.Header().Set("Content-Type", contentType)
+		}
+	} else {
+		file, err = s.Media.Open(mediaID)
+	}
 	if errors.Is(err, media.ErrInvalidID) || errors.Is(err, os.ErrNotExist) {
 		writeError(w, mautrix.MNotFound.WithMessage("Media not found"))
 		return
@@ -63,10 +75,21 @@ func (s *Server) download(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 	name := r.PathValue("fileName")
 	if name == "" {
-		name = r.PathValue("mediaID")
+		name = mediaID
 	}
 	// A file's ID is its hash, so its content never changes and clients may cache it forever.
 	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
 	w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
 	http.ServeContent(w, r, name, time.Time{}, file)
+}
+
+// firstValues turns query parameters into a simple map, which is what bridges take as download options.
+func firstValues(query map[string][]string) map[string]string {
+	out := make(map[string]string, len(query))
+	for key, values := range query {
+		if len(values) > 0 {
+			out[key] = values[0]
+		}
+	}
+	return out
 }
