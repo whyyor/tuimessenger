@@ -4,6 +4,8 @@ package bridges
 
 import (
 	dummy "github.com/beeper/dummybridge/pkg/connector"
+
+	"github.com/whyyor/tuimessenger/internal/config"
 )
 
 // Fake test network; only compiled with `-tags devdummy`, never in normal builds.
@@ -11,7 +13,7 @@ func init() {
 	register("dummy", newDummy)
 }
 
-func newDummy() (*Network, error) {
+func newDummy(_ *config.Config) (*Network, error) {
 	connector := &dummy.DummyConnector{}
 	cfg, err := loadDefaults[dummy.Config](connector)
 	if err != nil {

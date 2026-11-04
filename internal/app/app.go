@@ -19,6 +19,7 @@ import (
 	"maunium.net/go/mautrix/id"
 
 	"github.com/whyyor/tuimessenger/internal/bridges"
+	"github.com/whyyor/tuimessenger/internal/config"
 	"github.com/whyyor/tuimessenger/internal/csapi"
 	"github.com/whyyor/tuimessenger/internal/matrixconn"
 	"github.com/whyyor/tuimessenger/internal/media"
@@ -28,6 +29,7 @@ import (
 
 type Options struct {
 	Log        zerolog.Logger
+	Config     *config.Config
 	DataDir    string
 	Networks   []string
 	ServerName string
@@ -81,7 +83,7 @@ func New(ctx context.Context, opts Options) (*App, error) {
 }
 
 func (a *App) addBridge(name string, med *media.Store, typ *typing.Tracker) error {
-	network, err := bridges.New(name)
+	network, err := bridges.New(name, a.opts.Config)
 	if err != nil {
 		return err
 	}
