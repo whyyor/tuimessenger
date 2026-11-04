@@ -11,7 +11,8 @@ import (
 // The client says which chat is open on screen (or none). Networks use it like their own apps do:
 // WhatsApp goes "online" only while a chat is open, which is when WhatsApp sends you typing notices.
 const (
-	viewingPath = "/_matrix/client/unstable/com.tuimessenger/viewing"
+	viewingFeature = "com.tuimessenger.viewing"
+	viewingPath    = "/_matrix/client/unstable/com.tuimessenger/viewing"
 	// If the client stops refreshing (closed, crashed, laptop asleep), treat it as viewing nothing.
 	viewingTimeout = 2 * time.Minute
 )
@@ -25,6 +26,7 @@ func (s *Server) viewing(r *http.Request) (any, error) {
 	if err := readJSON(r, &req); err != nil {
 		return nil, err
 	}
+	s.Log.Debug().Stringer("room_id", req.RoomID).Msg("Client is viewing a room")
 	s.setViewing(req.RoomID)
 	return nil, nil
 }

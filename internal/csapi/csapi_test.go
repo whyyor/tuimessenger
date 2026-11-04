@@ -446,7 +446,7 @@ func TestNoEncryption(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	versions, err := e.cli.Versions(ctx)
-	if err != nil || !versions.UnstableFeatures["com.tuimessenger.no_e2ee"] {
+	if err != nil || !versions.UnstableFeatures["com.tuimessenger.no_e2ee"] || !versions.UnstableFeatures["com.tuimessenger.viewing"] {
 		t.Errorf("versions should announce no_e2ee: %+v %v", versions, err)
 	}
 	var upload struct {
