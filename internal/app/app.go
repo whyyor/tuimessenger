@@ -43,6 +43,8 @@ type App struct {
 	API     *csapi.Server
 	bridges []*bridgev2.Bridge
 	dbs     []*dbutil.Database
+	// afterStart holds each network's optional background step, run once its bridge has started.
+	afterStart map[*bridgev2.Bridge]func(context.Context, *bridgev2.Bridge, *bridgev2.User)
 
 	mediaCache *media.Cache
 	downloads  singleflight.Group // one download per file, even if it's opened twice at once
@@ -62,7 +64,11 @@ func New(ctx context.Context, opts Options) (*App, error) {
 	if err := os.MkdirAll(opts.DataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create data folder: %w", err)
 	}
-	a := &App{opts: opts, roomBridges: make(map[id.RoomID]*bridgev2.Bridge)}
+	a := &App{
+		opts:        opts,
+		roomBridges: make(map[id.RoomID]*bridgev2.Bridge),
+		afterStart:  make(map[*bridgev2.Bridge]func(context.Context, *bridgev2.Bridge, *bridgev2.User)),
+	}
 	var err error
 	if a.Store, err = store.Open(ctx, filepath.Join(opts.DataDir, "store.db"), opts.Log); err != nil {
 		return nil, err
@@ -113,6 +119,9 @@ func (a *App) addBridge(name string, med *media.Store, typ *typing.Tracker) erro
 		dmn.SetUseDirectMedia()
 	}
 	a.bridges = append(a.bridges, br)
+	if network.AfterStart != nil {
+		a.afterStart[br] = network.AfterStart
+	}
 	return nil
 }
 
@@ -136,6 +145,11 @@ func (a *App) Start(ctx context.Context) error {
 	for _, br := range a.bridges {
 		if err := br.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start %s: %w", br.ID, err)
+		}
+		if hook := a.afterStart[br]; hook != nil {
+			if owner, err := br.GetUserByMXID(ctx, a.opts.Owner); err == nil {
+				go hook(br.BackgroundCtx, br, owner)
+			}
 		}
 	}
 	return nil

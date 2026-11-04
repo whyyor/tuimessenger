@@ -41,5 +41,5 @@ func newWhatsApp(_ *config.Config) (*Network, error) {
 	if err := cfg.PostProcess(); err != nil {
 		return nil, err
 	}
-	return &Network{Connector: connector, Config: baseConfig("!wa")}, nil
+	return &Network{Connector: connector, Config: baseConfig("!wa"), AfterStart: fixNumberNames}, nil
 }

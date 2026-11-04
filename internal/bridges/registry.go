@@ -2,6 +2,7 @@
 package bridges
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -16,6 +17,8 @@ import (
 type Network struct {
 	Connector bridgev2.NetworkConnector
 	Config    bridgeconfig.BridgeConfig
+	// AfterStart, if set, runs in the background once the bridge has started, e.g. to tidy up after login.
+	AfterStart func(ctx context.Context, br *bridgev2.Bridge, owner *bridgev2.User)
 }
 
 // Factory builds a fresh Network from tuimessenger's settings (e.g. the Telegram keys).
