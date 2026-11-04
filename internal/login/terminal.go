@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -139,6 +140,19 @@ func (t *Terminal) cookies(ctx context.Context, proc bridgev2.LoginProcess, para
 	submitter, ok := proc.(bridgev2.LoginProcessCookies)
 	if !ok {
 		return nil, errors.New("login process cannot accept cookies")
+	}
+	if browser := FindBrowser(); browser != "" && params.URL != "" {
+		answer, err := t.ask(fmt.Sprintf("Log in with a browser window (%s)? [Y/n]: ", filepath.Base(browser)), false)
+		if err != nil {
+			return nil, err
+		}
+		if answer == "" || strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes") {
+			values, err := CollectCookies(ctx, browser, params, t.out)
+			if err == nil {
+				return submitter.SubmitCookies(ctx, values)
+			}
+			fmt.Fprintf(t.out, "Browser login didn't work: %v\nYou can paste the values instead.\n", err)
+		}
 	}
 	fmt.Fprintf(t.out, "Log in at %s in your browser, then paste these values from the developer tools.\n", params.URL)
 	values := make(map[string]string, len(params.Fields))
