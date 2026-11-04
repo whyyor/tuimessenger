@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
 	"maunium.net/go/mautrix"
@@ -25,6 +26,8 @@ type Bridges interface {
 	Queue(ctx context.Context, evt *event.Event) error
 	// LoadOlder fetches one more page of a room's history from its network; false means nothing more is there.
 	LoadOlder(ctx context.Context, roomID id.RoomID) (bool, error)
+	// SetViewing tells the networks which chat is open on screen; "" means none.
+	SetViewing(ctx context.Context, roomID id.RoomID)
 }
 
 type Options struct {
@@ -43,6 +46,10 @@ type Server struct {
 
 	filterLock sync.Mutex
 	filters    []int // timeline limit per uploaded filter; the index is the filter ID
+
+	viewingLock  sync.Mutex
+	viewingRoom  id.RoomID
+	viewingTimer *time.Timer
 }
 
 const (
@@ -116,7 +123,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET "+mediaV3+"/download/{server}/{mediaID}/{fileName}", s.authed(s.download))
 	s.mux.HandleFunc("GET "+mediaV3+"/thumbnail/{server}/{mediaID}", s.authed(s.download))
 
-	// Everything else (encryption keys, search, room directory, ...) isn't supported (yet).
+	s.route("PUT "+viewingPath, true, s.viewing)
+	s.encryptionRoutes()
+
+	// Everything else (search, room directory, ...) isn't supported (yet).
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, mautrix.MUnrecognized.WithMessage("%s %s is not supported", r.Method, r.URL.Path))
 	})

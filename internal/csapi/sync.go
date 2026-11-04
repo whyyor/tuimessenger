@@ -92,7 +92,7 @@ func (s *Server) waitForChanges(ctx context.Context, since syncToken, timeout ti
 // fullSync is the first sync after login: every room you're in, with its recent messages.
 func (s *Server) fullSync(ctx context.Context, limit int) (*mautrix.RespSync, error) {
 	token := syncToken{pos: s.Store.LastPos(), typing: s.Typing.Version()}
-	resp := &mautrix.RespSync{NextBatch: token.String()}
+	resp := &mautrix.RespSync{NextBatch: token.String(), DeviceOTKCount: fullKeyCount}
 	memberships, err := s.Store.GetStateByKey(ctx, event.StateMember, s.Owner.String())
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (s *Server) incrementalSync(ctx context.Context, since syncToken, limit int
 	} else if len(events) > 0 {
 		token.pos = max(token.pos, events[len(events)-1].Pos)
 	}
-	resp := &mautrix.RespSync{NextBatch: token.String()}
+	resp := &mautrix.RespSync{NextBatch: token.String(), DeviceOTKCount: fullKeyCount}
 
 	var roomOrder []id.RoomID
 	byRoom := make(map[id.RoomID][]*store.Event)
