@@ -8,6 +8,8 @@ import (
 	"gopkg.in/yaml.v3"
 	"maunium.net/go/mautrix/bridgev2"
 	"maunium.net/go/mautrix/bridgev2/bridgeconfig"
+
+	"github.com/whyyor/tuimessenger/internal/config"
 )
 
 // Network is everything needed to start one chat network.
@@ -16,8 +18,8 @@ type Network struct {
 	Config    bridgeconfig.BridgeConfig
 }
 
-// Factory builds a fresh Network.
-type Factory func() (*Network, error)
+// Factory builds a fresh Network from tuimessenger's settings (e.g. the Telegram keys).
+type Factory func(cfg *config.Config) (*Network, error)
 
 var registry = map[string]Factory{}
 
@@ -30,12 +32,12 @@ func register(name string, factory Factory) {
 }
 
 // New creates the network with the given name, e.g. "whatsapp".
-func New(name string) (*Network, error) {
+func New(name string, cfg *config.Config) (*Network, error) {
 	factory, ok := registry[name]
 	if !ok {
 		return nil, fmt.Errorf("unknown network %q (available: %v)", name, Available())
 	}
-	return factory()
+	return factory(cfg)
 }
 
 // Available lists all compiled-in network names in alphabetical order.
@@ -79,12 +81,13 @@ func baseConfig(commandPrefix string) bridgeconfig.BridgeConfig {
 		Permissions: bridgeconfig.PermissionConfig{
 			"*": {SendEvents: true, Commands: true, Login: true, DoublePuppet: true, Admin: true},
 		},
+		// Careful with history (from bottled-bridge-core): about what a normal app loads, so the networks don't
+		// notice unusual traffic. Older messages are fetched a page at a time when you scroll up.
 		Backfill: bridgeconfig.BackfillConfig{
 			Enabled:              true,
-			MaxInitialMessages:   50,
-			MaxCatchupMessages:   500,
+			MaxInitialMessages:   20,
+			MaxCatchupMessages:   200,
 			UnreadHoursThreshold: 720,
-			Threads:              bridgeconfig.BackfillThreadsConfig{MaxInitialMessages: 50},
 			Queue:                bridgeconfig.BackfillQueueConfig{Manual: true, BatchSize: 50, MaxBatches: -1},
 		},
 	}

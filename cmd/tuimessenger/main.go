@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -22,6 +24,7 @@ import (
 
 	"github.com/whyyor/tuimessenger/internal/app"
 	"github.com/whyyor/tuimessenger/internal/bridges"
+	"github.com/whyyor/tuimessenger/internal/config"
 	"github.com/whyyor/tuimessenger/internal/login"
 )
 
@@ -42,7 +45,7 @@ type flags struct {
 func main() {
 	networks := flag.String("network", "", "comma-separated networks to run: "+strings.Join(bridges.Available(), ", "))
 	var f flags
-	flag.StringVar(&f.dataDir, "data", "data", "folder for databases, sessions and media")
+	flag.StringVar(&f.dataDir, "data", defaultDataDir(), "folder for databases, sessions, media and config.yaml")
 	flag.StringVar(&f.listen, "listen", "127.0.0.1:8008", "address the Matrix client API listens on")
 	flag.StringVar(&f.login, "login", "", "log in to this network (one of -network) before running")
 	flag.BoolVar(&f.setPassword, "set-password", false, "change the password clients log in with")
@@ -69,8 +72,12 @@ func main() {
 }
 
 func run(ctx context.Context, log zerolog.Logger, f flags) error {
+	cfg, err := config.Load(filepath.Join(f.dataDir, "config.yaml"))
+	if err != nil {
+		return err
+	}
 	a, err := app.New(ctx, app.Options{
-		Log: log, DataDir: f.dataDir, Networks: f.networks, ServerName: serverName, Owner: ownerMXID,
+		Log: log, Config: cfg, DataDir: f.dataDir, Networks: f.networks, ServerName: serverName, Owner: ownerMXID,
 	})
 	if err != nil {
 		return err
@@ -168,6 +175,20 @@ func serve(ctx context.Context, log zerolog.Logger, a *app.App, addr string) err
 		return err
 	}
 	return nil
+}
+
+// defaultDataDir is ~/Library/Application Support/tuimessenger on macOS and ~/.local/share/tuimessenger elsewhere.
+func defaultDataDir() string {
+	if runtime.GOOS == "darwin" {
+		if dir, err := os.UserConfigDir(); err == nil {
+			return filepath.Join(dir, "tuimessenger")
+		}
+	}
+	if dir := os.Getenv("XDG_DATA_HOME"); dir != "" {
+		return filepath.Join(dir, "tuimessenger")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "share", "tuimessenger")
 }
 
 func isTerminal() bool {

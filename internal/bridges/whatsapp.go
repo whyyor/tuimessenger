@@ -4,13 +4,15 @@ import (
 	"time"
 
 	whatsapp "go.mau.fi/mautrix-whatsapp/pkg/connector"
+
+	"github.com/whyyor/tuimessenger/internal/config"
 )
 
 func init() {
 	register("whatsapp", newWhatsApp)
 }
 
-func newWhatsApp() (*Network, error) {
+func newWhatsApp(_ *config.Config) (*Network, error) {
 	connector := &whatsapp.WhatsAppConnector{}
 	cfg, err := loadDefaults[whatsapp.Config](connector)
 	if err != nil {
@@ -28,7 +30,7 @@ func newWhatsApp() (*Network, error) {
 	cfg.UseWhatsAppRetryStore = true
 	cfg.LazyAvatars = false // needs direct media, which we don't have yet
 
-	cfg.HistorySync.RequestFullSync = false // only sent at pairing; turn on once messages are stored
+	cfg.HistorySync.RequestFullSync = false // careful: only recent history at pairing; older pages load when you scroll
 	cfg.HistorySync.DispatchWait = 5 * time.Second
 	cfg.HistorySync.FullSyncConfig.DaysLimit = 1825
 	cfg.HistorySync.FullSyncConfig.SizeLimit = 512
