@@ -4,6 +4,8 @@ go 1.26.0
 
 require (
 	github.com/beeper/dummybridge v0.0.0-20260820153546-583dbf0f40c2
+	github.com/chromedp/cdproto v0.159.0
+	github.com/chromedp/chromedp v0.22.0
 	github.com/mdp/qrterminal/v3 v3.2.1
 	github.com/rs/zerolog v1.35.1
 	go.mau.fi/mautrix-meta v0.2609.1-0.20261002183013-0e6bf6c054c0
@@ -32,6 +34,7 @@ require (
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-faster/jx v1.2.0 // indirect
 	github.com/go-faster/xor v1.0.0 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260213210345-44df1a37e875 // indirect
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
