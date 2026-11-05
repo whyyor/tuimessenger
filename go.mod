@@ -103,3 +103,6 @@ require (
 replace github.com/imroc/req/v3 => github.com/beeper/req/v3 v3.0.0-20260925135712-b49593750e56
 
 replace github.com/slack-go/slack => github.com/beeper/slackgo v0.0.0-20260925001310-ea62f6cbc997
+
+// Slack files as direct media (whyyor/mautrix-slack#1); drop if upstream mautrix/slack gets it.
+replace go.mau.fi/mautrix-slack => github.com/whyyor/mautrix-slack v0.2608.1-0.20261105190757-562b7a73edca
