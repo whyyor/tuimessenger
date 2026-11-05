@@ -35,14 +35,15 @@ const (
 
 // fakeBridges records what the API would hand to the networks.
 type fakeBridges struct {
-	lock    sync.Mutex
-	queued  []*event.Event
-	older   func(roomID id.RoomID) (bool, error)
-	refuse  error // when set, the "network" rejects everything with this error
-	viewing []id.RoomID
-	remote  map[string]string // direct media "still on the network", by file ID
-	fetches int
-	broken  []string // networks ReconnectUnhealthy reports as reconnecting
+	lock          sync.Mutex
+	queued        []*event.Event
+	older         func(roomID id.RoomID) (bool, error)
+	refuse        error // when set, the "network" rejects everything with this error
+	viewing       []id.RoomID
+	remote        map[string]string // direct media "still on the network", by file ID
+	fetches       int
+	broken        []string // networks ReconnectUnhealthy reports as reconnecting
+	slackChannels bool
 }
 
 func (f *fakeBridges) Queue(ctx context.Context, evt *event.Event) error {
@@ -52,6 +53,22 @@ func (f *fakeBridges) Queue(ctx context.Context, evt *event.Event) error {
 		return f.refuse
 	}
 	f.queued = append(f.queued, evt)
+	return nil
+}
+
+func (f *fakeBridges) Networks(ctx context.Context) []csapi.Network {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return []csapi.Network{{Name: "slack", State: "CONNECTED", Settings: map[string]bool{"include_channels": f.slackChannels}}}
+}
+
+func (f *fakeBridges) SetNetworkSetting(ctx context.Context, network, key string, value bool) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if network != "slack" || key != "include_channels" {
+		return csapi.ErrUnknownSetting
+	}
+	f.slackChannels = value
 	return nil
 }
 
@@ -478,7 +495,7 @@ func TestNoEncryption(t *testing.T) {
 	ctx := context.Background()
 	versions, err := e.cli.Versions(ctx)
 	if err != nil || !versions.UnstableFeatures["com.tuimessenger.no_e2ee"] || !versions.UnstableFeatures["com.tuimessenger.viewing"] ||
-		!versions.UnstableFeatures["com.tuimessenger.reconnect"] {
+		!versions.UnstableFeatures["com.tuimessenger.reconnect"] || !versions.UnstableFeatures["com.tuimessenger.networks"] {
 		t.Errorf("versions should announce no_e2ee: %+v %v", versions, err)
 	}
 	var upload struct {
@@ -542,6 +559,40 @@ func TestReconnect(t *testing.T) {
 	e.bridges.lock.Unlock()
 	if got := reconnect(); len(got) != 1 || got[0] != "whatsapp" {
 		t.Errorf("got %v, want [whatsapp]", got)
+	}
+}
+
+func TestNetworkSettings(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	base := mautrix.BaseURLPath{"_matrix", "client", "unstable", "com.tuimessenger", "networks"}
+	list := func() csapi.Network {
+		t.Helper()
+		var resp struct {
+			Networks []csapi.Network `json:"networks"`
+		}
+		if _, err := e.cli.MakeRequest(ctx, "GET", e.cli.BuildURL(base), nil, &resp); err != nil {
+			t.Fatal(err)
+		} else if len(resp.Networks) != 1 {
+			t.Fatalf("got %+v", resp.Networks)
+		}
+		return resp.Networks[0]
+	}
+	if n := list(); n.Name != "slack" || n.State != "CONNECTED" || n.Settings["include_channels"] {
+		t.Errorf("got %+v", n)
+	}
+	set := func(network string, body map[string]bool) error {
+		_, err := e.cli.MakeRequest(ctx, "PUT", e.cli.BuildURL(append(base, network, "settings")), body, nil)
+		return err
+	}
+	if err := set("slack", map[string]bool{"include_channels": true}); err != nil {
+		t.Fatal(err)
+	}
+	if n := list(); !n.Settings["include_channels"] {
+		t.Errorf("setting didn't change: %+v", n)
+	}
+	if err := set("slack", map[string]bool{"nope": true}); !errors.Is(err, mautrix.MNotFound) {
+		t.Errorf("unknown setting: want M_NOT_FOUND, got %v", err)
 	}
 }
 
