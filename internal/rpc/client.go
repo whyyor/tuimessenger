@@ -59,7 +59,12 @@ func (cs ConnState) String() string {
 // ConnStateHandler is called whenever the websocket connection state changes.
 type ConnStateHandler = func(state ConnState, err error)
 
+// Transport handles one command in memory and returns its response, instead of sending it over a websocket.
+type Transport func(ctx context.Context, cmd *jsoncmd.Container[json.RawMessage]) *jsoncmd.Container[json.RawMessage]
+
 type GomuksRPC struct {
+	transport Transport
+
 	EventHandler     EventHandler
 	ConnStateHandler ConnStateHandler
 	UserAgent        string
@@ -127,6 +132,17 @@ func NewGomuksRPC(rawBaseURL string) (*GomuksRPC, error) {
 		resyncCh:         make(chan struct{}, 1),
 		pendingRequests:  make(map[int64]chan<- *jsoncmd.Container[json.RawMessage]),
 	}, nil
+}
+
+// NewWithTransport makes a GomuksRPC whose commands go through transport; it has no websocket or HTTP connection.
+func NewWithTransport(transport Transport) *GomuksRPC {
+	return &GomuksRPC{
+		transport:        transport,
+		EventHandler:     func(_ context.Context, _ any) {},
+		ConnStateHandler: func(_ ConnState, _ error) {},
+		resyncCh:         make(chan struct{}, 1),
+		pendingRequests:  make(map[int64]chan<- *jsoncmd.Container[json.RawMessage]),
+	}
 }
 
 type GomuksURLPath []any

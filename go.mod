@@ -11,6 +11,7 @@ require (
 	github.com/chzyer/readline v1.5.1
 	github.com/coder/websocket v1.8.15
 	github.com/disintegration/imaging v1.6.2
+	github.com/gabriel-vasile/mimetype v1.4.15
 	github.com/gdamore/tcell/v2 v2.9.0
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/lucasb-eyer/go-colorful v1.4.0
@@ -55,7 +56,6 @@ require (
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
 	github.com/elliotchance/orderedmap/v3 v3.1.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-faster/jx v1.2.0 // indirect
