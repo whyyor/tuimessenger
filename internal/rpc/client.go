@@ -127,7 +127,7 @@ func NewGomuksRPC(rawBaseURL string) (*GomuksRPC, error) {
 		EventHandler:     func(_ context.Context, _ any) {},
 		ConnStateHandler: func(_ ConnState, _ error) {},
 		BaseURL:          baseURL,
-		UserAgent:        "gomuks-rpc " + mautrix.DefaultUserAgent,
+		UserAgent:        "tuimessenger-rpc " + mautrix.DefaultUserAgent,
 		http:             cli,
 		resyncCh:         make(chan struct{}, 1),
 		pendingRequests:  make(map[int64]chan<- *jsoncmd.Container[json.RawMessage]),

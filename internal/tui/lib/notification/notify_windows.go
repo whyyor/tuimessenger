@@ -27,7 +27,7 @@ func SendFrom(_, title, text string, critical, sound bool) error {
 
 func Send(title, text string, critical, sound bool) error {
 	notification := toast.Notification{
-		AppID:    "gomuks",
+		AppID:    "tuimessenger",
 		Title:    title,
 		Message:  text,
 		Audio:    toast.Silent,

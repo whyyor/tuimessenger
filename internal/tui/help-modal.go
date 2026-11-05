@@ -9,8 +9,8 @@ import (
 
 const helpText = `# General
 /help           - Show this help dialog.
-/quit           - Quit gomuks.
-/clearcache     - Clear cache and quit gomuks.
+/quit           - Quit tuimessenger.
+/clearcache     - Clear cache and quit tuimessenger.
 /logout         - Log out of Matrix.
 /toggle <thing> - Temporary command to toggle various UI features.
                   Run /toggle without arguments to see the list of toggles.

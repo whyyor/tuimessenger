@@ -21,7 +21,7 @@ var shownNotifications = struct {
 }{byRoom: make(map[id.RoomID][]sentNotification)}
 
 func notificationTag(roomID id.RoomID, eventID id.EventID) string {
-	return "gomuks:" + string(roomID) + ":" + string(eventID)
+	return "tuimessenger:" + string(roomID) + ":" + string(eventID)
 }
 
 func trackNotification(roomID id.RoomID, source, tag string) {

@@ -147,7 +147,7 @@ var LocalCommands = []*cmdschema.EventContent{{
 	TailParam: "state",
 }, {
 	Command:     CmdSeen,
-	Description: event.MakeExtensibleText("Seen in this chat: on sends blue ticks as you read; off keeps reads in gomuks until Ctrl+m"),
+	Description: event.MakeExtensibleText("Seen in this chat: on sends blue ticks as you read; off keeps reads in tuimessenger until Ctrl+m"),
 	Parameters: []*cmdschema.Parameter{{
 		Key:      "state",
 		Schema:   cmdschema.Enum("on", "off"),
@@ -183,7 +183,7 @@ var LocalCommands = []*cmdschema.EventContent{{
 	Description: event.MakeExtensibleText("Delete mute rules left over from chats you've left"),
 }, {
 	Command:     CmdClear,
-	Description: event.MakeExtensibleText("Hide this chat's history in gomuks (nothing is deleted)"),
+	Description: event.MakeExtensibleText("Hide this chat's history in tuimessenger (nothing is deleted)"),
 }, {
 	Command:     CmdUnclear,
 	Description: event.MakeExtensibleText("Show this chat's hidden history again"),
@@ -192,7 +192,7 @@ var LocalCommands = []*cmdschema.EventContent{{
 	Description: event.MakeExtensibleText("Delete media fetched to play or open (not ~/Downloads)"),
 }, {
 	Command:     CmdQuit,
-	Description: event.MakeExtensibleText("Quit gomuks terminal"),
+	Description: event.MakeExtensibleText("Quit tuimessenger"),
 }}
 
 func (view *RoomView) allCommands(yield func(command *store.WrappedCommand) bool) {

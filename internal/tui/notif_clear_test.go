@@ -27,7 +27,7 @@ func TestNotificationTracking(t *testing.T) {
 		t.Fatalf("only the read, tracked chat should clear: %v", got)
 	}
 	got := takeNotifications("!a")
-	if len(got) != 2 || got[0].tag != "gomuks:!a:$1" || got[0].source != "whatsapp" {
+	if len(got) != 2 || got[0].tag != "tuimessenger:!a:$1" || got[0].source != "whatsapp" {
 		t.Errorf("took %+v", got)
 	}
 	if again := takeNotifications("!a"); len(again) != 0 {

@@ -148,7 +148,7 @@ func (view *MainView) updateConnStatus() {
 	case view.parent.ConnState == rpc.ConnStateReconnecting:
 		toasts.SetStatus(toastInfo, "Reconnecting…")
 	case view.parent.ConnState != rpc.ConnStateConnected:
-		toasts.SetStatus(toastWarning, "Disconnected from the gomuks backend")
+		toasts.SetStatus(toastWarning, "Disconnected from the tuimessenger backend")
 	case view.parent.SyncStatus == jsoncmd.SyncStatusErroring:
 		// The daemon is connected to us but cannot sync with the homeserver;
 		// this is what actually delays new messages.

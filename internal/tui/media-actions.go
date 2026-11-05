@@ -311,7 +311,7 @@ func (view *RoomView) playLink(url string) {
 	// can't play.
 	cmd := exec.Command(ytdlp, "--quiet", "--no-warnings", "--no-playlist",
 		"-S", "vcodec:h264,acodec:aac", "--merge-output-format", "mp4",
-		"-o", filepath.Join(dir, "gomuks-%(id)s.%(ext)s"),
+		"-o", filepath.Join(dir, "tuimessenger-%(id)s.%(ext)s"),
 		"--print", "after_move:filepath", url)
 	out, err := cmd.Output()
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")

@@ -29,7 +29,7 @@ var terminalNotifierAvailable = func() bool {
 }()
 
 const sendScript = `on run {notifText, notifTitle}
-	display notification notifText with title "gomuks" subtitle notifTitle
+	display notification notifText with title "tuimessenger" subtitle notifTitle
 end run`
 
 // macOS always takes a notification's icon and app name from the sending
@@ -40,7 +40,7 @@ var notifierDir = func() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".local", "opt", "gomuks", "notifiers")
+	return filepath.Join(home, ".local", "opt", "tuimessenger", "notifiers")
 }()
 
 var sourceBundles = map[string]string{
@@ -53,10 +53,10 @@ var sourceBundles = map[string]string{
 }
 
 // notifierFor returns the terminal-notifier binary to use for a bridge: its
-// own bundle if built, else the generic gomuks bundle, else brew's copy.
+// own bundle if built, else the generic tuimessenger bundle, else brew's copy.
 func notifierFor(source string) (path string, custom bool) {
 	if notifierDir != "" {
-		for _, name := range []string{sourceBundles[source], "gomuks"} {
+		for _, name := range []string{sourceBundles[source], "tuimessenger"} {
 			if name == "" {
 				continue
 			}
@@ -86,11 +86,11 @@ func SendTagged(source, tag, title, text string, critical, sound bool) error {
 	if bin, custom := notifierFor(source); bin != "" {
 		var args []string
 		if custom {
-			// The bundle's own name ("WhatsApp", "gomuks") already heads the
+			// The bundle's own name ("WhatsApp", "tuimessenger") already heads the
 			// banner, so the sender takes the title line.
 			args = []string{"-title", title, "-message", text}
 		} else {
-			args = []string{"-title", "gomuks", "-subtitle", title, "-message", text}
+			args = []string{"-title", "tuimessenger", "-subtitle", title, "-message", text}
 		}
 		if critical {
 			args = append(args, "-timeout", "15")

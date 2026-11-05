@@ -19,7 +19,7 @@ import (
 // styleFileName is your own settings file next to terminal.yaml: colours and
 // preferences that win over terminal.yaml at startup. gomuks only reads it,
 // so it can live in a dotfiles repo (terminal.yaml holds the password).
-const styleFileName = "gomuks.yaml"
+const styleFileName = "tuimessenger.yaml"
 
 // styleColor is one themable colour: the variables it sets, and the colour
 // it follows when the file doesn't set it.
@@ -29,7 +29,7 @@ type styleColor struct {
 	follows string
 }
 
-// styleColors lists every colour gomuks.yaml can set, in file order.
+// styleColors lists every colour tuimessenger.yaml can set, in file order.
 func styleColors() []styleColor {
 	return []styleColor{
 		{key: "accent", targets: []*tcell.Color{&ColorComposerBar}},
@@ -64,7 +64,7 @@ func styleColors() []styleColor {
 	}
 }
 
-// pinnedPrefs are the preference keys gomuks.yaml sets; Ctrl+p toggles of
+// pinnedPrefs are the preference keys tuimessenger.yaml sets; Ctrl+p toggles of
 // those only last until restart.
 var pinnedPrefs = map[string]bool{}
 
@@ -73,7 +73,7 @@ type styleFile struct {
 	Preferences yaml.Node         `yaml:"preferences"`
 }
 
-// applyStyleFile reads gomuks.yaml from the config dir, if there is one, and
+// applyStyleFile reads tuimessenger.yaml from the config dir, if there is one, and
 // returns the problems found (shown as a toast once the UI is up).
 func applyStyleFile(cfg *config.Config) []string {
 	data, err := os.ReadFile(filepath.Join(cfg.Dir, styleFileName))
