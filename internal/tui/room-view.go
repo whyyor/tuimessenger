@@ -1,0 +1,1379 @@
+// gomuks - A terminal Matrix client written in Go.
+// Copyright (C) 2025 Tulir Asokan
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package tui
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+	"unicode"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
+	"github.com/zyedidia/clipboard"
+	"go.mau.fi/mauview"
+	"go.mau.fi/util/ptr"
+	"go.mau.fi/util/variationselector"
+	"maunium.net/go/mautrix/crypto/attachment"
+	"maunium.net/go/mautrix/event"
+	"maunium.net/go/mautrix/id"
+
+	"go.mau.fi/gomuks/pkg/hicli/database"
+	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"go.mau.fi/gomuks/pkg/rpc/store"
+	"go.mau.fi/gomuks/tui/config"
+	"go.mau.fi/gomuks/tui/debug"
+	"go.mau.fi/gomuks/tui/lib/emoji"
+	"go.mau.fi/gomuks/tui/messages"
+)
+
+type RoomView struct {
+	topic    *mauview.TextView
+	content  *MessageView
+	status   *mauview.TextField
+	userList *MemberList
+	input    *mauview.InputArea
+	Room     *store.RoomStore
+
+	topicScreen   *mauview.ProxyScreen
+	contentScreen *mauview.ProxyScreen
+
+	picker *ReactPicker
+	// attached are files waiting to be sent with the next Enter.
+	attached attachmentList
+	// search is Ctrl+f's in-chat search, nil when closed.
+	search *chatSearch
+	// info is the i popup (message info), nil when closed.
+	info *MessageInfo
+	// peek (Ctrl+k → Ctrl+p): this visit sends no seen, like /seen off.
+	peek         bool
+	statusScreen *mauview.ProxyScreen
+	inputScreen  *mauview.ProxyScreen
+	ulScreen     *mauview.ProxyScreen
+
+	userListLoaded bool
+	hasTopic       bool
+	topicName      string
+	topicDesc      string
+	topicShown     string
+	lastTypingSent time.Time
+
+	prevScreen mauview.Screen
+
+	parent *MainView
+	config *config.Config
+
+	selecting     bool
+	selectReason  SelectReason
+	selectContent string
+
+	replying *database.Event
+
+	editing      *database.Event
+	editMoveText string
+
+	completions struct {
+		list      []string
+		textCache string
+		time      time.Time
+	}
+
+	unlistenMeta     func()
+	unlistenTimeline func()
+}
+
+func NewRoomView(parent *MainView, room *store.RoomStore) *RoomView {
+	view := &RoomView{
+		topic:    mauview.NewTextView(),
+		status:   mauview.NewTextField(),
+		userList: NewMemberList(),
+		input:    mauview.NewInputArea(),
+		Room:     room,
+
+		topicScreen:   &mauview.ProxyScreen{OffsetX: 0, OffsetY: 0, Height: TopicBarHeight},
+		contentScreen: &mauview.ProxyScreen{OffsetX: 0, OffsetY: StatusBarHeight},
+		statusScreen:  &mauview.ProxyScreen{OffsetX: 0, Height: StatusBarHeight},
+		inputScreen:   &mauview.ProxyScreen{OffsetX: 0},
+		ulScreen:      &mauview.ProxyScreen{OffsetY: StatusBarHeight, Width: UserListWidth},
+
+		parent: parent,
+		config: parent.config,
+	}
+	view.content = NewMessageView(view)
+
+	view.input.
+		SetTextColor(tcell.ColorDefault).
+		SetBackgroundColor(tcell.ColorDefault).
+		SetPlaceholder("Send a message...").
+		SetPlaceholderTextColor(tcell.ColorGray).
+		SetTabCompleteFunc(view.InputTabComplete).
+		// These fire only when the cursor could not move, so multi-line drafts
+		// still walk their own lines before the arrows change room.
+		SetPressKeyUpAtStartFunc(func() {
+			view.parent.SwitchRoom(view.parent.roomList.Previous())
+		}).
+		SetPressKeyDownAtEndFunc(func() {
+			view.parent.SwitchRoom(view.parent.roomList.Next())
+		})
+
+	view.SetInputChangedFunc(parent.InputChanged)
+
+	// Default background, so the terminal's transparency shows through.
+	view.topic.
+		SetTextColor(ColorBarText).
+		SetBackgroundColor(tcell.ColorDefault)
+
+	// No background band: the status line is empty most of the time, and a
+	// full-width gray bar for nothing is just noise.
+	view.status.
+		SetTextColor(ColorStatusText).
+		SetBackgroundColor(tcell.ColorDefault)
+
+	view.Update(room.Meta.Current())
+
+	view.unlistenMeta = room.Meta.Listen(view.Update)
+	view.unlistenTimeline = room.TimelineCache.Listen(func(_ *[]*database.Event) {
+		view.parent.parent.NeedsRender = true
+	})
+
+	return view
+}
+
+func (view *RoomView) Unload() {
+	view.unlistenTimeline()
+	view.unlistenMeta()
+}
+
+func (view *RoomView) SetInputChangedFunc(fn func(room *RoomView, text string)) *RoomView {
+	view.input.SetChangedFunc(func(text string) {
+		fn(view, text)
+	})
+	return view
+}
+
+func (view *RoomView) SetInputText(newText string) *RoomView {
+	view.input.SetTextAndMoveCursor(newText)
+	return view
+}
+
+func (view *RoomView) GetInputText() string {
+	return view.input.GetText()
+}
+
+func (view *RoomView) Focus() {
+	view.input.Focus()
+}
+
+func (view *RoomView) Blur() {
+	view.StopSelecting()
+	view.input.Blur()
+}
+
+type SelectReason string
+
+const (
+	SelectReply    SelectReason = "reply to"
+	SelectReact    SelectReason = "react to"
+	SelectRedact   SelectReason = "redact"
+	SelectEdit     SelectReason = "edit"
+	SelectDownload SelectReason = "download"
+	SelectOpen     SelectReason = "open"
+	SelectPlay     SelectReason = "play"
+	SelectCopy     SelectReason = "copy"
+)
+
+func (view *RoomView) StartSelecting(reason SelectReason, content string) {
+	view.selecting = true
+	view.selectReason = reason
+	view.selectContent = content
+	msgView := view.MessageView()
+	if selected := msgView.GetSelected(); selected != nil {
+		view.OnSelect(selected)
+	} else {
+		view.input.Blur()
+		view.SelectPrevious()
+	}
+}
+
+// ClickSelect is a mouse click on a message: it enters visual mode on that
+// message, or moves the selection there, without acting; Enter or a verb key
+// acts, like after Ctrl+;. Clicking the selected message again leaves.
+func (view *RoomView) ClickSelect(message *messages.UIMessage) {
+	if message == nil || message.IsService {
+		return
+	}
+	msgView := view.MessageView()
+	if view.selecting && msgView.selected == message.RowID {
+		view.StopSelecting()
+		view.input.Focus()
+		return
+	}
+	if !view.selecting {
+		view.selecting = true
+		view.selectReason = SelectReply
+		view.selectContent = ""
+		view.input.Blur()
+	}
+	msgView.selected = message.RowID
+}
+
+func (view *RoomView) StopSelecting() {
+	view.selecting = false
+	view.selectContent = ""
+	view.MessageView().SetSelected(nil)
+	view.MessageView().ClearAnchor()
+}
+
+func (view *RoomView) OnSelect(message *messages.UIMessage) {
+	if !view.selecting || message == nil {
+		return
+	}
+	switch view.selectReason {
+	case SelectReply:
+		view.replying = message.Event
+		if len(view.selectContent) > 0 {
+			go view.SendMessage(event.MsgText, view.selectContent)
+		}
+	case SelectEdit:
+		view.SetEditing(message.Event)
+	case SelectReact:
+		if view.selectContent == "" {
+			// Bare /react: choose from the popup; selection stays meanwhile.
+			view.OpenReactPicker(message.ID)
+			return
+		}
+		go view.ToggleReaction(message.ID, view.selectContent)
+	case SelectRedact:
+		go view.Redact(message.ID, view.selectContent)
+	case SelectPlay:
+		if fm, ok := message.Renderer.(*messages.FileMessage); ok {
+			go view.PlayMedia(fm)
+		} else {
+			view.AddServiceMessage("That message has no media to play")
+		}
+	case SelectDownload, SelectOpen:
+		if fm, ok := message.Renderer.(*messages.FileMessage); ok {
+			go view.SaveOrOpenMedia(fm, view.selectReason == SelectOpen)
+		} else {
+			view.AddServiceMessage("That message has no media")
+		}
+	case SelectCopy:
+		if isSticker(message) {
+			view.CopySticker(message)
+		} else {
+			go view.CopyToClipboard(message.Renderer.PlainText(), view.selectContent)
+		}
+	}
+	view.selecting = false
+	view.selectContent = ""
+	view.MessageView().SetSelected(nil)
+	view.MessageView().ClearAnchor()
+	view.input.Focus()
+}
+
+func (view *RoomView) GetStatus() string {
+	var buf strings.Builder
+
+	if view.editing != nil {
+		buf.WriteString("Editing message - ")
+	} else if view.replying != nil {
+		buf.WriteString("Replying to ")
+		buf.WriteString(string(view.replying.Sender))
+		buf.WriteString(" - ")
+	} else if view.selecting {
+		buf.WriteString("Selecting message to ")
+		buf.WriteString(string(view.selectReason))
+		buf.WriteString(" - ")
+	}
+
+	if len(view.completions.list) > 0 {
+		if view.completions.textCache != view.input.GetText() || view.completions.time.Add(10*time.Second).Before(time.Now()) {
+			view.completions.list = []string{}
+		} else {
+			buf.WriteString(strings.Join(view.completions.list, ", "))
+			buf.WriteString(" - ")
+		}
+	}
+
+	// Display names, not raw bridge user IDs, and never our own echo.
+	if names := view.typingNames(); len(names) > 0 {
+		buf.WriteString("Typing: ")
+		for i, name := range names {
+			if i > 0 && i == len(names)-1 {
+				buf.WriteString(" and ")
+			} else if i > 0 {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(name)
+		}
+		buf.WriteString(" - ")
+	}
+
+	return strings.TrimSuffix(buf.String(), " - ")
+}
+
+// Constants defining the size of the room view grid.
+const (
+	UserListBorderWidth   = 1
+	UserListWidth         = 20
+	StaticHorizontalSpace = UserListBorderWidth + UserListWidth
+
+	TopicBarHeight  = 1
+	StatusBarHeight = 1
+
+	MaxInputHeight = 10
+	// inputOffsetX leaves room for the composer's accent line and padding.
+	inputOffsetX = 3
+)
+
+func (view *RoomView) Draw(screen mauview.Screen) {
+	width, height := screen.Size()
+	if width <= 0 || height <= 0 {
+		return
+	}
+
+	if view.prevScreen != screen {
+		view.topicScreen.Parent = screen
+		view.contentScreen.Parent = screen
+		view.statusScreen.Parent = screen
+		view.inputScreen.Parent = screen
+		view.ulScreen.Parent = screen
+		view.prevScreen = screen
+	}
+
+	// Measure at the width the input is drawn with (inputScreen.Width below):
+	// wrapping wider made the box a line short, scrolling line 1 out of view.
+	view.input.PrepareDraw(width - inputOffsetX)
+	inputHeight := view.input.GetTextHeight()
+	if inputHeight > MaxInputHeight {
+		inputHeight = MaxInputHeight
+	} else if inputHeight < 1 {
+		inputHeight = 1
+	}
+	view.syncTopic()
+	// The topic bar only exists when a human actually wrote a topic.
+	topicBarHeight := 0
+	if view.hasTopic {
+		topicBarHeight = TopicBarHeight
+	}
+	// The composer is a padded box: a blank row above and below the input,
+	// with an accent line running down the left of the whole box.
+	composerHeight := inputHeight + 2
+	contentHeight := height - composerHeight - topicBarHeight - StatusBarHeight
+	hideUserList := view.shouldHideUserList()
+	contentWidth := width - StaticHorizontalSpace
+	if hideUserList {
+		contentWidth = width
+	}
+
+	// One column of breathing room between the room list and the content.
+	view.topicScreen.Width = width
+	view.contentScreen.OffsetX = 1
+	view.contentScreen.OffsetY = topicBarHeight
+	view.contentScreen.Width = contentWidth - 1
+	view.contentScreen.Height = contentHeight
+	view.ulScreen.OffsetY = topicBarHeight
+	view.statusScreen.OffsetY = view.contentScreen.YEnd()
+	view.statusScreen.OffsetX = 1
+	view.statusScreen.Width = width - 1
+	view.inputScreen.OffsetX = inputOffsetX
+	view.inputScreen.Width = width - inputOffsetX
+	view.inputScreen.OffsetY = view.statusScreen.YEnd() + 1
+	view.inputScreen.Height = inputHeight
+	// The old border column stays as blank spacing before the member list.
+	view.ulScreen.OffsetX = view.contentScreen.XEnd() + UserListBorderWidth
+	view.ulScreen.Height = contentHeight
+
+	// Draw everything
+	if topicBarHeight > 0 {
+		view.topic.Draw(view.topicScreen)
+	}
+	view.content.Draw(view.contentScreen)
+	if view.picker != nil && view.picker.insert {
+		// Ctrl+e: just above the composer, lined up with its bar.
+		view.picker.Draw(view.contentScreen, 0, contentHeight, -1)
+	} else if view.picker != nil {
+		mv := view.content
+		view.picker.Draw(view.contentScreen, mv.lastMessageX, mv.selTop, mv.selBottom)
+	}
+	if view.info != nil {
+		view.info.Draw(view.contentScreen)
+	}
+	view.status.SetText(view.GetStatus())
+	view.status.Draw(view.statusScreen)
+	view.drawReadHint(screen, view.statusScreen.OffsetY, width)
+	view.input.Draw(view.inputScreen)
+	// The composer's top padding row: the search line, else attached files.
+	if view.search != nil {
+		view.drawSearch(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
+	} else {
+		view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
+	}
+	barStyle := tcell.StyleDefault.Foreground(ColorComposerBar)
+	for y := view.statusScreen.YEnd(); y < view.statusScreen.YEnd()+composerHeight; y++ {
+		screen.SetContent(1, y, '│', nil, barStyle)
+	}
+	if !hideUserList {
+		view.userList.Draw(view.ulScreen)
+	}
+}
+
+// shouldHideUserList: the member list is off until Ctrl+b turns it on.
+func (view *RoomView) shouldHideUserList() bool {
+	return !view.config.Preferences.ShowUserList
+}
+
+func (view *RoomView) ClearAllContext() {
+	view.SetEditing(nil)
+	view.StopSelecting()
+	view.replying = nil
+	view.input.Focus()
+}
+
+func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
+	if view.info != nil {
+		return view.onInfoKey(event)
+	}
+	if view.picker != nil {
+		return view.picker.OnKeyEvent(event)
+	}
+	if view.search != nil {
+		return view.onSearchKey(event)
+	}
+	msgView := view.MessageView()
+	kb := config.Keybind{
+		Key: event.Key(),
+		Ch:  event.Rune(),
+		Mod: event.Modifiers(),
+	}
+
+	// Ctrl+m marks the room read. It arrives as RS (0x1e) via a Ghostty
+	// keybind, because ctrl+m is byte-identical to Enter in legacy encoding.
+	if event.Key() == tcell.KeyCtrlCarat {
+		view.MarkReadExplicit()
+		return true
+	}
+	// Ctrl+; toggles visual mode. The terminal sends US (0x1f) for it via a
+	// Ghostty keybind, since ctrl+semicolon has no legacy encoding and tcell
+	// cannot parse the CSI-u sequence it would otherwise produce.
+	if event.Key() == tcell.KeyCtrlUnderscore {
+		if view.selecting {
+			view.ClearAllContext()
+		} else {
+			view.StartSelecting(SelectReply, "")
+		}
+		return true
+	}
+
+	// Ctrl+e opens the emoji picker for the composer, from visual mode too.
+	if event.Key() == tcell.KeyCtrlE {
+		if view.selecting {
+			view.StopSelecting()
+		}
+		view.input.Focus()
+		view.OpenEmojiPicker()
+		return true
+	}
+
+	if view.selecting {
+		switch view.config.Keybindings.Visual[kb] {
+		case "clear":
+			RequestRepaint()
+			// First Escape drops a v range and stays in visual mode.
+			if msgView.HasAnchor() {
+				msgView.ClearAnchor()
+				return true
+			}
+			view.ClearAllContext()
+		case "select_prev":
+			view.SelectPrevious()
+		case "select_next":
+			view.SelectNext()
+		case "confirm":
+			view.OnSelect(msgView.GetSelected())
+		default:
+			// Verb keys: act on the selected message directly instead of
+			// backing out to type a slash command.
+			if event.Modifiers() == 0 {
+				// y with a v range copies every message in it; checked before
+				// the single-message y below, which would otherwise win.
+				if event.Rune() == 'y' && msgView.HasAnchor() {
+					msgs := msgView.RangeMessages()
+					if len(msgs) == 1 && isSticker(msgs[0]) {
+						// A range of just a sticker: copy it to re-send.
+						view.CopySticker(msgs[0])
+						view.StopSelecting()
+						view.input.Focus()
+						return true
+					}
+					go view.CopyToClipboard(formatRange(msgs), "clipboard")
+					view.AddServiceMessage("Copied %d messages", len(msgs))
+					view.StopSelecting()
+					view.input.Focus()
+					return true
+				}
+				verbs := map[rune]SelectReason{
+					'r': SelectReply,
+					'p': SelectPlay,
+					'o': SelectOpen,
+					'd': SelectDownload,
+					'y': SelectCopy,
+					'e': SelectEdit,
+					'x': SelectRedact,
+				}
+				if reason, ok := verbs[event.Rune()]; ok {
+					view.selectReason = reason
+					view.OnSelect(msgView.GetSelected())
+					return true
+				}
+				// v anchors a range like vim's visual mode; j/k extend it.
+				if event.Rune() == 'v' {
+					msgView.ToggleAnchor()
+					return true
+				}
+				// Space views, plays or opens the selected message (images, voice,
+				// video, files, links); selection stays for the next one.
+				if event.Rune() == ' ' {
+					if selected := msgView.GetSelected(); selected != nil {
+						view.OpenSelected(selected)
+					}
+					return true
+				}
+				// h hides the selected message in gomuks until /unclear.
+				if event.Rune() == 'h' {
+					if selected := msgView.GetSelected(); selected != nil {
+						go view.HideMessage(selected.ID)
+					}
+					view.StopSelecting()
+					view.input.Focus()
+					return true
+				}
+				// i shows when it was sent, delivered and seen, and reactions.
+				if event.Rune() == 'i' {
+					view.OpenMessageInfo(msgView.GetSelected())
+					return true
+				}
+				// u copies the first URL in the selected message, which beats
+				// drag-selecting a wrapped link across the sidebar columns.
+				if event.Rune() == 'u' {
+					if selected := msgView.GetSelected(); selected != nil {
+						if url := messages.FirstURL(selected.Renderer.PlainText()); url != "" {
+							go view.CopyToClipboard(url, "clipboard")
+							view.AddServiceMessage("Copied %s", url)
+						} else {
+							view.AddServiceMessage("No URL in that message")
+						}
+					}
+					view.StopSelecting()
+					view.input.Focus()
+					return true
+				}
+				// + opens the reaction popup over the selected message.
+				if event.Rune() == '+' {
+					if selected := msgView.GetSelected(); selected != nil {
+						view.OpenReactPicker(selected.ID)
+					}
+					return true
+				}
+				// WhatsApp's quick-react bar on the digit keys; same emoji again removes it.
+				if r := event.Rune(); r >= '1' && r < '1'+rune(len(quickReactions)) {
+					if selected := msgView.GetSelected(); selected != nil {
+						go view.ToggleReaction(selected.ID, quickReactions[r-'1'])
+					}
+					view.StopSelecting()
+					view.input.Focus()
+					return true
+				}
+			}
+			return false
+		}
+		return true
+	}
+
+	switch view.config.Keybindings.Room[kb] {
+	case "select":
+		// Visual mode with reply as the default action: pick a message with
+		// j/k, Enter replies to it, Escape backs out.
+		view.StartSelecting(SelectReply, "")
+		return true
+	case "mark_read":
+		view.MarkReadExplicit()
+		return true
+	case "search":
+		view.OpenSearch()
+		return true
+	case "clear":
+		// First Escape clears reply/edit/select context; with nothing left to
+		// clear, it closes the room back to the sidebar-only launch state.
+		// Either way, wipe anything a width mismatch left on screen.
+		RequestRepaint()
+		// Escape drops attached files before anything else.
+		if view.ClearAttachments() {
+			return true
+		}
+		if view.editing != nil || view.replying != nil || view.selecting {
+			view.ClearAllContext()
+		} else {
+			view.parent.CloseCurrentRoom()
+		}
+		return true
+	case "scroll_up":
+		if msgView.IsAtTop() {
+			go view.parent.LoadHistory(view.Room.ID)
+		}
+		msgView.AddScrollOffset(+msgView.Height() / 2)
+		return true
+	case "scroll_down":
+		msgView.AddScrollOffset(-msgView.Height() / 2)
+		return true
+	case "send":
+		view.InputSubmit(view.input.GetText())
+		return true
+	}
+	// Ctrl+V with no text in the clipboard likely means an image is there;
+	// upload it instead of pasting nothing. Text pastes flow through to the
+	// input area as before.
+	if event.Key() == tcell.KeyCtrlV {
+		if text, _ := clipboard.ReadAll("clipboard"); text != "" {
+			if raw, ok := stickerFromToken(text); ok {
+				view.AttachSticker(raw)
+				return true
+			}
+		}
+		// Files copied in Finder come first: their name is on the clipboard as text too.
+		if files := clipboardFiles(); len(files) > 0 {
+			view.AttachFiles(files...)
+			return true
+		}
+		if text, _ := clipboard.ReadAll("clipboard"); strings.TrimSpace(text) == "" {
+			go view.AttachClipboard()
+			return true
+		}
+	}
+	// A bare LF is Shift+Enter via the Ghostty text:\n keybind (tcell cannot
+	// parse the CSI-u encoding Ghostty would otherwise send). Insert a newline.
+	if event.Key() == tcell.KeyLF {
+		return view.input.OnKeyEvent(tcell.NewEventKey(tcell.KeyEnter, '\n', tcell.ModShift))
+	}
+	// Backspace on an empty composer takes back the last attached file.
+	if (event.Key() == tcell.KeyBackspace || event.Key() == tcell.KeyBackspace2) &&
+		event.Modifiers() == 0 && view.input.GetText() == "" && view.RemoveLastAttachment() {
+		return true
+	}
+	// macOS-native editing: Option (Alt) operates on words. InputArea ignores
+	// modifiers on backspace and gates word-motion behind Ctrl, so re-dispatch
+	// as keys it already understands. Routing back through OnKeyEvent keeps
+	// undo snapshots and change callbacks intact.
+	if event.Modifiers()&tcell.ModAlt != 0 {
+		switch event.Key() {
+		case tcell.KeyBackspace, tcell.KeyBackspace2:
+			wordKey := tcell.KeyBackspace
+			if !mauview.Backspace1RemovesWord && mauview.Backspace2RemovesWord {
+				wordKey = tcell.KeyBackspace2
+			}
+			return view.input.OnKeyEvent(tcell.NewEventKey(wordKey, 0, tcell.ModNone))
+		case tcell.KeyLeft, tcell.KeyRight:
+			mod := tcell.ModCtrl | (event.Modifiers() & tcell.ModShift)
+			return view.input.OnKeyEvent(tcell.NewEventKey(event.Key(), 0, mod))
+		}
+	}
+	return view.input.OnKeyEvent(event)
+}
+
+func (view *RoomView) OnPasteEvent(event mauview.PasteEvent) bool {
+	// A copied sticker's token becomes a sticker chip.
+	if raw, ok := stickerFromToken(event.Text()); ok {
+		view.AttachSticker(raw)
+		return true
+	}
+	// Dropped or pasted file paths become attachment chips.
+	if paths := droppedFiles(event.Text()); paths != nil {
+		view.AttachFiles(paths...)
+		return true
+	}
+	if clip, err := clipboard.ReadAll("clipboard"); err == nil {
+		if restored, ok := restorePasteWhitespace(event.Text(), clip); ok {
+			return view.input.OnPasteEvent(restoredPaste{event, restored})
+		}
+	}
+	return view.input.OnPasteEvent(event)
+}
+
+// restoredPaste carries corrected text through mauview's normal paste path,
+// so undo and cursor handling stay as they are.
+type restoredPaste struct {
+	mauview.PasteEvent
+	text string
+}
+
+func (rp restoredPaste) Text() string {
+	return rp.text
+}
+
+// restorePasteWhitespace undoes mauview's paste assembly, which keeps only
+// printable runes and CR, so the LF line breaks and tabs Ghostty sends in a
+// bracketed paste were dropped and pasted lines ran together. A Cmd+V paste
+// is the clipboard's contents, so if the clipboard matches what arrived once
+// that whitespace is ignored, the clipboard text is the faithful version.
+func restorePasteWhitespace(received, clip string) (string, bool) {
+	clip = strings.ReplaceAll(clip, "\r\n", "\n")
+	clip = strings.ReplaceAll(clip, "\r", "\n")
+	if clip == received {
+		return "", false
+	}
+	if stripPasteWhitespace(clip) != stripPasteWhitespace(received) {
+		// Not the same paste (e.g. text dropped onto the terminal).
+		return "", false
+	}
+	return clip, true
+}
+
+func stripPasteWhitespace(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == '\t' || unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+func (view *RoomView) OnMouseEvent(event mauview.MouseEvent) bool {
+	if view.info != nil {
+		if event.Buttons() == tcell.Button1 && !event.HasMotion() {
+			view.closeInfo()
+		}
+		return true
+	}
+	if view.picker != nil {
+		if event.Buttons() == tcell.Button1 && !event.HasMotion() {
+			x, y := event.Position()
+			view.picker.OnMouseEvent(x-view.contentScreen.OffsetX, y-view.contentScreen.OffsetY)
+		}
+		return true
+	}
+	switch {
+	case view.contentScreen.IsInArea(event.Position()):
+		return view.content.OnMouseEvent(view.contentScreen.OffsetMouseEvent(event))
+	case view.topicScreen.IsInArea(event.Position()):
+		return view.topic.OnMouseEvent(view.topicScreen.OffsetMouseEvent(event))
+	case view.inputScreen.IsInArea(event.Position()):
+		return view.input.OnMouseEvent(view.inputScreen.OffsetMouseEvent(event))
+	}
+	return false
+}
+
+func (view *RoomView) SetCompletions(completions []string) {
+	view.completions.list = completions
+	view.completions.textCache = view.input.GetText()
+	view.completions.time = time.Now()
+}
+
+//var editHTMLParser = &format.HTMLParser{
+//	PillConverter: func(displayname, mxid, eventID string, ctx format.Context) string {
+//		if len(eventID) > 0 {
+//			return fmt.Sprintf(`[%s](https://matrix.to/#/%s/%s)`, displayname, mxid, eventID)
+//		} else {
+//			return fmt.Sprintf(`[%s](https://matrix.to/#/%s)`, displayname, mxid)
+//		}
+//	},
+//	Newline:        "\n",
+//	HorizontalLine: "\n---\n",
+//}
+
+// MarkReadExplicit sends a read receipt for the newest message. Explicit, so
+// no at-the-bottom guard like the automatic mark on room focus.
+// explicitReadParams is Ctrl+m: always a fresh, public read ("seen"),
+// whatever /seen says; that only governs automatic reads.
+func explicitReadParams(room *store.RoomStore) *jsoncmd.MarkReadParams {
+	room.ForgetMarkedRead()
+	req := room.GetMarkAsReadParams()
+	if req != nil {
+		req.ReceiptType = event.ReceiptTypeRead
+	}
+	return req
+}
+
+func (view *RoomView) MarkReadExplicit() {
+	ClearNotifications(view.Room.ID)
+	if req := explicitReadParams(view.Room); req != nil {
+		go func() {
+			defer debug.Recover()
+			if err := view.parent.matrix.MarkRead(context.TODO(), req); err != nil {
+				debug.Print("Failed to mark read:", err)
+				return
+			}
+			notePublicReadOf(view.Room, req.EventID)
+			view.requestRender()
+		}()
+	}
+}
+
+func (view *RoomView) SetEditing(evt *database.Event) {
+	if evt == nil {
+		view.editing = nil
+		view.SetInputText(view.editMoveText)
+		view.editMoveText = ""
+		return
+	}
+	if view.editing == nil {
+		// Park the current draft; it comes back when editing is cancelled.
+		view.editMoveText = view.GetInputText()
+	}
+	view.editing = evt
+	view.replying = nil
+	content := evt.GetMautrixContent().AsMessage()
+	// If the message was already edited, start from the latest edit's text.
+	if evt.LastEditRowID != nil {
+		if edit := view.Room.GetEventByRowID(*evt.LastEditRowID); edit != nil {
+			if newContent := edit.GetMautrixContent().AsMessage().NewContent; newContent != nil {
+				content = newContent
+			}
+		}
+	}
+	view.SetInputText(content.Body)
+	view.input.Focus()
+}
+
+type findFilter func(evt *database.Event) bool
+
+func (view *RoomView) filterOwnOnly(evt *database.Event) bool {
+	return evt.Sender == view.parent.matrix.UserID && evt.GetType() == event.EventMessage
+}
+
+//func (view *RoomView) filterMediaOnly(evt *database.Event) bool {
+//	msgtype := event.MessageType(gjson.GetBytes(evt.GetContent(), "msgtype").Str)
+//	switch msgtype {
+//	case event.MsgFile, event.MsgImage, event.MsgAudio, event.MsgVideo:
+//		return true
+//	default:
+//		return false
+//	}
+//}
+
+func (view *RoomView) findMessage(current *database.Event, forward bool, allow findFilter) *messages.UIMessage {
+	//currentFound := current == nil
+	//msgs := view.MessageView().messages
+	//for i := 0; i < len(msgs); i++ {
+	//	index := i
+	//	if !forward {
+	//		index = len(msgs) - i - 1
+	//	}
+	//	evt := msgs[index]
+	//	if evt.EventID == "" || string(evt.EventID) == evt.TxnID || evt.IsService {
+	//		continue
+	//	} else if currentFound {
+	//		if allow == nil || allow(evt.Event) {
+	//			return evt
+	//		}
+	//	} else if evt.EventID == current.ID {
+	//		currentFound = true
+	//	}
+	//}
+	return nil
+}
+
+func (view *RoomView) EditNext() {
+	if view.editing == nil {
+		return
+	}
+	foundMsg := view.findMessage(view.editing, true, view.filterOwnOnly)
+	view.SetEditing(foundMsg.GetEvent())
+}
+
+func (view *RoomView) EditPrevious() {
+	if view.replying != nil {
+		return
+	}
+	foundMsg := view.findMessage(view.editing, false, view.filterOwnOnly)
+	if foundMsg != nil {
+		view.SetEditing(foundMsg.GetEvent())
+	}
+}
+
+// selectionFilter restricts what the selection can land on for the current
+// select reason: media messages for play/open/download, own messages for
+// edit, anything otherwise.
+func (view *RoomView) selectionFilter() func(*messages.UIMessage) bool {
+	switch view.selectReason {
+	case SelectPlay, SelectOpen, SelectDownload:
+		return func(m *messages.UIMessage) bool {
+			_, ok := m.Renderer.(*messages.FileMessage)
+			return ok
+		}
+	case SelectEdit:
+		own := view.Room.OwnUserID()
+		return func(m *messages.UIMessage) bool { return m.Sender == own }
+	default:
+		return nil
+	}
+}
+
+func (view *RoomView) SelectNext() {
+	view.MessageView().SelectAdjacent(true, view.selectionFilter())
+}
+
+func (view *RoomView) SelectPrevious() {
+	if !view.MessageView().SelectAdjacent(false, view.selectionFilter()) &&
+		view.Room.HasMoreHistory() && !view.Room.Paginating.Load() {
+		// At the oldest loaded message: fetch older history so the next
+		// press keeps going up instead of stopping.
+		go view.parent.LoadHistory(view.Room.ID)
+	}
+}
+
+type completion struct {
+	displayName string
+	id          string
+}
+
+// completeMention completes @name at the cursor into a matrix.to markdown
+// pill, which the backend renders as a real mention (and the bridge as a
+// WhatsApp @mention).
+func (view *RoomView) completeMention(str, text string, at int) {
+	token := strings.ToLower(str[at+1:])
+	if strings.ContainsAny(token, " \n") {
+		return
+	}
+	var matches []completion
+	for _, member := range view.Room.GetMembers() {
+		name := member.Displayname
+		if name == "" {
+			name = member.UserID.Localpart()
+		}
+		if strings.HasPrefix(strings.ToLower(name), token) ||
+			strings.HasPrefix(strings.ToLower(member.UserID.Localpart()), token) {
+			matches = append(matches, completion{name, string(member.UserID)})
+			if len(matches) > 10 {
+				return // too ambiguous to be useful
+			}
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return
+	case 1:
+		pill := fmt.Sprintf("[%s](https://matrix.to/#/%s) ", matches[0].displayName, matches[0].id)
+		view.input.SetTextAndMoveCursor(str[:at] + pill + text[len(str):])
+		view.SetCompletions(nil)
+	default:
+		display := make([]string, len(matches))
+		for i, m := range matches {
+			display[i] = "@" + m.displayName
+		}
+		view.SetCompletions(display)
+	}
+}
+
+func (view *RoomView) AutocompleteUser(existingText string) (completions []completion) {
+	textWithoutPrefix := strings.TrimPrefix(existingText, "@")
+	for _, user := range view.Room.GetMembers() {
+		if user.Displayname == textWithoutPrefix || string(user.UserID) == existingText {
+			// Exact match, return that.
+			return []completion{{user.Displayname, string(user.UserID)}}
+		}
+
+		if strings.HasPrefix(user.Displayname, textWithoutPrefix) || strings.HasPrefix(string(user.UserID), existingText) {
+			completions = append(completions, completion{user.Displayname, string(user.UserID)})
+		}
+	}
+	return
+}
+
+func (view *RoomView) AutocompleteRoom(existingText string) (completions []completion) {
+	//for _, room := range view.parent.rooms {
+	//	alias := string(room.Room.GetCanonicalAlias())
+	//	if alias == existingText {
+	//		// Exact match, return that.
+	//		return []completion{{alias, string(room.Room.ID)}}
+	//	}
+	//	if strings.HasPrefix(alias, existingText) {
+	//		completions = append(completions, completion{alias, string(room.Room.ID)})
+	//		continue
+	//	}
+	//}
+	return
+}
+
+func (view *RoomView) AutocompleteEmoji(word string) (completions []string) {
+	//if word[0] != ':' {
+	//	return
+	//}
+	//var valueCompletion1 string
+	//var manyValues bool
+	//for name, value := range emoji.CodeMap() {
+	//	if name == word {
+	//		return []string{value}
+	//	} else if strings.HasPrefix(name, word) {
+	//		completions = append(completions, name)
+	//		if valueCompletion1 == "" {
+	//			valueCompletion1 = value
+	//		} else if valueCompletion1 != value {
+	//			manyValues = true
+	//		}
+	//	}
+	//}
+	//if !manyValues && len(completions) > 0 {
+	//	return []string{emoji.CodeMap()[completions[0]]}
+	//}
+	return
+}
+
+//func findWordToTabComplete(text string) string {
+//	output := ""
+//	runes := []rune(text)
+//	for i := len(runes) - 1; i >= 0; i-- {
+//		if unicode.IsSpace(runes[i]) {
+//			break
+//		}
+//		output = string(runes[i]) + output
+//	}
+//	return output
+//}
+
+//var (
+//	mentionMarkdown  = "[%[1]s](https://matrix.to/#/%[2]s)"
+//	mentionHTML      = `<a href="https://matrix.to/#/%[2]s">%[1]s</a>`
+//	mentionPlaintext = "%[1]s"
+//)
+//
+//func (view *RoomView) defaultAutocomplete(word string, startIndex int) (strCompletions []string, strCompletion string) {
+//	if len(word) == 0 {
+//		return []string{}, ""
+//	}
+//
+//	completions := view.AutocompleteUser(word)
+//	completions = append(completions, view.AutocompleteRoom(word)...)
+//
+//	if len(completions) == 1 {
+//		completion := completions[0]
+//		template := mentionMarkdown
+//		if view.config.Preferences.DisableMarkdown {
+//			if view.config.Preferences.DisableHTML {
+//				template = mentionPlaintext
+//			} else {
+//				template = mentionHTML
+//			}
+//		}
+//		strCompletion = fmt.Sprintf(template, completion.displayName, completion.id)
+//		if startIndex == 0 && completion.id[0] == '@' {
+//			strCompletion = strCompletion + ":"
+//		}
+//	} else if len(completions) > 1 {
+//		for _, completion := range completions {
+//			strCompletions = append(strCompletions, completion.displayName)
+//		}
+//	}
+//
+//	//strCompletions = append(strCompletions, view.parent.cmdProcessor.AutocompleteCommand(word)...)
+//	strCompletions = append(strCompletions, view.AutocompleteEmoji(word)...)
+//
+//	return
+//}
+
+// InputTabComplete completes :emoji: shortcodes at the cursor. A single
+// match inserts the emoji directly; several extend to the longest common
+// prefix and list candidates in the status line.
+func (view *RoomView) InputTabComplete(text string, cursorOffset int) {
+	if view.config.Preferences.DisableEmojis || len(text) == 0 {
+		return
+	}
+	str := runewidth.Truncate(text, cursorOffset, "")
+	// An @ after the last : means we're completing a mention, not an emoji.
+	if at := strings.LastIndexByte(str, '@'); at > strings.LastIndexByte(str, ':') {
+		view.completeMention(str, text, at)
+		return
+	}
+	colon := strings.LastIndexByte(str, ':')
+	if colon == -1 || !emoji.IsValidToken(str[colon+1:]) {
+		return
+	}
+	token := str[colon+1:]
+	matches := emoji.Complete(token, 10)
+	switch {
+	case len(matches) == 0:
+		return
+	case len(matches) == 1:
+		newText := str[:colon] + variationselector.Add(matches[0].Emoji) + " " + text[len(str):]
+		view.input.SetTextAndMoveCursor(newText)
+		view.SetCompletions(nil)
+	default:
+		lcp := matches[0].Shortcode
+		for _, m := range matches[1:] {
+			for !strings.HasPrefix(m.Shortcode, lcp) {
+				lcp = lcp[:len(lcp)-1]
+			}
+		}
+		if len(lcp) > len(token) {
+			view.input.SetTextAndMoveCursor(str[:colon+1] + lcp + text[len(str):])
+		}
+		display := make([]string, len(matches))
+		for i, m := range matches {
+			display[i] = m.Emoji + " :" + m.Shortcode + ":"
+		}
+		view.SetCompletions(display)
+	}
+}
+
+// SendTyping tells the backend (and through the bridge, the other side)
+// whether we are typing, mirroring the web composer: at most one start
+// notification per five seconds with a ten second timeout, and an explicit
+// stop when the composer empties or the message is sent.
+func (view *RoomView) SendTyping(typing bool) {
+	now := time.Now()
+	if typing {
+		if now.Sub(view.lastTypingSent) < 5*time.Second {
+			return
+		}
+		view.lastTypingSent = now
+	} else {
+		if view.lastTypingSent.IsZero() {
+			return
+		}
+		view.lastTypingSent = time.Time{}
+	}
+	timeout := 0
+	if typing {
+		timeout = 10_000
+	}
+	go func() {
+		err := view.parent.matrix.SetTyping(context.TODO(), &jsoncmd.SetTypingParams{
+			RoomID:  view.Room.ID,
+			Timeout: timeout,
+		})
+		if err != nil {
+			debug.Print("Failed to send typing notification:", err)
+		}
+	}()
+}
+
+func (view *RoomView) InputSubmit(text string) {
+	view.SendTyping(false)
+	// With chips attached, Enter sends them; the text becomes the caption.
+	// Commands still run, and an edit in progress isn't a caption.
+	if len(view.Attachments()) > 0 && view.editing == nil && !strings.HasPrefix(text, "/") {
+		view.SendAttachments(text)
+		view.editMoveText = ""
+		view.SetInputText("")
+		return
+	}
+	if len(text) == 0 {
+		return
+	} else if cmd, err := view.ParseCommand(text); err != nil {
+		toasts.Show(toastError, "Failed to parse command: "+err.Error())
+	} else if cmd != nil {
+		go view.HandleCommand(cmd)
+	} else {
+		if !view.config.Preferences.DisableEmojis {
+			text = emoji.Replace(text)
+		}
+		go view.SendMessage(event.MsgText, text)
+	}
+	view.editMoveText = ""
+	view.SetInputText("")
+}
+
+// writeClipboard is swapped out in tests.
+var writeClipboard = clipboard.WriteAll
+
+func (view *RoomView) CopyToClipboard(text string, register string) {
+	// Visual mode's y has no /copy argument; default to the clipboard.
+	if register == "" {
+		register = "clipboard"
+	}
+	if register == "clipboard" || register == "primary" {
+		err := writeClipboard(text, register)
+		if err != nil {
+			//view.AddServiceMessage(fmt.Sprintf("Clipboard unsupported: %v", err))
+			//view.parent.parent.Render()
+		}
+	} else {
+		//view.AddServiceMessage(fmt.Sprintf("Clipboard register %v unsupported", register))
+		//view.parent.parent.Render()
+	}
+}
+
+func (view *RoomView) Download(url id.ContentURI, file *attachment.EncryptedFile, filename string, openFile bool) {
+	//path, err := view.parent.matrix.DownloadToDisk(url, file, filename)
+	//if err != nil {
+	//	view.AddServiceMessage(fmt.Sprintf("Failed to download media: %v", err))
+	//	view.parent.parent.Render()
+	//	return
+	//}
+	//view.AddServiceMessage(fmt.Sprintf("File downloaded to %s", path))
+	//view.parent.parent.Render()
+	//if openFile {
+	//	debug.Print("Opening file", path)
+	//	open.Open(path)
+	//}
+}
+
+func (view *RoomView) Redact(eventID id.EventID, reason string) {
+	defer debug.Recover()
+	_, err := view.parent.matrix.RedactEvent(context.TODO(), &jsoncmd.RedactEventParams{
+		RoomID:  view.Room.ID,
+		EventID: eventID,
+		Reason:  reason,
+	})
+	if err != nil {
+		//view.AddServiceMessage(fmt.Sprintf("Failed to redact message: %v", err))
+		//view.parent.parent.Render()
+	}
+}
+
+func (view *RoomView) SendReaction(eventID id.EventID, reaction string) {
+	defer debug.Recover()
+	// :shortcode: works here too; Replace already adds variation selectors.
+	reaction = variationselector.Add(emoji.Replace(strings.TrimSpace(reaction)))
+	debug.Print("Reacting to", eventID, "in", view.Room.ID, "with", reaction)
+	contentJSON, _ := json.Marshal(&event.ReactionEventContent{RelatesTo: event.RelatesTo{
+		Type:    event.RelAnnotation,
+		EventID: eventID,
+		Key:     reaction,
+	}})
+	_, err := view.parent.matrix.SendEvent(context.TODO(), &jsoncmd.SendEventParams{
+		RoomID:    view.Room.ID,
+		EventType: event.EventReaction,
+		Content:   contentJSON,
+	})
+	if err != nil {
+		view.AddServiceMessage("Failed to send reaction: %v", err)
+		view.parent.parent.Render()
+	}
+}
+
+func (view *RoomView) SendMessage(msgtype event.MessageType, text string) {
+	defer debug.Recover()
+	var relatesTo *event.RelatesTo
+	if view.replying != nil {
+		relatesTo = (&event.RelatesTo{}).SetReplyTo(view.replying.ID)
+		view.replying = nil
+	} else if view.editing != nil {
+		// The backend wraps the text into m.new_content for replace relations.
+		relatesTo = &event.RelatesTo{Type: event.RelReplace, EventID: view.editing.ID}
+		view.editing = nil
+		view.editMoveText = ""
+	}
+	err := view.parent.matrix.SendMessage(context.TODO(), &jsoncmd.SendMessageParams{
+		RoomID:      view.Room.ID,
+		BaseContent: nil,
+		Extra:       nil,
+		Text:        text,
+		RelatesTo:   relatesTo,
+		Mentions:    nil,
+		URLPreviews: nil,
+	})
+	if err != nil {
+		debug.Print("Failed to send message:", err)
+		view.AddServiceMessage("Failed to send message: %v", err)
+	}
+	debug.Print("Rendering after sending message")
+	view.parent.parent.Render()
+}
+
+func (view *RoomView) SendMessageHTML(msgtype event.MessageType, text, html string) {
+	//defer debug.Recover()
+	//debug.Print("Sending message", msgtype, text, "to", view.Room.ID)
+	//if !view.config.Preferences.DisableEmojis {
+	//	text = emoji.Sprint(text)
+	//}
+	//rel := view.getRelationForNewEvent()
+	//evt := view.parent.matrix.PrepareMarkdownMessage(view.Room.ID, msgtype, text, html, rel)
+	//view.addLocalEcho(evt)
+}
+
+func (view *RoomView) MessageView() *MessageView {
+	return view.content
+}
+
+// isBoilerplateTopic reports whether a topic is bridge- or Beeper-generated
+// filler ("WhatsApp private chat" and friends) rather than something a human
+// wrote. 97% of rooms only ever have these, so they hide the topic bar.
+func isBoilerplateTopic(topic string) bool {
+	switch {
+	case strings.HasSuffix(topic, " private chat"),
+		strings.Contains(topic, "bridged chats - "),
+		topic == "Your Telegram cloud storage chat",
+		topic == "WhatsApp chat with a bot",
+		strings.HasPrefix(topic, "This room is for storing ") &&
+			strings.HasSuffix(topic, "generated by your Beeper client"):
+		return true
+	}
+	return false
+}
+
+func (view *RoomView) Update(meta *database.Room) {
+	topicStr := strings.TrimSpace(strings.ReplaceAll(ptr.Val(meta.Topic), "\n", " "))
+	if isBoilerplateTopic(topicStr) {
+		topicStr = ""
+	}
+	// Update runs as a Meta listener inside the store's ApplySync, under both
+	// the store and room locks: only record values here. The topic bar is
+	// rebuilt on draw (syncTopic), and anything that takes a lock runs after.
+	view.topicName = ptr.Val(meta.Name)
+	view.topicDesc = topicStr
+	if meta.EncryptionEvent != nil && meta.EncryptionEvent.Algorithm == id.AlgorithmMegolmV1 {
+		view.input.SetPlaceholder("Send an encrypted message...")
+	}
+	if !view.userListLoaded && view.Room.FullMembersLoaded.Load() {
+		go func() {
+			view.UpdateUserList()
+			view.parent.parent.Render()
+		}()
+	}
+	view.parent.parent.NeedsRender = true
+}
+
+// syncTopic rebuilds the topic bar; run on draw so mute changes show at once.
+func (view *RoomView) syncTopic() {
+	topicStr := view.topicDesc
+	if view.config.Preferences.HideRoomList {
+		name := view.topicName
+		if view.parent.roomList.IsMuted(view.Room.ID) {
+			name += " \U000f009b" // nf-md-bell_off
+		}
+		if len(topicStr) > 0 {
+			topicStr = fmt.Sprintf("%s - %s", name, topicStr)
+		} else {
+			topicStr = name
+		}
+		topicStr = strings.TrimSpace(topicStr)
+	}
+	view.hasTopic = topicStr != ""
+	// Leading space keeps the topic off the pane edge.
+	if topicStr != "" {
+		topicStr = " " + topicStr
+	}
+	if topicStr != view.topicShown {
+		view.topicShown = topicStr
+		view.topic.SetText(topicStr)
+	}
+}
+
+func (view *RoomView) UpdateUserList() {
+	view.userList.Update(view.Room.GetMembers(), view.Room.GetPowerLevels())
+	view.userListLoaded = true
+}
+
+func (view *RoomView) AddServiceMessage(text string, args ...any) {
+	if len(args) > 0 {
+		text = fmt.Sprintf(text, args...)
+	}
+	// A toast, not a timeline row: notices no longer shift the chat.
+	toasts.Show(classifyNotice(text), text)
+}

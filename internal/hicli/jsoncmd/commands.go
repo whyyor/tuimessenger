@@ -1,0 +1,464 @@
+// Copyright (c) 2025 Tulir Asokan
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+package jsoncmd
+
+import (
+	"maunium.net/go/mautrix"
+	"maunium.net/go/mautrix/event"
+	"maunium.net/go/mautrix/id"
+	"maunium.net/go/mautrix/oauth"
+
+	"go.mau.fi/gomuks/pkg/hicli/database"
+)
+
+type Container[T any] struct {
+	Command   Name  `json:"command"`
+	RequestID int64 `json:"request_id"`
+	Data      T     `json:"data"`
+}
+
+func (c *Container[T]) AsAny() *Container[any] {
+	return &Container[any]{
+		Command:   c.Command,
+		RequestID: c.RequestID,
+		Data:      c.Data,
+	}
+}
+
+type Name string
+
+func (n Name) String() string {
+	return string(n)
+}
+
+// All command names (both requests and events).
+const (
+	ReqGetState                 Name = "get_state"
+	ReqCancel                   Name = "cancel"
+	ReqSendMessage              Name = "send_message"
+	ReqSendEvent                Name = "send_event"
+	ReqSendStickyEvent          Name = "send_sticky_event"
+	ReqResendEvent              Name = "resend_event"
+	ReqReportEvent              Name = "report_event"
+	ReqRedactEvent              Name = "redact_event"
+	ReqSetState                 Name = "set_state"
+	ReqUpdateDelayedEvent       Name = "update_delayed_event"
+	ReqSetMembership            Name = "set_membership"
+	ReqSetAccountData           Name = "set_account_data"
+	ReqMarkRead                 Name = "mark_read"
+	ReqSetTyping                Name = "set_typing"
+	ReqSetViewingRoom           Name = "set_viewing_room"
+	ReqGetProfile               Name = "get_profile"
+	ReqSetProfileField          Name = "set_profile_field"
+	ReqGetMutualRooms           Name = "get_mutual_rooms"
+	ReqTrackUserDevices         Name = "track_user_devices"
+	ReqResetMasterKeyTOFU       Name = "reset_master_key_tofu"
+	ReqGetProfileEncryptionInfo Name = "get_profile_encryption_info"
+	ReqGetOwnDevices            Name = "get_own_devices"
+	ReqGetEvent                 Name = "get_event"
+	ReqGetEventByRowID          Name = "get_event_by_rowid"
+	ReqGetEventContext          Name = "get_event_context"
+	ReqPaginateManual           Name = "paginate_manual"
+	ReqSearchLocal              Name = "search_local"
+	ReqSearchServer             Name = "search_server"
+	ReqGetMentions              Name = "get_mentions"
+	ReqGetRelatedEvents         Name = "get_related_events"
+	ReqGetStickyEvents          Name = "get_sticky_events"
+	ReqGetRoomState             Name = "get_room_state"
+	ReqGetSpecificRoomState     Name = "get_specific_room_state"
+	ReqGetReceipts              Name = "get_receipts"
+	ReqPaginate                 Name = "paginate"
+	ReqGetRoomSummary           Name = "get_room_summary"
+	ReqGetSpaceHierarchy        Name = "get_space_hierarchy"
+	ReqJoinRoom                 Name = "join_room"
+	ReqKnockRoom                Name = "knock_room"
+	ReqLeaveRoom                Name = "leave_room"
+	ReqCreateRoom               Name = "create_room"
+	ReqMuteRoom                 Name = "mute_room"
+	ReqUpdatePushRule           Name = "update_push_rule"
+	ReqEnsureGroupSessionShared Name = "ensure_group_session_shared"
+	ReqSendToDevice             Name = "send_to_device"
+	ReqResolveAlias             Name = "resolve_alias"
+	ReqRequestOpenIDToken       Name = "request_openid_token"
+	ReqLogout                   Name = "logout"
+	ReqLogin                    Name = "login"
+	ReqLoginCustom              Name = "login_custom"
+	ReqOAuthRegisterClient      Name = "oauth_register_client"
+	ReqOAuthGetAuthorizationURL Name = "oauth_get_authorization_url"
+	ReqOAuthExchangeToken       Name = "oauth_exchange_token"
+	ReqOAuthGenerateDeviceCode  Name = "oauth_generate_device_code"
+	ReqOAuthSimpleDeviceCode    Name = "oauth_simple_device_code"
+	ReqOAuthPollDeviceCode      Name = "oauth_poll_device_code"
+	ReqVerify                   Name = "verify"
+	ReqGenerateRecoveryKey      Name = "generate_recovery_key"
+	ReqResetEncryption          Name = "reset_encryption"
+	ReqDiscoverHomeserver       Name = "discover_homeserver"
+	ReqGetLoginFlows            Name = "get_login_flows"
+	ReqGetVersions              Name = "get_versions"
+	ReqRegisterPush             Name = "register_push"
+	ReqListenToDevice           Name = "listen_to_device"
+	ReqGetTurnServers           Name = "get_turn_servers"
+	ReqGetRTCTransports         Name = "get_rtc_transports"
+	ReqGetMediaConfig           Name = "get_media_config"
+	ReqCalculateRoomID          Name = "calculate_room_id"
+	ReqRerequestSession         Name = "rerequest_session"
+
+	ReqGetAccountInfo Name = "get_account_info"
+	ReqUploadMedia    Name = "upload_media"
+	ReqDownloadMedia  Name = "download_media"
+	ReqGetURLPreview  Name = "get_url_preview"
+	ReqExportKeys     Name = "export_keys"
+
+	RespError   Name = "error"
+	RespSuccess Name = "response"
+
+	ReqPing  Name = "ping"
+	RespPong Name = "pong"
+
+	EventSyncComplete    Name = "sync_complete"
+	EventSyncStatus      Name = "sync_status"
+	EventEventsDecrypted Name = "events_decrypted"
+	EventTyping          Name = "typing"
+	EventSendComplete    Name = "send_complete"
+	EventClientState     Name = "client_state"
+	EventImageAuthToken  Name = "image_auth_token"
+	EventInitComplete    Name = "init_complete"
+	EventRunID           Name = "run_id"
+)
+
+// Frontend -> backend request specs
+var (
+	// GetState returns the current client state (login/verification/session info).
+	// Note that state is also emitted as `client_state` events, so you usually don't need to request it manually.
+	GetState = &CommandSpecWithoutRequest[*ClientState]{Name: ReqGetState}
+	// Cancel an in-flight request. Returns true if the given request ID was found, false otherwise.
+	Cancel = &CommandSpec[*CancelRequestParams, bool]{Name: ReqCancel}
+	// SendMessage sends a Matrix message into a room. This is a higher-level helper around sending
+	// `m.room.message` (and related) content. This will always perform an asynchronous send, which
+	// means the returned event won't have an ID yet. Listen for the `send_complete` event to get
+	// the final result.
+	SendMessage = &CommandSpec[*SendMessageParams, *database.Event]{Name: ReqSendMessage}
+	// SendEvent sends an arbitrary event into a room. This should be used for non-message events like reactions.
+	// Note that state events must use `set_state` instead.
+	SendEvent = &CommandSpec[*SendEventParams, *database.Event]{Name: ReqSendEvent}
+	// SendStickyEvent sends an arbitrary sticky (and optionally delayed) event into a room.
+	// This is mostly used by Element Call.
+	SendStickyEvent = &CommandSpec[*SendStickyEventParams, id.EventID]{Name: ReqSendStickyEvent}
+	// ResendEvent retries sending a previously failed outgoing event.
+	ResendEvent = &CommandSpec[*ResendEventParams, *database.Event]{Name: ReqResendEvent}
+	// ReportEvent reports an event to the homeserver.
+	ReportEvent = &CommandSpecWithoutResponse[*ReportEventParams]{Name: ReqReportEvent}
+	// RedactEvent redacts an event in a room.
+	RedactEvent = &CommandSpec[*RedactEventParams, *mautrix.RespSendEvent]{Name: ReqRedactEvent}
+	// SetState sends a state event to a room.
+	SetState = &CommandSpec[*SendStateEventParams, id.EventID]{Name: ReqSetState}
+	// UpdateDelayedEvent updates or cancels a previously scheduled delayed event as per MSC4140.
+	UpdateDelayedEvent = &CommandSpec[*UpdateDelayedEventParams, *mautrix.RespUpdateDelayedEvent]{Name: ReqUpdateDelayedEvent}
+	// SetMembership is used for membership actions like inviting, kicking, banning or unbanning a user.
+	// This should not be used for the user's own membership. Use `join_room`, `leave_room` or `knock_room` instead.
+	SetMembership = &CommandSpecWithoutResponse[*SetMembershipParams]{Name: ReqSetMembership}
+	// SetAccountData sets global or per-room account data.
+	SetAccountData = &CommandSpecWithoutResponse[*SetAccountDataParams]{Name: ReqSetAccountData}
+	// MarkRead sends a read receipt to a room.
+	MarkRead = &CommandSpecWithoutResponse[*MarkReadParams]{Name: ReqMarkRead}
+	// SetTyping starts or stops sending typing notifications in a room.
+	SetTyping = &CommandSpecWithoutResponse[*SetTypingParams]{Name: ReqSetTyping}
+	// SetViewingRoom tells the server which room is open on screen ("" for none). Only tuimessenger servers use it,
+	// e.g. so WhatsApp only shows you online, and sends you typing notices, while a chat is open.
+	SetViewingRoom = &CommandSpecWithoutResponse[*SetViewingRoomParams]{Name: ReqSetViewingRoom}
+	// GetProfile returns a Matrix user profile from the homeserver.
+	GetProfile = &CommandSpec[*GetProfileParams, *GetProfileResponse]{Name: ReqGetProfile}
+	// SetProfileField sets a field in the current user's Matrix profile.
+	SetProfileField = &CommandSpecWithoutResponse[*SetProfileFieldParams]{Name: ReqSetProfileField}
+	// GetMutualRooms returns the list of rooms shared between the current user and another user
+	// from the homeserver.
+	GetMutualRooms = &CommandSpec[*GetMutualRoomsParams, *mautrix.RespMutualRooms]{Name: ReqGetMutualRooms}
+	// TrackUserDevices start tracking a user’s e2ee device list if it's not already tracked, then returns
+	// encryption info (same result as `get_profile_encryption_info`).
+	TrackUserDevices = &CommandSpec[*GetProfileParams, *ProfileEncryptionInfo]{Name: ReqTrackUserDevices}
+	// ResetMasterKeyTOFU marks a user's changed master key as trusted.
+	// This is NOT meant for user verification, it just flips from untrusted back to trusted-on-first-use.
+	ResetMasterKeyTOFU = &CommandSpec[*ResetMasterKeyTOFUParams, *ProfileEncryptionInfo]{Name: ReqResetMasterKeyTOFU}
+	// GetProfileEncryptionInfo returns the device list and trust state information for a user.
+	GetProfileEncryptionInfo = &CommandSpec[*GetProfileParams, *ProfileEncryptionInfo]{Name: ReqGetProfileEncryptionInfo}
+	// GetOwnDevices returns the current user's full device list and other details.
+	GetOwnDevices = &CommandSpecWithoutRequest[*GetOwnDevicesResponse]{Name: ReqGetOwnDevices}
+	// GetEvent returns a single event in a room. This uses the database if possible,
+	// but will fetch from the homeserver if the event isn't found locally.
+	GetEvent = &CommandSpec[*GetEventParams, *database.Event]{Name: ReqGetEvent}
+	// GetEventByRowID returns a single event by its database row ID.
+	GetEventByRowID = &CommandSpec[*GetEventByRowIDParams, *database.Event]{Name: ReqGetEventByRowID}
+	// GetEventContext returns context around an event (before/after timeline slices) from the
+	// homeserver. This is used for jumping to a specific point on the timeline. Note that there is
+	// currently no safe way to merge back into the main timeline, so jumping has to be implemented
+	// as a separate view.
+	GetEventContext = &CommandSpec[*GetEventContextParams, *EventContextResponse]{Name: ReqGetEventContext}
+	// PaginateManual returns a page of messages from the homeserver using a pagination token.
+	// This is used to paginate after jumping to a specific event using `get_event_context` and
+	// for normal pagination in the thread view.
+	PaginateManual = &CommandSpec[*PaginateManualParams, *ManualPaginationResponse]{Name: ReqPaginateManual}
+	// SearchLocal searches for messages in the local database.
+	SearchLocal = &CommandSpec[*SearchParams, *ManualPaginationResponse]{Name: ReqSearchLocal}
+	// SearchServer searches for messages on the homeserver.
+	SearchServer = &CommandSpec[*SearchServerParams, *ManualPaginationResponse]{Name: ReqSearchServer}
+	// GetMentions returns recent events that mention the current user. This will not call the homeserver.
+	// The result is sorted by timestamp in descending order. Sorting by timestamp means the sender could
+	// have faked it, but there's no other cross-room event ordering in Matrix.
+	GetMentions = &CommandSpec[*GetMentionsParams, []*database.Event]{Name: ReqGetMentions}
+	// GetRelatedEvents returns events related to a given event from the database (e.g. reactions,
+	// edits, replies depending on relation type). This will not call the homeserver.
+	GetRelatedEvents = &CommandSpec[*GetRelatedEventsParams, []*database.Event]{Name: ReqGetRelatedEvents}
+	// GetStickyEvents returns active sticky events in the given room. This will not call the homeserver.
+	GetStickyEvents = &CommandSpec[*GetStickyEventsParams, []*database.Event]{Name: ReqGetStickyEvents}
+	// GetRoomState returns full room state, optionally after fetching it from the homeserver.
+	GetRoomState = &CommandSpec[*GetRoomStateParams, []*database.Event]{Name: ReqGetRoomState}
+	// GetSpecificRoomState returns the requested individual state events.
+	// The events are only fetched from the database, this will not call the homeserver.
+	GetSpecificRoomState = &CommandSpec[*GetSpecificRoomStateParams, []*database.Event]{Name: ReqGetSpecificRoomState}
+	// GetReceipts returns read receipts for a set of event IDs. This will not call the homeserver.
+	GetReceipts = &CommandSpec[*GetReceiptsParams, map[id.EventID][]*database.Receipt]{Name: ReqGetReceipts}
+	// Paginate returns older messages in the timeline. This will return locally cached timelines
+	// if available and fetch more from the homeserver if needed.
+	Paginate = &CommandSpec[*PaginateParams, *PaginationResponse]{Name: ReqPaginate}
+	// GetRoomSummary returns the basic metadata of a room from the homeserver, such as name,
+	// topic, avatar and member count. This should be used for previewing rooms before joining.
+	// For joined rooms, metadata is automatically pushed in the sync payloads.
+	GetRoomSummary = &CommandSpec[*GetRoomSummaryParams, *mautrix.RespRoomSummary]{Name: ReqGetRoomSummary}
+	// GetSpaceHierarchy returns a space hierarchy, which may include rooms the user isn't in yet.
+	// This should only be used for rendering the space index page. For the room list, space edge
+	// information is automatically pushed in syncs.
+	GetSpaceHierarchy = &CommandSpec[*GetHierarchyParams, *mautrix.RespHierarchy]{Name: ReqGetSpaceHierarchy}
+	// JoinRoom joins the given room ID or alias.
+	JoinRoom = &CommandSpec[*JoinRoomParams, *mautrix.RespJoinRoom]{Name: ReqJoinRoom}
+	// KnockRoom knocks on the given room ID or alias.
+	KnockRoom = &CommandSpec[*JoinRoomParams, *mautrix.RespKnockRoom]{Name: ReqKnockRoom}
+	// LeaveRoom leaves or rejects the invite to the given room.
+	LeaveRoom = &CommandSpec[*LeaveRoomParams, *mautrix.RespLeaveRoom]{Name: ReqLeaveRoom}
+	// CreateRoom creates a new room.
+	CreateRoom = &CommandSpec[*mautrix.ReqCreateRoom, *mautrix.RespCreateRoom]{Name: ReqCreateRoom}
+	// MuteRoom mutes or unmutes a room by manipulating push rules. It returns the previous mute state.
+	MuteRoom = &CommandSpec[*MuteRoomParams, bool]{Name: ReqMuteRoom}
+	// UpdatePushRule is used to create, edit, delete, enable or disable push rules.
+	UpdatePushRule = &CommandSpecWithoutResponse[*UpdatePushRuleParams]{Name: ReqUpdatePushRule}
+	// EnsureGroupSessionShared ensures that the Megolm session for a room has been shared to all
+	// recipient devices. Calling this is not required, but it should be called when the user first
+	// starts typing to make sending faster.
+	EnsureGroupSessionShared = &CommandSpecWithoutResponse[*EnsureGroupSessionSharedParams]{Name: ReqEnsureGroupSessionShared}
+	// SendToDevice sends an arbitrary to-device event. Meant for widgets, not needed otherwise.
+	SendToDevice = &CommandSpec[*SendToDeviceParams, *mautrix.RespSendToDevice]{Name: ReqSendToDevice}
+	// ResolveAlias resolves a room alias to the ID and list of participating servers.
+	ResolveAlias = &CommandSpec[*ResolveAliasParams, *mautrix.RespAliasResolve]{Name: ReqResolveAlias}
+	// RequestOpenIDToken returns an OpenID token from the homeserver. OpenID tokens are used to
+	// authenticate with various external services. Widgets also need this method.
+	//
+	// To log into css.gomuks.app, use the response data to form the following URL and open it in
+	// a browser: `https://css.gomuks.app/login?token=${access_token}&server_name=${matrix_server_name}`
+	RequestOpenIDToken = &CommandSpecWithoutRequest[*mautrix.RespOpenIDToken]{Name: ReqRequestOpenIDToken}
+	// Logout logs out the current session. Note that this may break the process until it's restarted.
+	Logout = &CommandSpecWithoutData{Name: ReqLogout}
+	// Login logs into a homeserver using a username and password. After a successful login,
+	// the `client_state` event will be dispatched. The frontend should use the event rather than
+	// the response to this method to update its state.
+	Login = &CommandSpecWithoutResponse[*LoginParams]{Name: ReqLogin}
+	// LoginCustom sends a custom login request. Like the `login` request, this will also dispatch
+	// a `client_state` event after a successful login.
+	LoginCustom = &CommandSpecWithoutResponse[*LoginCustomParams]{Name: ReqLoginCustom}
+	// OAuthRegisterClient registers a new OAuth2 client with the homeserver.
+	// The frontend must persist the returned client ID for the following `oauth_*` calls,
+	// but can forget it after a successful login.
+	OAuthRegisterClient = &CommandSpec[*OAuthRegisterClientParams, *oauth.ClientMetadata]{Name: ReqOAuthRegisterClient}
+	// OAuthGetAuthorizationURL gets the authorization URL for logging into a homeserver with OAuth2.
+	// The frontend must persist the response to pass it into `oauth_exchange_token` after receiving the callback redirect.
+	OAuthGetAuthorizationURL = &CommandSpec[*OAuthGetAuthorizationURLParams, *oauth.AuthorizationCodeResponse]{Name: ReqOAuthGetAuthorizationURL}
+	// OAuthExchangeToken uses an OAuth2 authorization code from a redirect callback to log into the homeserver.
+	// After a successful login, the `client_state` event will be dispatched.
+	// The frontend should use the event rather than the response to this method to update its state.
+	OAuthExchangeToken = &CommandSpecWithoutResponse[*OAuthExchangeTokenParams]{Name: ReqOAuthExchangeToken}
+	// OAuthGenerateDeviceCode generates a device code for logging into a homeserver with OAuth2
+	// in a way that doesn't depend on being able to receive callback redirects over HTTP.
+	// After showing the URL to the user, the frontend should call `oauth_poll_device_code`,
+	// which will block until the login succeeds or times out.
+	OAuthGenerateDeviceCode = &CommandSpec[*OAuthGenerateDeviceCodeParams, *oauth.DeviceCodeResponse]{Name: ReqOAuthGenerateDeviceCode}
+	// OAuthSimpleDeviceCode is a minimal alternative to manually calling `oauth_register_client` + `oauth_generate_device_code`.
+	// It registers a client with default details and generates a device code in one step.
+	// The generated data is cached on the backend, so the frontend can then call `oauth_poll_device_code` with no parameters.
+	OAuthSimpleDeviceCode = &CommandSpec[*OAuthSimpleDeviceCodeParams, *oauth.DeviceCodeResponse]{Name: ReqOAuthSimpleDeviceCode}
+	// OAuthPollDeviceCode polls the homeserver for a device code login.
+	// After a successful login, the `client_state` event will be dispatched.
+	// The frontend should use the event rather than the response to this method to update its state.
+	OAuthPollDeviceCode = &CommandSpecWithoutResponse[*OAuthPollDeviceCodeParams]{Name: ReqOAuthPollDeviceCode}
+	// Verify verifies the session using a recovery key or recovery phrase. Like the `login`
+	// request, this will also dispatch a `client_state` event after successfully verifying.
+	Verify = &CommandSpecWithoutResponse[*VerifyParams]{Name: ReqVerify}
+	// GenerateRecoveryKey generates a new recovery key, optionally from a given recovery phrase.
+	// This will not actually use the generated key for anything, `reset_encryption` has to be called separately.
+	GenerateRecoveryKey = &CommandSpec[*GenerateRecoveryKeyParams, *RecoveryKeyResponse]{Name: ReqGenerateRecoveryKey}
+	// ResetEncryption resets the account's cross-signing keys and key backup/SSSS to use the given recovery key.
+	ResetEncryption = &CommandSpecWithoutResponse[*ResetEncryptionParams]{Name: ReqResetEncryption}
+	// DiscoverHomeserver performs `.well-known` lookup on the server name of the given user ID and
+	// returns the results.
+	DiscoverHomeserver = &CommandSpec[*DiscoverHomeserverParams, *mautrix.ClientWellKnown]{Name: ReqDiscoverHomeserver}
+	// GetLoginFlows returns the available login flows on the given homeserver.
+	GetLoginFlows = &CommandSpec[*GetLoginFlowsParams, *LoginFlowsResponse]{Name: ReqGetLoginFlows}
+	// GetVersions returns the spec versions and unstable features supported by the homeserver.
+	GetVersions = &CommandSpecWithoutRequest[*mautrix.RespVersions]{Name: ReqGetVersions}
+	// RegisterPush stores a gomuks-specific pusher in the database. This will not register a
+	// pusher on the homeserver. Push notifications will not work without the gomuks backend
+	// being online.
+	RegisterPush = &CommandSpecWithoutResponse[*database.PushRegistration]{Name: ReqRegisterPush}
+	// ListenToDevice toggles including to-device messages in `sync_complete` events. Only relevant for widgets.
+	// Returns the previous value of the setting.
+	ListenToDevice = &CommandSpec[bool, bool]{Name: ReqListenToDevice}
+	// GetTurnServers returns TURN server credentials from the homeserver.
+	GetTurnServers = &CommandSpecWithoutRequest[*mautrix.RespTurnServer]{Name: ReqGetTurnServers}
+	// GetRTCTransports returns MatrixRTC transports from the homeserver.
+	GetRTCTransports = &CommandSpecWithoutRequest[*mautrix.RespRTCTransports]{Name: ReqGetRTCTransports}
+	// GetMediaConfig returns the homeserver's media repository configuration (e.g. upload size limit)
+	GetMediaConfig = &CommandSpecWithoutRequest[*mautrix.RespMediaConfig]{Name: ReqGetMediaConfig}
+	// CalculateRoomID calculates a room ID locally from a timestamp and creation content. This is
+	// only relevant when creating v12+ rooms with the `fi.mau.origin_server_ts` extension that
+	// allows the client to pre-calculate the room ID.
+	CalculateRoomID = &CommandSpec[*CalculateRoomIDParams, id.RoomID]{Name: ReqCalculateRoomID}
+	// RerequestSession re-requests a given Megolm session from the key backup and from other devices.
+	RerequestSession = &CommandSpecWithoutResponse[*RerequestSessionParams]{Name: ReqRerequestSession}
+)
+
+// FFI-specific command specs
+var (
+	// GetAccountInfo returns the homeserver URL and access token for the active login.
+	// This is only available in the C FFI. HTTP clients aren't allowed to read the client's access token.
+	GetAccountInfo = &CommandSpecWithoutRequest[*database.Account]{Name: ReqGetAccountInfo}
+	// UploadMedia uploads a file on the local disk to the server and returns the m.room.message to use in `send_message`.
+	// This is only available in the C FFI. HTTP clients must use the /upload API.
+	UploadMedia = &CommandSpec[*UploadMediaParams, *event.MessageEventContent]{Name: ReqUploadMedia}
+	// DownloadMedia downloads a file from the server and returns the file path on the local disk.
+	// This is only available in the C FFI. HTTP clients must use the /download API.
+	DownloadMedia = &CommandSpec[*DownloadMediaParams, *DownloadMediaResponse]{Name: ReqDownloadMedia}
+	// GetURLPreview generates a URL preview for the given URL. This should be used
+	// when sending a message to attach bundled URL previews, not when receiving messages.
+	// This is only available in the C FFI. HTTP clients must use the /url_preview API.
+	GetURLPreview = &CommandSpec[*GetURLPreviewParams, *event.BeeperLinkPreview]{Name: ReqGetURLPreview}
+	// ExportKeys exports megolm room keys and returns the exported file as a string.
+	// This is only available in the C FFI. HTTP clients must use the /keys/export API.
+	ExportKeys = &CommandSpec[*ExportKeysParams, string]{Name: ReqExportKeys}
+)
+
+// Backend -> frontend event specs
+var (
+	// SpecSyncComplete is emitted after a /sync request has been fully processed and stored.
+	// This is also used for sending the room list to the client when first connecting.
+	SpecSyncComplete = &EventSpec[*SyncComplete]{Name: EventSyncComplete}
+	// SpecSyncStatus is emitted if the /sync loop starts or stops erroring.
+	SpecSyncStatus = &EventSpec[*SyncStatus]{Name: EventSyncStatus}
+	// SpecEventsDecrypted is emitted when one or more events were decrypted after initially failing to decrypt.
+	SpecEventsDecrypted = &EventSpec[*EventsDecrypted]{Name: EventEventsDecrypted}
+	// SpecTyping is emitted when new typing notifications are received in a room.
+	SpecTyping = &EventSpec[*Typing]{Name: EventTyping}
+	// SpecSendComplete is emitted when a previously started message send has completed.
+	// Both successes and failures can be reported this way.
+	SpecSendComplete = &EventSpec[*SendComplete]{Name: EventSendComplete}
+	// SpecClientState is emitted when the client login state or global profile changes.
+	SpecClientState = &EventSpec[*ClientState]{Name: EventClientState}
+	// SpecInitComplete is emitted after all post-connect payloads have been dispatched.
+	SpecInitComplete = &EventSpec[InitComplete]{Name: EventInitComplete}
+)
+
+// Websocket-specific backend -> frontend event specs
+var (
+	// SpecImageAuthToken is emitted in websocket mode every 30 minutes,
+	// containing a short-lived token for image/media requests.
+	SpecImageAuthToken = &EventSpec[ImageAuthToken]{Name: EventImageAuthToken}
+	// SpecRunID is emitted to identify the current backend process and some additional metadata.
+	SpecRunID = &EventSpec[*RunData]{Name: EventRunID}
+)
+
+var AllNames = []Name{
+	ReqGetState,
+	ReqCancel,
+	ReqSendMessage,
+	ReqSendEvent,
+	ReqSendStickyEvent,
+	ReqResendEvent,
+	ReqReportEvent,
+	ReqRedactEvent,
+	ReqSetState,
+	ReqUpdateDelayedEvent,
+	ReqSetMembership,
+	ReqSetAccountData,
+	ReqMarkRead,
+	ReqSetTyping,
+	ReqSetViewingRoom,
+	ReqGetProfile,
+	ReqSetProfileField,
+	ReqGetMutualRooms,
+	ReqTrackUserDevices,
+	ReqResetMasterKeyTOFU,
+	ReqGetProfileEncryptionInfo,
+	ReqGetOwnDevices,
+	ReqGetEvent,
+	ReqGetEventByRowID,
+	ReqGetEventContext,
+	ReqPaginateManual,
+	ReqSearchLocal,
+	ReqSearchServer,
+	ReqGetMentions,
+	ReqGetRelatedEvents,
+	ReqGetStickyEvents,
+	ReqGetRoomState,
+	ReqGetSpecificRoomState,
+	ReqGetReceipts,
+	ReqPaginate,
+	ReqGetRoomSummary,
+	ReqGetSpaceHierarchy,
+	ReqJoinRoom,
+	ReqKnockRoom,
+	ReqLeaveRoom,
+	ReqCreateRoom,
+	ReqMuteRoom,
+	ReqUpdatePushRule,
+	ReqEnsureGroupSessionShared,
+	ReqSendToDevice,
+	ReqResolveAlias,
+	ReqRequestOpenIDToken,
+	ReqLogout,
+	ReqLogin,
+	ReqLoginCustom,
+	ReqOAuthRegisterClient,
+	ReqOAuthGetAuthorizationURL,
+	ReqOAuthExchangeToken,
+	ReqOAuthGenerateDeviceCode,
+	ReqOAuthPollDeviceCode,
+	ReqVerify,
+	ReqGenerateRecoveryKey,
+	ReqResetEncryption,
+	ReqDiscoverHomeserver,
+	ReqGetLoginFlows,
+	ReqRegisterPush,
+	ReqListenToDevice,
+	ReqGetTurnServers,
+	ReqGetMediaConfig,
+	ReqCalculateRoomID,
+	ReqRerequestSession,
+	ReqGetAccountInfo,
+	ReqUploadMedia,
+	ReqDownloadMedia,
+	ReqGetURLPreview,
+	ReqExportKeys,
+	RespError,
+	RespSuccess,
+	ReqPing,
+	RespPong,
+	EventSyncComplete,
+	EventSyncStatus,
+	EventEventsDecrypted,
+	EventTyping,
+	EventSendComplete,
+	EventClientState,
+	EventImageAuthToken,
+	EventInitComplete,
+	EventRunID,
+}

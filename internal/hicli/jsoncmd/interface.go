@@ -1,0 +1,76 @@
+package jsoncmd
+
+import (
+	"context"
+
+	"maunium.net/go/mautrix"
+	"maunium.net/go/mautrix/id"
+	"maunium.net/go/mautrix/oauth"
+
+	"go.mau.fi/gomuks/pkg/hicli/database"
+)
+
+type GomuksAPI interface {
+	GetState(ctx context.Context) (*ClientState, error)
+	SendMessage(ctx context.Context, params *SendMessageParams) (*database.Event, error)
+	SendEvent(ctx context.Context, params *SendEventParams) (*database.Event, error)
+	ResendEvent(ctx context.Context, params *ResendEventParams) (*database.Event, error)
+	ReportEvent(ctx context.Context, params *ReportEventParams) error
+	RedactEvent(ctx context.Context, params *RedactEventParams) (*mautrix.RespSendEvent, error)
+	SetState(ctx context.Context, params *SendStateEventParams) (id.EventID, error)
+	UpdateDelayedEvent(ctx context.Context, params *UpdateDelayedEventParams) (*mautrix.RespUpdateDelayedEvent, error)
+	SetMembership(ctx context.Context, params *SetMembershipParams) error
+	SetAccountData(ctx context.Context, params *SetAccountDataParams) error
+	MarkRead(ctx context.Context, params *MarkReadParams) error
+	SetTyping(ctx context.Context, params *SetTypingParams) error
+	SetViewingRoom(ctx context.Context, params *SetViewingRoomParams) error
+	GetProfile(ctx context.Context, params *GetProfileParams) (*GetProfileResponse, error)
+	SetProfileField(ctx context.Context, params *SetProfileFieldParams) error
+	GetMutualRooms(ctx context.Context, params *GetMutualRoomsParams) (*mautrix.RespMutualRooms, error)
+	TrackUserDevices(ctx context.Context, params *GetProfileParams) (*ProfileEncryptionInfo, error)
+	GetProfileEncryptionInfo(ctx context.Context, params *GetProfileParams) (*ProfileEncryptionInfo, error)
+	GetOwnDevices(ctx context.Context) (*GetOwnDevicesResponse, error)
+	GetEvent(ctx context.Context, params *GetEventParams) (*database.Event, error)
+	GetEventByRowID(ctx context.Context, params *GetEventByRowIDParams) (*database.Event, error)
+	GetRelatedEvents(ctx context.Context, params *GetRelatedEventsParams) ([]*database.Event, error)
+	GetEventContext(ctx context.Context, params *GetEventContextParams) (*EventContextResponse, error)
+	GetRoomState(ctx context.Context, params *GetRoomStateParams) ([]*database.Event, error)
+	GetSpecificRoomState(ctx context.Context, params *GetSpecificRoomStateParams) ([]*database.Event, error)
+	GetReceipts(ctx context.Context, params *GetReceiptsParams) (map[id.EventID][]*database.Receipt, error)
+	Paginate(ctx context.Context, params *PaginateParams) (*PaginationResponse, error)
+	PaginateManual(ctx context.Context, params *PaginateManualParams) (*ManualPaginationResponse, error)
+	SearchLocal(ctx context.Context, params *SearchParams) (*ManualPaginationResponse, error)
+	SearchServer(ctx context.Context, params *SearchServerParams) (*ManualPaginationResponse, error)
+	GetMentions(ctx context.Context, params *GetMentionsParams) ([]*database.Event, error)
+	GetRoomSummary(ctx context.Context, params *GetRoomSummaryParams) (*mautrix.RespRoomSummary, error)
+	GetSpaceHierarchy(ctx context.Context, params *GetHierarchyParams) (*mautrix.RespHierarchy, error)
+	JoinRoom(ctx context.Context, params *JoinRoomParams) (*mautrix.RespJoinRoom, error)
+	KnockRoom(ctx context.Context, params *JoinRoomParams) (*mautrix.RespKnockRoom, error)
+	LeaveRoom(ctx context.Context, params *LeaveRoomParams) (*mautrix.RespLeaveRoom, error)
+	CreateRoom(ctx context.Context, params *mautrix.ReqCreateRoom) (*mautrix.RespCreateRoom, error)
+	MuteRoom(ctx context.Context, params *MuteRoomParams) (bool, error)
+	UpdatePushRule(ctx context.Context, params *UpdatePushRuleParams) error
+	EnsureGroupSessionShared(ctx context.Context, params *EnsureGroupSessionSharedParams) error
+	SendToDevice(ctx context.Context, params *SendToDeviceParams) (*mautrix.RespSendToDevice, error)
+	ResolveAlias(ctx context.Context, params *ResolveAliasParams) (*mautrix.RespAliasResolve, error)
+	RequestOpenIDToken(ctx context.Context) (*mautrix.RespOpenIDToken, error)
+	Logout(ctx context.Context) error
+	Login(ctx context.Context, params *LoginParams) error
+	LoginCustom(ctx context.Context, params *LoginCustomParams) error
+	Verify(ctx context.Context, params *VerifyParams) error
+	DiscoverHomeserver(ctx context.Context, params *DiscoverHomeserverParams) (*mautrix.ClientWellKnown, error)
+	GetLoginFlows(ctx context.Context, params *GetLoginFlowsParams) (*LoginFlowsResponse, error)
+	GetVersions(ctx context.Context) (*mautrix.RespVersions, error)
+	OAuthRegisterClient(ctx context.Context, params *OAuthRegisterClientParams) (*oauth.ClientMetadata, error)
+	OAuthGetAuthorizationURL(ctx context.Context, params *OAuthGetAuthorizationURLParams) (*oauth.AuthorizationCodeResponse, error)
+	OAuthExchangeToken(ctx context.Context, params *OAuthExchangeTokenParams) error
+	OAuthGenerateDeviceCode(ctx context.Context, params *OAuthGenerateDeviceCodeParams) (*oauth.DeviceCodeResponse, error)
+	OAuthSimpleDeviceCode(ctx context.Context, params *OAuthSimpleDeviceCodeParams) (*oauth.DeviceCodeResponse, error)
+	OAuthPollDeviceCode(ctx context.Context, params *OAuthPollDeviceCodeParams) error
+	RegisterPush(ctx context.Context, params *database.PushRegistration) error
+	ListenToDevice(ctx context.Context, listen bool) (bool, error)
+	GetTurnServers(ctx context.Context) (*mautrix.RespTurnServer, error)
+	GetRTCTransports(ctx context.Context) (*mautrix.RespRTCTransports, error)
+	GetMediaConfig(ctx context.Context) (*mautrix.RespMediaConfig, error)
+	CalculateRoomID(ctx context.Context, params *CalculateRoomIDParams) (id.RoomID, error)
+}
