@@ -53,6 +53,9 @@ type App struct {
 	roomBridges map[id.RoomID]*bridgev2.Bridge // which network each room belongs to, learnt on first use
 
 	historyLock sync.Mutex // one older-history fetch at a time is plenty, and gentle on the networks
+
+	reconnectLock sync.Mutex
+	lastReconnect time.Time // when a client last made us reconnect a network
 }
 
 var _ csapi.Bridges = (*App)(nil)

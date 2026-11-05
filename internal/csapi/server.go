@@ -32,6 +32,8 @@ type Bridges interface {
 	// FetchMedia opens direct media (a file still on its network), downloading it the first time. It also
 	// returns the content type, which may be "" if the network didn't say.
 	FetchMedia(ctx context.Context, fileID string, params map[string]string) (*os.File, string, error)
+	// ReconnectUnhealthy reconnects networks whose connection looks broken and returns their names.
+	ReconnectUnhealthy(ctx context.Context) []string
 }
 
 type Options struct {
@@ -128,6 +130,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET "+mediaV3+"/thumbnail/{server}/{mediaID}", s.authed(s.download))
 
 	s.route("PUT "+viewingPath, true, s.viewing)
+	s.route("POST "+reconnectPath, true, s.reconnect)
 	s.encryptionRoutes()
 
 	// Everything else (search, room directory, ...) isn't supported (yet).

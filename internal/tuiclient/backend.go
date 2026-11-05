@@ -4,10 +4,14 @@ package tuiclient
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/rs/zerolog"
+	"maunium.net/go/mautrix"
 
 	"github.com/whyyor/tuimessenger/internal/hicli"
 	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
@@ -15,8 +19,12 @@ import (
 	"github.com/whyyor/tuimessenger/internal/rpc/client"
 )
 
-// initialBatchSize is how many rooms go into each initial sync message, the same as the gomuks daemon.
-const initialBatchSize = 100
+const (
+	// initialBatchSize is how many rooms go into each initial sync message, the same as the gomuks daemon.
+	initialBatchSize = 100
+	// reconnectTimeout caps how long resync waits for the backend's answer to "reconnect broken networks".
+	reconnectTimeout = 10 * time.Second
+)
 
 // Backend gives the TUI the same view of hicli that the gomuks daemon's websocket did. Commands and events are
 // copied through JSON, so the TUI never shares objects with hicli, which keeps changing them from its own goroutines.
@@ -33,6 +41,7 @@ type Backend struct {
 	runCtx context.Context
 
 	initialMu sync.Mutex
+	resyncing atomic.Bool
 }
 
 var _ client.Backend = (*Backend)(nil)
@@ -137,13 +146,42 @@ func (b *Backend) queueInitial(ctx context.Context) {
 	b.mu.Unlock()
 }
 
-// Resync sends the whole state again, the in-process version of reconnecting to the daemon.
-func (b *Backend) Resync() {
+func (b *Backend) runCtxOrNil() context.Context {
 	b.mu.Lock()
-	ctx := b.runCtx
-	b.mu.Unlock()
-	if ctx != nil {
-		go b.queueInitial(ctx)
+	defer b.mu.Unlock()
+	return b.runCtx
+}
+
+// Resync is what the resync key does: reconnect broken networks on the backend, restart syncing with the backend,
+// and send the whole state to the TUI again. Presses while one is running are ignored.
+func (b *Backend) Resync() {
+	ctx := b.runCtxOrNil()
+	if ctx == nil || !b.resyncing.CompareAndSwap(false, true) {
+		return
+	}
+	go func() {
+		defer b.resyncing.Store(false)
+		if b.hc.IsLoggedInAndVerified() {
+			b.reconnectNetworks(ctx)
+			go b.hc.Sync() // stops the running sync loop and starts a new one
+		}
+		b.queueInitial(ctx)
+	}()
+}
+
+// reconnectNetworks asks the backend to reconnect networks whose connection looks broken, e.g. a WhatsApp socket
+// that stopped answering, so messages stuck there arrive now instead of after a timeout.
+func (b *Backend) reconnectNetworks(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, reconnectTimeout)
+	defer cancel()
+	var resp struct {
+		Reconnecting []string `json:"reconnecting"`
+	}
+	url := b.hc.Client.BuildURL(mautrix.ClientURLPath{"unstable", "com.tuimessenger", "reconnect"})
+	if _, err := b.hc.Client.MakeRequest(ctx, http.MethodPost, url, struct{}{}, &resp); err != nil {
+		b.log.Warn().Err(err).Msg("Backend didn't reconnect networks")
+	} else if len(resp.Reconnecting) > 0 {
+		b.log.Info().Strs("networks", resp.Reconnecting).Msg("Backend is reconnecting networks")
 	}
 }
 
