@@ -14,6 +14,7 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
+	"github.com/whyyor/tuimessenger/internal/media"
 	"github.com/whyyor/tuimessenger/internal/store"
 )
 
@@ -128,7 +129,7 @@ func (i *Intent) DownloadMedia(ctx context.Context, uri id.ContentURIString, fil
 	if file != nil {
 		return nil, errEncryptedMedia
 	}
-	f, err := i.openMedia(uri)
+	f, err := i.openMedia(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +141,7 @@ func (i *Intent) DownloadMediaToFile(ctx context.Context, uri id.ContentURIStrin
 	if file != nil {
 		return errEncryptedMedia
 	}
-	f, err := i.openMedia(uri)
+	f, err := i.openMedia(ctx, uri)
 	if err != nil {
 		return err
 	}
@@ -164,13 +165,19 @@ func (i *Intent) DownloadMediaToFile(ctx context.Context, uri id.ContentURIStrin
 	return callback(tmp)
 }
 
-func (i *Intent) openMedia(uri id.ContentURIString) (*os.File, error) {
+func (i *Intent) openMedia(ctx context.Context, uri id.ContentURIString) (*os.File, error) {
 	parsed, err := uri.Parse()
 	if err != nil {
 		return nil, err
 	}
 	if parsed.Homeserver != i.c.serverName {
 		return nil, fmt.Errorf("media %s is not stored here", uri)
+	}
+	if media.IsDirect(parsed.FileID) {
+		if i.c.FetchDirect == nil {
+			return nil, fmt.Errorf("media %s is still on its network", uri)
+		}
+		return i.c.FetchDirect(ctx, parsed.FileID)
 	}
 	return i.c.media.Open(parsed.FileID)
 }

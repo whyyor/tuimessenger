@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"os"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -32,6 +33,10 @@ type Connector struct {
 	serverName string
 	owner      id.UserID
 	bot        *Intent
+
+	// FetchDirect opens direct media (a file still on its network), downloading it first if needed. Without it,
+	// media that came from a network can't be sent on, e.g. a received sticker sent again.
+	FetchDirect func(ctx context.Context, fileID string) (*os.File, error)
 }
 
 var (

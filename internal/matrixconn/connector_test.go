@@ -3,6 +3,7 @@ package matrixconn
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -316,6 +317,36 @@ func TestMediaRoundTrip(t *testing.T) {
 	}
 	if _, err = ghost.DownloadMedia(ctx, "mxc://other.server/abc", nil); err == nil {
 		t.Error("media from another server should be refused")
+	}
+}
+
+// Sending on media that came from a network (e.g. a received sticker) downloads it through FetchDirect.
+func TestDownloadDirectMedia(t *testing.T) {
+	ctx := context.Background()
+	c, _ := newTestConnector(t)
+	uri, err := c.GenerateContentURI(ctx, networkid.MediaID("sticker-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ghost := c.GhostIntent("alice")
+	if _, err = ghost.DownloadMedia(ctx, uri, nil); err == nil {
+		t.Error("without FetchDirect, direct media can't be downloaded")
+	}
+
+	var asked string
+	c.FetchDirect = func(_ context.Context, fileID string) (*os.File, error) {
+		asked = fileID
+		path := filepath.Join(t.TempDir(), "sticker")
+		if err := os.WriteFile(path, []byte("webp"), 0o600); err != nil {
+			return nil, err
+		}
+		return os.Open(path)
+	}
+	data, err := ghost.DownloadMedia(ctx, uri, nil)
+	if err != nil || string(data) != "webp" {
+		t.Errorf("DownloadMedia: %q %v", data, err)
+	} else if parsed, _ := uri.Parse(); asked != parsed.FileID {
+		t.Errorf("FetchDirect got %q, want %q", asked, parsed.FileID)
 	}
 }
 
