@@ -508,6 +508,15 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		case "confirm":
 			view.OnSelect(msgView.GetSelected())
 		default:
+			// R sends a failed message of yours again. Shift may or may not be reported for capitals.
+			if event.Key() == tcell.KeyRune && event.Rune() == 'R' && event.Modifiers()&^tcell.ModShift == 0 {
+				if selected := msgView.GetSelected(); selected != nil {
+					go view.RetryMessage(selected)
+				}
+				view.StopSelecting()
+				view.input.Focus()
+				return true
+			}
 			// Verb keys: act on the selected message directly instead of
 			// backing out to type a slash command.
 			if event.Modifiers() == 0 {
