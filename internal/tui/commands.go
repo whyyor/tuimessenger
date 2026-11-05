@@ -1,0 +1,322 @@
+// gomuks - A terminal Matrix client written in Go.
+// Copyright (C) 2026 Tulir Asokan
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package tui
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/tidwall/gjson"
+	"maunium.net/go/mautrix/event"
+	"maunium.net/go/mautrix/event/cmdschema"
+
+	"github.com/whyyor/tuimessenger/internal/hicli/cmdspec"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
+)
+
+const (
+	CmdReply    = "reply"
+	CmdReact    = "react"
+	CmdRedact   = "redact"
+	CmdQuit     = "quit"
+	CmdEdit     = "edit"
+	CmdCopy     = "copy"
+	CmdUpload   = "upload"
+	CmdPaste    = "paste"
+	CmdPlay     = "play"
+	CmdOpen     = "open"
+	CmdDownload = "download"
+
+	CmdMute      = "mute"
+	CmdUnmute    = "unmute"
+	CmdMuteSync  = "mute-sync"
+	CmdMutePrune = "mute-prune"
+	CmdUnread    = "unread"
+	CmdTyping    = "typing"
+	CmdSeen      = "seen"
+	CmdAlias     = "alias"
+	CmdUnalias   = "unalias"
+	CmdHideDel   = "hide-deleted"
+
+	CmdClear   = "clear"
+	CmdUnclear = "unclear"
+	CmdCache   = "cache"
+)
+
+var LocalCommands = []*cmdschema.EventContent{{
+	Command:     CmdReply,
+	Description: event.MakeExtensibleText("Reply to an event"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:         "text",
+		Schema:      cmdschema.PrimitiveTypeString.Schema(),
+		Description: event.MakeExtensibleText("The text to reply with"),
+		Optional:    true,
+	}},
+	TailParam: "text",
+}, {
+	Command:     CmdReact,
+	Description: event.MakeExtensibleText("React to a message (no emoji: pick from a popup)"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:         "key",
+		Schema:      cmdschema.PrimitiveTypeString.Schema(),
+		Description: event.MakeExtensibleText("The emoji or other text to react with"),
+		Optional:    true,
+	}},
+}, {
+	Command:     CmdRedact,
+	Aliases:     []string{"delete"},
+	Description: event.MakeExtensibleText("Redact an event"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:         "reason",
+		Schema:      cmdschema.PrimitiveTypeString.Schema(),
+		Description: event.MakeExtensibleText("The reason for the redaction"),
+		Optional:    true,
+	}},
+	TailParam: "reason",
+}, {
+	Command:     CmdEdit,
+	Description: event.MakeExtensibleText("Start editing an event"),
+}, {
+	Command:     CmdCopy,
+	Description: event.MakeExtensibleText("Copy text from an event"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:          "register",
+		Schema:       cmdschema.Enum("clipboard", "primary"),
+		Optional:     true,
+		DefaultValue: "clipboard",
+	}},
+	TailParam: "clipboard",
+}, {
+	Command:     CmdUpload,
+	Aliases:     []string{"image", "file"},
+	Description: event.MakeExtensibleText("Send a file now, or with no path pick files to attach"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:         "path",
+		Schema:      cmdschema.PrimitiveTypeString.Schema(),
+		Description: event.MakeExtensibleText("Path of the file to send"),
+		Optional:    true,
+	}},
+	TailParam: "path",
+}, {
+	Command:     CmdPaste,
+	Description: event.MakeExtensibleText("Send the image from the clipboard"),
+}, {
+	Command:     CmdPlay,
+	Aliases:     []string{"voice"},
+	Description: event.MakeExtensibleText("Play a voice note or other media"),
+}, {
+	Command:     CmdOpen,
+	Description: event.MakeExtensibleText("Open a media message with the system handler"),
+}, {
+	Command:     CmdDownload,
+	Description: event.MakeExtensibleText("Save a media message to Downloads"),
+}, {
+	Command:     CmdMute,
+	Description: event.MakeExtensibleText("Mute this chat on all devices"),
+}, {
+	Command:     CmdUnmute,
+	Description: event.MakeExtensibleText("Unmute this chat"),
+}, {
+	Command:     CmdMuteSync,
+	Description: event.MakeExtensibleText("Mute every muted chat on its network too (WhatsApp, Instagram, Telegram)"),
+}, {
+	Command:     CmdTyping,
+	Description: event.MakeExtensibleText("Share your typing in this chat: on, off, or toggle"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:      "state",
+		Schema:   cmdschema.Enum("on", "off"),
+		Optional: true,
+	}},
+	TailParam: "state",
+}, {
+	Command:     CmdSeen,
+	Description: event.MakeExtensibleText("Seen in this chat: on sends blue ticks as you read; off keeps reads in gomuks until Ctrl+m"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:      "state",
+		Schema:   cmdschema.Enum("on", "off"),
+		Optional: true,
+	}},
+	TailParam: "state",
+}, {
+	Command:     CmdAlias,
+	Description: event.MakeExtensibleText("Give this chat a private alias you can search by; no name shows the current one"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:      "name",
+		Schema:   cmdschema.PrimitiveTypeString.Schema(),
+		Optional: true,
+	}},
+	TailParam: "name",
+}, {
+	Command:     CmdHideDel,
+	Description: event.MakeExtensibleText("Hide deleted messages in this chat: on, off, or toggle (nothing is removed)"),
+	Parameters: []*cmdschema.Parameter{{
+		Key:      "state",
+		Schema:   cmdschema.Enum("on", "off"),
+		Optional: true,
+	}},
+	TailParam: "state",
+}, {
+	Command:     CmdUnalias,
+	Description: event.MakeExtensibleText("Remove this chat's alias"),
+}, {
+	Command:     CmdUnread,
+	Description: event.MakeExtensibleText("Mark this chat unread and close it"),
+}, {
+	Command:     CmdMutePrune,
+	Description: event.MakeExtensibleText("Delete mute rules left over from chats you've left"),
+}, {
+	Command:     CmdClear,
+	Description: event.MakeExtensibleText("Hide this chat's history in gomuks (nothing is deleted)"),
+}, {
+	Command:     CmdUnclear,
+	Description: event.MakeExtensibleText("Show this chat's hidden history again"),
+}, {
+	Command:     CmdCache,
+	Description: event.MakeExtensibleText("Delete media fetched to play or open (not ~/Downloads)"),
+}, {
+	Command:     CmdQuit,
+	Description: event.MakeExtensibleText("Quit gomuks terminal"),
+}}
+
+func (view *RoomView) allCommands(yield func(command *store.WrappedCommand) bool) {
+	for _, cmd := range LocalCommands {
+		if !yield(&store.WrappedCommand{
+			EventContent: cmd,
+			Source:       cmdspec.FakeGomuksSender,
+		}) {
+			return
+		}
+	}
+	for _, cmd := range cmdspec.CommandDefinitions {
+		if !yield(&store.WrappedCommand{
+			EventContent: cmd,
+			Source:       cmdspec.FakeGomuksSender,
+		}) {
+			return
+		}
+	}
+	for _, cmd := range view.Room.GetBotCommands() {
+		if !yield(cmd) {
+			return
+		}
+	}
+}
+
+var cmdSigils = []string{"/"}
+
+func (view *RoomView) ParseCommand(input string) (*event.MessageEventContent, error) {
+	var firstError error
+	view.Room.GetPowerLevels()
+	for cmd := range view.allCommands {
+		if parsed, err := cmd.ParseInput(cmd.Source, cmdSigils, input); parsed != nil {
+			if err == nil {
+				return parsed, nil
+			} else if firstError == nil {
+				firstError = fmt.Errorf("failed to parse %s: %w", cmd.Command, err)
+			}
+		}
+	}
+	return nil, firstError
+}
+
+func (view *RoomView) HandleCommand(cmd *event.MessageEventContent) {
+	if cmd.Mentions.Has(cmdspec.FakeGomuksSender) &&
+		len(cmd.Mentions.UserIDs) == 1 &&
+		view.handleInternalCommand(cmd.MSC4391BotCommand) {
+		// Handled internally
+		return
+	}
+	mentions := cmd.Mentions
+	cmd.Mentions = nil
+	err := view.parent.matrix.SendMessage(context.TODO(), &jsoncmd.SendMessageParams{
+		RoomID:      view.Room.ID,
+		BaseContent: cmd,
+		Mentions:    mentions,
+	})
+	if err != nil {
+		debug.Print("Failed to send message:", err)
+	}
+	view.parent.parent.Render()
+}
+
+func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) bool {
+	switch cmd.Command {
+	case CmdReply:
+		view.StartSelecting(SelectReply, gjson.GetBytes(cmd.Arguments, "text").Str)
+	case CmdReact:
+		view.StartSelecting(SelectReact, gjson.GetBytes(cmd.Arguments, "key").Str)
+	case CmdRedact:
+		view.StartSelecting(SelectRedact, gjson.GetBytes(cmd.Arguments, "reason").Str)
+	case CmdEdit:
+		view.StartSelecting(SelectEdit, "")
+	case CmdCopy:
+		view.StartSelecting(SelectCopy, gjson.GetBytes(cmd.Arguments, "register").Str)
+	case CmdPlay:
+		view.StartSelecting(SelectPlay, "")
+	case CmdOpen:
+		view.StartSelecting(SelectOpen, "")
+	case CmdDownload:
+		view.StartSelecting(SelectDownload, "")
+	case CmdUpload:
+		go view.SendFiles(gjson.GetBytes(cmd.Arguments, "path").Str)
+	case CmdPaste:
+		go view.AttachClipboard()
+	case CmdMute:
+		go view.SetMuted(true)
+	case CmdUnmute:
+		go view.SetMuted(false)
+	case CmdMuteSync:
+		go view.parent.SyncMutes()
+	case CmdTyping:
+		state := gjson.GetBytes(cmd.Arguments, "state").Str
+		go view.SetPrivacy(func(p *ChatPrivacy) { p.Typing = parseToggle(state, p.Typing) })
+	case CmdSeen:
+		state := gjson.GetBytes(cmd.Arguments, "state").Str
+		go view.SetPrivacy(func(p *ChatPrivacy) { p.ReadReceipts = parseToggle(state, p.ReadReceipts) })
+	case CmdAlias:
+		if name := strings.TrimSpace(gjson.GetBytes(cmd.Arguments, "name").Str); name != "" {
+			go view.SetAlias(name)
+		} else if current := chatAlias(view.Room); current != "" {
+			view.AddServiceMessage("Alias: %q (change with /alias <name>, remove with /unalias)", current)
+		} else {
+			view.AddServiceMessage("No alias yet: /alias <name> sets one")
+		}
+	case CmdHideDel:
+		state := gjson.GetBytes(cmd.Arguments, "state").Str
+		go view.SetHideDeleted(parseToggle(state, chatView(view.Room).HideDeleted))
+	case CmdUnalias:
+		go view.SetAlias("")
+	case CmdUnread:
+		view.parent.MarkUnread()
+	case CmdMutePrune:
+		go view.parent.PruneMutes()
+	case CmdClear:
+		go view.SetCleared(true)
+	case CmdUnclear:
+		go view.SetCleared(false)
+	case CmdCache:
+		go view.parent.ClearMediaCache()
+	case CmdQuit:
+		view.parent.parent.Stop()
+	default:
+		return false
+	}
+	return true
+}
