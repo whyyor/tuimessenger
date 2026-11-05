@@ -42,6 +42,7 @@ type fakeBridges struct {
 	viewing []id.RoomID
 	remote  map[string]string // direct media "still on the network", by file ID
 	fetches int
+	broken  []string // networks ReconnectUnhealthy reports as reconnecting
 }
 
 func (f *fakeBridges) Queue(ctx context.Context, evt *event.Event) error {
@@ -52,6 +53,12 @@ func (f *fakeBridges) Queue(ctx context.Context, evt *event.Event) error {
 	}
 	f.queued = append(f.queued, evt)
 	return nil
+}
+
+func (f *fakeBridges) ReconnectUnhealthy(ctx context.Context) []string {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return f.broken
 }
 
 func (f *fakeBridges) SetViewing(ctx context.Context, roomID id.RoomID) {
@@ -470,7 +477,8 @@ func TestNoEncryption(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	versions, err := e.cli.Versions(ctx)
-	if err != nil || !versions.UnstableFeatures["com.tuimessenger.no_e2ee"] || !versions.UnstableFeatures["com.tuimessenger.viewing"] {
+	if err != nil || !versions.UnstableFeatures["com.tuimessenger.no_e2ee"] || !versions.UnstableFeatures["com.tuimessenger.viewing"] ||
+		!versions.UnstableFeatures["com.tuimessenger.reconnect"] {
 		t.Errorf("versions should announce no_e2ee: %+v %v", versions, err)
 	}
 	var upload struct {
@@ -507,6 +515,33 @@ func TestViewing(t *testing.T) {
 	got := e.bridges.viewed()
 	if len(got) != 3 || got[0] != e.roomID || got[1] != e.roomID || got[2] != "" {
 		t.Errorf("bridges saw %v, want [room room \"\"]", got)
+	}
+}
+
+func TestReconnect(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	url := e.cli.BuildURL(mautrix.BaseURLPath{"_matrix", "client", "unstable", "com.tuimessenger", "reconnect"})
+	reconnect := func() []string {
+		t.Helper()
+		var resp struct {
+			Reconnecting []string `json:"reconnecting"`
+		}
+		if _, err := e.cli.MakeRequest(ctx, "POST", url, struct{}{}, &resp); err != nil {
+			t.Fatal(err)
+		} else if resp.Reconnecting == nil {
+			t.Fatal("reconnecting should be a list, even when empty")
+		}
+		return resp.Reconnecting
+	}
+	if got := reconnect(); len(got) != 0 {
+		t.Errorf("all healthy: got %v", got)
+	}
+	e.bridges.lock.Lock()
+	e.bridges.broken = []string{"whatsapp"}
+	e.bridges.lock.Unlock()
+	if got := reconnect(); len(got) != 1 || got[0] != "whatsapp" {
+		t.Errorf("got %v, want [whatsapp]", got)
 	}
 }
 
