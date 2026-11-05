@@ -71,7 +71,7 @@ func Send(title, text string, critical, sound bool) error {
 		return nil
 	}
 
-	args := []string{"-a", "gomuks"}
+	args := []string{"-a", "tuimessenger"}
 	if !critical {
 		args = append(args, "-u", "low")
 	}

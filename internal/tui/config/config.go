@@ -132,27 +132,27 @@ type Config struct {
 }
 
 func GetConfigDirectory() string {
-	if gomuksConfigHome := os.Getenv("GOMUKS_CONFIG_HOME"); gomuksConfigHome != "" {
-		return gomuksConfigHome
-	} else if gomuksRoot := os.Getenv("GOMUKS_ROOT"); gomuksRoot != "" {
-		return filepath.Join(gomuksRoot, "config")
+	if configHome := os.Getenv("TUIMESSENGER_CONFIG_HOME"); configHome != "" {
+		return configHome
+	} else if root := os.Getenv("TUIMESSENGER_ROOT"); root != "" {
+		return filepath.Join(root, "config")
 	}
-	return filepath.Join(exerrors.Must(os.UserConfigDir()), "gomuks")
+	return filepath.Join(exerrors.Must(os.UserConfigDir()), "tuimessenger")
 }
 
 func GetLogDirectory() string {
-	if gomuksLogsHome := os.Getenv("GOMUKS_LOGS_HOME"); gomuksLogsHome != "" {
-		return gomuksLogsHome
-	} else if gomuksRoot := os.Getenv("GOMUKS_ROOT"); gomuksRoot != "" {
-		return filepath.Join(gomuksRoot, "logs")
+	if logsHome := os.Getenv("TUIMESSENGER_LOGS_HOME"); logsHome != "" {
+		return logsHome
+	} else if root := os.Getenv("TUIMESSENGER_ROOT"); root != "" {
+		return filepath.Join(root, "logs")
 	} else if xdgStateHome := os.Getenv("XDG_STATE_HOME"); xdgStateHome != "" {
-		return filepath.Join(xdgStateHome, "gomuks")
+		return filepath.Join(xdgStateHome, "tuimessenger")
 	} else if runtime.GOOS == "darwin" {
-		return filepath.Join(exerrors.Must(os.UserHomeDir()), "Library", "Logs", "gomuks")
+		return filepath.Join(exerrors.Must(os.UserHomeDir()), "Library", "Logs", "tuimessenger")
 	} else if runtime.GOOS == "windows" {
 		return filepath.Join(exerrors.Must(os.UserCacheDir()), "logs")
 	} else {
-		return filepath.Join(exerrors.Must(os.UserHomeDir()), ".local", "state", "gomuks")
+		return filepath.Join(exerrors.Must(os.UserHomeDir()), ".local", "state", "tuimessenger")
 	}
 }
 

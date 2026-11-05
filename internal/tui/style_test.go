@@ -88,7 +88,7 @@ func TestStyleFileOptional(t *testing.T) {
 	keepStyle(t)
 	cfg := &config.Config{Dir: t.TempDir()}
 	if problems := applyStyleFile(cfg); problems != nil {
-		t.Errorf("no gomuks.yaml is fine: %q", problems)
+		t.Errorf("no tuimessenger.yaml is fine: %q", problems)
 	}
 	_ = os.WriteFile(filepath.Join(cfg.Dir, styleFileName), []byte("preferences:\n  file_picker: yazi\n"), 0o600)
 	if problems := applyStyleFile(cfg); problems != nil || cfg.Preferences.FilePicker != "yazi" {

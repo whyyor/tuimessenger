@@ -15,6 +15,19 @@ make vet
 
 Without `goolm`, the build looks for the libolm C library (`olm/olm.h not found`).
 
+## The terminal client's files
+
+`tuimessenger tui` keeps its files in the data folder's `tui/` subfolder
+(`~/Library/Application Support/tuimessenger/tui` on macOS):
+
+- `config/terminal.yaml`: preferences (changed from the TUI too).
+- `config/tuimessenger.yaml`: your colours and pinned preferences; it wins over `terminal.yaml`.
+  Keep it in your dotfiles and link it here.
+- `client.db`: the client's copy of your chats.
+
+Logs go to `~/Library/Logs/tuimessenger` (`terminal.log`, `client.log`). Notification icons per network come from
+`~/.local/opt/tuimessenger/notifiers/<Network>.app` (copies of terminal-notifier), with `tuimessenger.app` for the rest.
+
 ## Credits
 
 tuimessenger is built on the work of others:

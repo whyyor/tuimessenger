@@ -15,7 +15,7 @@ import (
 
 // stickerTokenPrefix marks a copied sticker on the clipboard; pasting the
 // token into any chat re-sends the sticker, like forwarding it in Beeper.
-const stickerTokenPrefix = "gomuks-sticker:"
+const stickerTokenPrefix = "tuimessenger-sticker:"
 
 var copiedStickers = struct {
 	sync.Mutex

@@ -188,7 +188,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		if muted {
 			muteTitle, muteCmd = "Unmute this chat", "/unmute"
 		}
-		clearTitle, clearCmd := "Clear history in gomuks", "/clear"
+		clearTitle, clearCmd := "Clear history in tuimessenger", "/clear"
 		if cleared {
 			clearTitle, clearCmd = "Show cleared history", "/unclear"
 		}

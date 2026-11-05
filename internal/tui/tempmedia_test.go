@@ -35,7 +35,7 @@ func TestClearMediaCache(t *testing.T) {
 	t.Setenv("TMPDIR", tmp)
 	dir, _ := freshTempMediaDir()
 	touch(t, filepath.Join(dir, "video.mp4"), 1000)
-	touch(t, filepath.Join(tmp, "gomuks-DeeCOejClvX.mp4"), 500) // legacy yt-dlp reel
+	touch(t, filepath.Join(tmp, "gomuks-DeeCOejClvX.mp4"), 500) // yt-dlp reel from before the rename
 	touch(t, filepath.Join(tmp, "other-app.log"), 7)            // not ours
 	if err := os.Mkdir(filepath.Join(tmp, "gomuks-somedir"), 0700); err != nil {
 		t.Fatal(err)

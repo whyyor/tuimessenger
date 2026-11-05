@@ -114,7 +114,7 @@ func NewGomuksTUI() *GomuksTUI {
 
 func (ui *GomuksTUI) Run() {
 	ui.Config.LoadAll()
-	// gomuks.yaml (yours, in dotfiles) wins over terminal.yaml.
+	// tuimessenger.yaml (yours, in dotfiles) wins over terminal.yaml.
 	if problems := applyStyleFile(ui.Config); len(problems) > 0 {
 		toasts.Show(toastWarning, styleFileName+": "+strings.Join(problems, "; "))
 	}

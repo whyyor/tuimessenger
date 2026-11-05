@@ -12,7 +12,7 @@ import (
 // tempMediaDir holds media fetched to play or open. Players such as IINA
 // queue every video in the file's folder, so it only ever holds the latest.
 func tempMediaDir() string {
-	return filepath.Join(os.TempDir(), "gomuks-media")
+	return filepath.Join(os.TempDir(), "tuimessenger-media")
 }
 
 // freshTempMediaDir empties tempMediaDir and returns it, ready for one new
@@ -46,13 +46,14 @@ func clearDir(dir string, keep func(os.DirEntry) bool) (count int, size int64) {
 	return count, size
 }
 
-// legacyTempFile matches files older builds left directly in the temp
-// folder: yt-dlp reels and helper files, all named gomuks-….
+// legacyTempFile matches files left directly in the temp folder: yt-dlp
+// reels and helper files, named tuimessenger-… (gomuks-… before the rename).
 func legacyTempFile(entry os.DirEntry) bool {
-	return entry.Type().IsRegular() && strings.HasPrefix(entry.Name(), "gomuks-")
+	name := entry.Name()
+	return entry.Type().IsRegular() && (strings.HasPrefix(name, "tuimessenger-") || strings.HasPrefix(name, "gomuks-"))
 }
 
-// clearMediaCache empties tempMediaDir plus the legacy gomuks-* temp files.
+// clearMediaCache empties tempMediaDir plus the loose temp files above.
 func clearMediaCache() (int, int64) {
 	n1, s1 := clearDir(tempMediaDir(), nil)
 	n2, s2 := clearDir(os.TempDir(), legacyTempFile)

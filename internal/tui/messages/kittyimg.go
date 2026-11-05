@@ -174,7 +174,7 @@ func ffmpegFirstFramePNG(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	in := filepath.Join(os.TempDir(), fmt.Sprintf("gomuks-frame-%d", time.Now().UnixNano()))
+	in := filepath.Join(os.TempDir(), fmt.Sprintf("tuimessenger-frame-%d", time.Now().UnixNano()))
 	out := in + ".png"
 	defer os.Remove(in)
 	defer os.Remove(out)

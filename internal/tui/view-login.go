@@ -98,7 +98,7 @@ func (ui *GomuksTUI) NewLoginView() mauview.Component {
 	view.FocusNextItem()
 	ui.LoginView = view
 
-	view.container = mauview.Center(mauview.NewBox(view).SetTitle("Log in to gomuks"), 45, 13)
+	view.container = mauview.Center(mauview.NewBox(view).SetTitle("Log in to tuimessenger"), 45, 13)
 	view.container.SetAlwaysFocusChild(true)
 	return view.container
 }
@@ -116,7 +116,7 @@ func (view *LoginView) Error(err string) {
 			view.error = mauview.NewTextView().SetTextColor(tcell.ColorRed)
 			view.AddComponent(view.error, 1, 11, 3, 1)
 		}
-		view.error.SetText(err + "\n\nMake sure you enter your gomuks backend\naddress, not a Matrix homeserver.")
+		view.error.SetText(err + "\n\nMake sure you enter your tuimessenger backend\naddress, not a Matrix homeserver.")
 		errorHeight := int(math.Ceil(float64(runewidth.StringWidth(err))/41)) + 3
 		view.container.SetHeight(14 + errorHeight)
 		view.SetRow(11, errorHeight)

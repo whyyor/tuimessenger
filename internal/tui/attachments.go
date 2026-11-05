@@ -166,7 +166,7 @@ func (view *RoomView) AttachClipboard() {
 		return
 	}
 	// Not the media temp dir: that one is wiped by every playback.
-	dir := filepath.Join(os.TempDir(), "gomuks-attach")
+	dir := filepath.Join(os.TempDir(), "tuimessenger-attach")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		view.AddServiceMessage("Failed to prepare a temp folder: %v", err)
 		view.requestRender()

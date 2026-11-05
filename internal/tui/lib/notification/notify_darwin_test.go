@@ -39,10 +39,10 @@ func TestNotifierForPicksNetworkBundleThenFallback(t *testing.T) {
 		t.Errorf("telegram without bundles: unexpected custom notifier %q", got)
 	}
 
-	fallback := fakeBundle(t, notifierDir, "gomuks")
+	fallback := fakeBundle(t, notifierDir, "tuimessenger")
 	for _, source := range []string{"telegram", ""} {
 		if got, custom := notifierFor(source); got != fallback || !custom {
-			t.Errorf("%q: got %q custom=%v, want the gomuks fallback", source, got, custom)
+			t.Errorf("%q: got %q custom=%v, want the tuimessenger fallback", source, got, custom)
 		}
 	}
 }

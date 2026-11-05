@@ -74,7 +74,7 @@ A fatal error has occurred.
 
 func PrettyPanic(panic interface{}) {
 	fmt.Print(Oops)
-	traceFile := fmt.Sprintf(filepath.Join(os.TempDir(), "gomuks-panic-%s.txt"), time.Now().Format("2006-01-02--15-04-05"))
+	traceFile := fmt.Sprintf(filepath.Join(os.TempDir(), "tuimessenger-panic-%s.txt"), time.Now().Format("2006-01-02--15-04-05"))
 
 	var buf bytes.Buffer
 	_, _ = fmt.Fprintln(&buf, panic)
