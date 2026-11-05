@@ -156,10 +156,15 @@ func GetLogDirectory() string {
 	}
 }
 
-// NewConfig creates a config that loads data from the given directory.
+// NewConfig creates a config in the default directories (or the ones from the GOMUKS_* environment variables).
 func NewConfig() *Config {
+	return NewConfigAt(GetConfigDirectory(), GetLogDirectory())
+}
+
+// NewConfigAt creates a config that loads data from dir and writes terminal.log to logDir.
+func NewConfigAt(dir, logDir string) *Config {
 	return &Config{
-		Dir: GetConfigDirectory(),
+		Dir: dir,
 
 		NotifySound:           true,
 		Backspace1RemovesWord: true,
@@ -170,7 +175,7 @@ func NewConfig() *Config {
 				Type:   zeroconfig.WriterTypeFile,
 				Format: zeroconfig.LogFormatJSON,
 				FileConfig: zeroconfig.FileConfig{
-					Filename:   filepath.Join(GetLogDirectory(), "terminal.log"),
+					Filename:   filepath.Join(logDir, "terminal.log"),
 					MaxSize:    100,
 					MaxBackups: 10,
 				},

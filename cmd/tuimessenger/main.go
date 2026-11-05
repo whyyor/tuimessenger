@@ -43,6 +43,9 @@ type flags struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "tui" {
+		os.Exit(runTUI(os.Args[2:]))
+	}
 	networks := flag.String("network", "", "comma-separated networks to run: "+strings.Join(bridges.Available(), ", "))
 	var f flags
 	flag.StringVar(&f.dataDir, "data", defaultDataDir(), "folder for databases, sessions, media and config.yaml")
@@ -60,6 +63,7 @@ func main() {
 	}
 	if len(f.networks) == 0 {
 		fmt.Fprintln(os.Stderr, "Please choose networks with -network. Available:", bridges.Available())
+		fmt.Fprintln(os.Stderr, "For the terminal client, run: tuimessenger tui")
 		os.Exit(2)
 	}
 

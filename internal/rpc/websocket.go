@@ -329,6 +329,9 @@ func (gr *GomuksRPC) rawRequest(
 	cmd jsoncmd.Name,
 	ch chan *jsoncmd.Container[json.RawMessage],
 ) (json.RawMessage, error) {
+	if gr.transport != nil {
+		return gr.transportRequest(ctx, payload)
+	}
 	conn := gr.conn.Load()
 	if conn == nil {
 		return nil, ErrNotConnectedToWebsocket
@@ -343,19 +346,41 @@ func (gr *GomuksRPC) rawRequest(
 	case resp := <-ch:
 		if resp == nil {
 			return nil, ErrWebsocketClosedBeforeResponseReceived
-		} else if resp.Command == jsoncmd.RespError {
-			var errMsg string
-			_ = json.Unmarshal(resp.Data, &errMsg)
-			if errMsg == "" {
-				errMsg = string(resp.Data)
-			}
-			return nil, errors.New(errMsg)
 		}
-		return resp.Data, nil
+		return responseData(resp)
 	case <-ctx.Done():
 		go gr.cancelRequest(reqID, context.Cause(ctx).Error())
 		return nil, fmt.Errorf("context finished while waiting for response: %w", context.Cause(ctx))
 	}
+}
+
+// transportRequest round-trips the command through JSON, so both sides get their own copy like over a websocket.
+func (gr *GomuksRPC) transportRequest(ctx context.Context, payload any) (json.RawMessage, error) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	var cmd jsoncmd.Container[json.RawMessage]
+	if err = json.Unmarshal(raw, &cmd); err != nil {
+		return nil, err
+	}
+	resp := gr.transport(ctx, &cmd)
+	if resp == nil {
+		return nil, errors.New("no response to command")
+	}
+	return responseData(resp)
+}
+
+func responseData(resp *jsoncmd.Container[json.RawMessage]) (json.RawMessage, error) {
+	if resp.Command == jsoncmd.RespError {
+		var errMsg string
+		_ = json.Unmarshal(resp.Data, &errMsg)
+		if errMsg == "" {
+			errMsg = string(resp.Data)
+		}
+		return nil, errors.New(errMsg)
+	}
+	return resp.Data, nil
 }
 
 func (gr *GomuksRPC) eventLoop(ctx context.Context, evtChan <-chan wrappedEvent) {
@@ -424,7 +449,8 @@ func (gr *GomuksRPC) readLoop(ctx context.Context, ws *websocket.Conn, cancelFun
 	}
 }
 
-func parseEvent(ctx context.Context, evt *jsoncmd.Container[json.RawMessage]) any {
+// ParseEvent decodes an event from the backend into its Go type, or returns the container if the type is unknown.
+func ParseEvent(ctx context.Context, evt *jsoncmd.Container[json.RawMessage]) any {
 	var data any
 	switch evt.Command {
 	case jsoncmd.EventSyncComplete:
@@ -503,7 +529,7 @@ func (gr *GomuksRPC) readLoopItem(ctx context.Context, log *zerolog.Logger, ws *
 			close(pendingRequest)
 		}
 	} else {
-		parsedCmd := parseEvent(ctx, cmd)
+		parsedCmd := ParseEvent(ctx, cmd)
 		switch typedCmd := parsedCmd.(type) {
 		case *jsoncmd.RunData:
 			gr.setRunID(typedCmd.RunID)
