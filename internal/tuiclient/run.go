@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"syscall"
 
 	"github.com/rs/zerolog"
@@ -26,8 +27,15 @@ type Options struct {
 	Username string
 }
 
+// memoryLimit is a soft cap for the client process: near it, Go collects garbage harder and returns memory sooner.
+// Live data is around 12 MB, so this only trims slack. GOMEMLIMIT in the environment overrides it.
+const memoryLimit = 128 << 20
+
 // Run starts hicli and the terminal client. When it works, it doesn't return: the TUI exits the program itself.
 func Run(ctx context.Context, opts Options) error {
+	if os.Getenv("GOMEMLIMIT") == "" {
+		debug.SetMemoryLimit(memoryLimit)
+	}
 	dir := filepath.Join(opts.DataDir, "tui")
 	if err := os.MkdirAll(filepath.Join(dir, "config"), 0o700); err != nil {
 		return err

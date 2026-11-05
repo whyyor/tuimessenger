@@ -89,6 +89,14 @@ func kittyUsable(protocolPref string) bool {
 	}
 }
 
+// kittyTransmitted reports whether the terminal already has this image, so no PNG is needed to show it again.
+func kittyTransmitted(key string) bool {
+	kittyLock.Lock()
+	defer kittyLock.Unlock()
+	img, ok := kittyImages[key]
+	return ok && img.transmitted
+}
+
 // kittyImageFor returns the session-wide state for a media key.
 func kittyImageFor(key string) *kittyImage {
 	kittyLock.Lock()
