@@ -4,7 +4,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
 )
 
 const helpText = `# General

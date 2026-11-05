@@ -8,8 +8,8 @@ import (
 	"golang.org/x/term"
 	"maunium.net/go/mautrix/event"
 
-	"go.mau.fi/gomuks/tui/debug"
-	"go.mau.fi/gomuks/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
 )
 
 // isViewableImage covers photos, stickers and link-post thumbnails.

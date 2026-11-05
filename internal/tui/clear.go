@@ -7,10 +7,10 @@ import (
 
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
-	"go.mau.fi/gomuks/pkg/rpc/store"
-	"go.mau.fi/gomuks/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
 // clearedAt is when history was last cleared in this room, or zero.

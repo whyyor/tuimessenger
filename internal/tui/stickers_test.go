@@ -12,9 +12,9 @@ import (
 	"go.mau.fi/mauview"
 	"maunium.net/go/mautrix/event"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
 )
 
 const receivedSticker = `{"body":"","file":{"url":"mxc://local.beeper.com/abc","v":"v2","key":{"k":"secret","alg":"A256CTR","kty":"oct","ext":true,"key_ops":["encrypt","decrypt"]},"iv":"x","hashes":{"sha256":"y"}},` +

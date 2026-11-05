@@ -5,8 +5,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
-	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
-	"go.mau.fi/gomuks/tui/config"
+	"github.com/whyyor/tuimessenger/internal/hicli/cmdspec"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
 )
 
 func TestUnreadCommandAndKey(t *testing.T) {

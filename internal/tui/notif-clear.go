@@ -5,9 +5,9 @@ import (
 
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/rpc/store"
-	"go.mau.fi/gomuks/tui/debug"
-	"go.mau.fi/gomuks/tui/lib/notification"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/lib/notification"
 )
 
 type sentNotification struct {

@@ -8,7 +8,7 @@ import (
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/tui/widget"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 func TestTerminalSafe(t *testing.T) {

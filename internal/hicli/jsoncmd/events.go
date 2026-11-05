@@ -14,7 +14,7 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
 )
 
 func EventTypeName(evt any) Name {

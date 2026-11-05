@@ -32,8 +32,8 @@ import (
 	"maunium.net/go/mautrix/id"
 	"maunium.net/go/mautrix/pushrules"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 )
 
 type syncContext struct {

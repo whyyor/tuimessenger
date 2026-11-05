@@ -24,8 +24,8 @@ import (
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/pkg/rpc/client"
-	"go.mau.fi/gomuks/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/rpc/client"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
 type LoginView struct {

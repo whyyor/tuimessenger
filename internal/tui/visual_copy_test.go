@@ -8,8 +8,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
 )
 
 func TestVisualRangeCopiesEveryMessage(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go.mau.fi/gomuks/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
 // tempMediaDir holds media fetched to play or open. Players such as IINA

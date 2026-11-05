@@ -17,7 +17,7 @@ import (
 	"maunium.net/go/mautrix/oauth"
 	"maunium.net/go/mautrix/pushrules"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
 )
 
 type CommandName string

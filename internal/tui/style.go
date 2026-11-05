@@ -11,9 +11,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
 
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/messages"
-	"go.mau.fi/gomuks/tui/messages/html"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/tui/messages/html"
 )
 
 // styleFileName is your own settings file next to terminal.yaml: colours and

@@ -26,8 +26,8 @@ import (
 	"maunium.net/go/mautrix/oauth"
 	"maunium.net/go/mautrix/pushrules"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 )
 
 func (h *HiClient) handleJSONCommand(ctx context.Context, req *JSONCommand) (any, error) {

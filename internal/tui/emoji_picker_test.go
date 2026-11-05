@@ -11,8 +11,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/lib/emoji"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/lib/emoji"
 )
 
 func freshRecent(t *testing.T, dir string) {

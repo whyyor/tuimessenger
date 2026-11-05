@@ -6,7 +6,7 @@ import (
 
 	"maunium.net/go/mautrix/event"
 
-	"go.mau.fi/gomuks/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
 )
 
 type spaceAction int

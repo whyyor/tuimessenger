@@ -9,7 +9,7 @@ package database
 import (
 	"go.mau.fi/util/dbutil"
 
-	"go.mau.fi/gomuks/pkg/hicli/database/upgrades"
+	"github.com/whyyor/tuimessenger/internal/hicli/database/upgrades"
 )
 
 type Database struct {

@@ -9,10 +9,10 @@ import (
 	"go.mau.fi/util/jsontime"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/hicli/cmdspec"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
 )
 
 func TestFTSQuery(t *testing.T) {

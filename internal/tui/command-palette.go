@@ -13,8 +13,8 @@ import (
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/widget"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 type paletteSection int

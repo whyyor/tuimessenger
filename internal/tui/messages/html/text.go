@@ -24,7 +24,7 @@ import (
 
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/tui/widget"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 type TextEntity struct {

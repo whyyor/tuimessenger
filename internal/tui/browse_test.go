@@ -7,9 +7,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/pkg/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/hicli/cmdspec"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
 )
 
 func TestBrowseStep(t *testing.T) {

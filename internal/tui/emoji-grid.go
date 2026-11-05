@@ -7,8 +7,8 @@ import (
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/tui/lib/emoji"
-	"go.mau.fi/gomuks/tui/widget"
+	"github.com/whyyor/tuimessenger/internal/tui/lib/emoji"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 // The browse grid: / with an empty query shows category tabs and emoji.

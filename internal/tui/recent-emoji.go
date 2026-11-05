@@ -9,7 +9,7 @@ import (
 
 	"github.com/mattn/go-runewidth"
 
-	"go.mau.fi/gomuks/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
 const recentEmojiMax = 24

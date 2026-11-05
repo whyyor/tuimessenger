@@ -7,8 +7,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
-	"go.mau.fi/gomuks/pkg/rpc"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/rpc"
 )
 
 // fakeToasts gives a fresh toaster with a controllable clock and timers.

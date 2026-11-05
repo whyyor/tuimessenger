@@ -19,7 +19,7 @@ package open
 import (
 	"os/exec"
 
-	"go.mau.fi/gomuks/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
 func Open(input string) error {

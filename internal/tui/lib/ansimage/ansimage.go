@@ -31,7 +31,7 @@ import (
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
 
-	"go.mau.fi/gomuks/tui/messages/tstring"
+	"github.com/whyyor/tuimessenger/internal/tui/messages/tstring"
 )
 
 var (

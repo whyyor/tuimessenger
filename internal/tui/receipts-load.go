@@ -3,9 +3,9 @@ package tui
 import (
 	"context"
 
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
-	"go.mau.fi/gomuks/pkg/rpc/store"
-	"go.mau.fi/gomuks/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
 // receiptFetchLimit bounds how many loaded events we ask receipts for.

@@ -16,9 +16,9 @@ import (
 	"go.mau.fi/mauview"
 	"maunium.net/go/mautrix/event"
 
-	"go.mau.fi/gomuks/tui/debug"
-	"go.mau.fi/gomuks/tui/lib/emoji"
-	"go.mau.fi/gomuks/tui/widget"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/lib/emoji"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 // pendingFile is a file waiting in the composer; temp ones (clipboard

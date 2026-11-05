@@ -30,12 +30,12 @@ import (
 	"maunium.net/go/mautrix/format"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/pkg/rpc/client"
-	"go.mau.fi/gomuks/pkg/rpc/store"
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/messages"
-	"go.mau.fi/gomuks/tui/widget"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/rpc/client"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 type MessageView struct {

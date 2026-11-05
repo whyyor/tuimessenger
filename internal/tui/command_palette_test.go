@@ -7,7 +7,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
-	"go.mau.fi/gomuks/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
 )
 
 func TestKeyHintPrefersCtrl(t *testing.T) {

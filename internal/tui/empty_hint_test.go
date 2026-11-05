@@ -7,7 +7,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/pkg/rpc"
+	"github.com/whyyor/tuimessenger/internal/rpc"
 )
 
 func TestEmptyHintShowsWithSidebar(t *testing.T) {

@@ -14,7 +14,7 @@ import (
 
 	"go.mau.fi/util/exerrors"
 
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 )
 
 type JSONCommand = jsoncmd.Container[json.RawMessage]

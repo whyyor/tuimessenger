@@ -25,7 +25,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.mau.fi/util/ptr"
 
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 )
 
 var (

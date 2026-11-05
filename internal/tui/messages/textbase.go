@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/messages/tstring"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/messages/tstring"
 )
 
 // Regular expressions used to split lines when calculating the buffer.

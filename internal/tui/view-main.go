@@ -33,15 +33,15 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
-	"go.mau.fi/gomuks/pkg/rpc"
-	"go.mau.fi/gomuks/pkg/rpc/client"
-	"go.mau.fi/gomuks/pkg/rpc/store"
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/debug"
-	"go.mau.fi/gomuks/tui/lib/emojistrip"
-	"go.mau.fi/gomuks/tui/lib/notification"
-	"go.mau.fi/gomuks/tui/widget"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/rpc"
+	"github.com/whyyor/tuimessenger/internal/rpc/client"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/lib/emojistrip"
+	"github.com/whyyor/tuimessenger/internal/tui/lib/notification"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 type MainView struct {

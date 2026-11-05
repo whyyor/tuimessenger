@@ -8,9 +8,9 @@ import (
 
 	"maunium.net/go/mautrix/event"
 
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
-	"go.mau.fi/gomuks/tui/debug"
-	"go.mau.fi/gomuks/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
 )
 
 // stickerTokenPrefix marks a copied sticker on the clipboard; pasting the

@@ -7,8 +7,8 @@ import (
 
 	"go.mau.fi/util/jsontime"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/pkg/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
 )
 
 func evtAt(t time.Time) *database.Event {

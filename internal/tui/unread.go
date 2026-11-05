@@ -6,9 +6,9 @@ import (
 
 	"maunium.net/go/mautrix/event"
 
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
-	"go.mau.fi/gomuks/pkg/rpc/store"
-	"go.mau.fi/gomuks/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
 // MarkUnread flags the open chat unread (synced to the network by bridges)

@@ -9,9 +9,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"go.mau.fi/util/jsontime"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
 )
 
 // WhatsApp's "mention all": the HTML carries each name, members aren't loaded.

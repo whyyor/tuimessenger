@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"go.mau.fi/gomuks/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
 // Kitty graphics protocol, unicode placeholder flavor (U=1). The image is

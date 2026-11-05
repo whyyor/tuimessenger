@@ -31,13 +31,13 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/pkg/rpc/client"
-	"go.mau.fi/gomuks/pkg/rpc/store"
-	"go.mau.fi/gomuks/tui/config"
-	"go.mau.fi/gomuks/tui/debug"
-	"go.mau.fi/gomuks/tui/lib/ansimage"
-	"go.mau.fi/gomuks/tui/messages/tstring"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/rpc/client"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/lib/ansimage"
+	"github.com/whyyor/tuimessenger/internal/tui/messages/tstring"
 )
 
 type FileMessage struct {

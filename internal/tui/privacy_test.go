@@ -5,9 +5,9 @@ import (
 
 	"maunium.net/go/mautrix/event"
 
-	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/hicli/cmdspec"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 )
 
 func TestChatPrivacyDefaultsAndOptIn(t *testing.T) {

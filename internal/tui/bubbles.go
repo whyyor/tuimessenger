@@ -9,8 +9,8 @@ import (
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/tui/messages"
-	"go.mau.fi/gomuks/tui/widget"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 const (

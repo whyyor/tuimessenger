@@ -7,8 +7,8 @@ import (
 
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
-	"go.mau.fi/gomuks/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
 // viewingRefresh is how often the open chat is re-sent while you're looking at it; the server forgets after 2 min.

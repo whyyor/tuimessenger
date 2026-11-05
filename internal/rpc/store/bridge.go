@@ -3,7 +3,7 @@ package store
 import (
 	"strings"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
 )
 
 // BridgeID returns the room's bridge protocol key ("whatsapp", "slackgo"…),

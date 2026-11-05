@@ -6,7 +6,7 @@ import (
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
 )
 
 func metaWithHeroes(heroes ...string) *database.Room {

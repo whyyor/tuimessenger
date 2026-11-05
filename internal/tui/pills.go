@@ -5,7 +5,7 @@ import (
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/tui/widget"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 // Accent colours for pills and highlights (Kanagawa, like the rest of the theme).

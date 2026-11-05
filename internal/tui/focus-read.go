@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 )
 
 // activityWindow is how recent a key or click must be to count as "looking"

@@ -8,7 +8,7 @@ import (
 
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/pkg/hicli/cmdspec"
+	"github.com/whyyor/tuimessenger/internal/hicli/cmdspec"
 )
 
 func TestSplitShellWords(t *testing.T) {

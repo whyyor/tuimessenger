@@ -24,8 +24,8 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/gomuks/pkg/hicli"
-	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
+	"github.com/whyyor/tuimessenger/internal/hicli"
+	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 )
 
 var writerTypeReadline zeroconfig.WriterType = "hitest_readline"

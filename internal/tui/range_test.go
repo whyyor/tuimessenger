@@ -3,8 +3,8 @@ package tui
 import (
 	"testing"
 
-	"go.mau.fi/gomuks/pkg/hicli/database"
-	"go.mau.fi/gomuks/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
+	"github.com/whyyor/tuimessenger/internal/tui/messages"
 )
 
 func msgRow(row database.EventRowID) *messages.UIMessage {

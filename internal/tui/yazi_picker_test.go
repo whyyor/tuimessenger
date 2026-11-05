@@ -10,7 +10,7 @@ import (
 
 	"go.mau.fi/mauview"
 
-	"go.mau.fi/gomuks/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/config"
 )
 
 func TestReadChooserFile(t *testing.T) {

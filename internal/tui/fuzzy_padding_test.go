@@ -6,7 +6,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
-	"go.mau.fi/gomuks/pkg/rpc/store"
+	"github.com/whyyor/tuimessenger/internal/rpc/store"
 )
 
 func TestFuzzyResultsSymmetricMargins(t *testing.T) {
