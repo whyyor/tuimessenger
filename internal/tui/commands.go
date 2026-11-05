@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/tidwall/gjson"
+	"go.mau.fi/util/ptr"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/event/cmdschema"
 
@@ -243,6 +245,9 @@ func (view *RoomView) HandleCommand(cmd *event.MessageEventContent) {
 		// Handled internally
 		return
 	}
+	if cmd.MSC4391BotCommand != nil && cmd.MSC4391BotCommand.Command == cmdspec.Leave && !view.confirmLeave() {
+		return
+	}
 	mentions := cmd.Mentions
 	cmd.Mentions = nil
 	err := view.parent.matrix.SendMessage(context.TODO(), &jsoncmd.SendMessageParams{
@@ -254,6 +259,29 @@ func (view *RoomView) HandleCommand(cmd *event.MessageEventContent) {
 		debug.Print("Failed to send message:", err)
 	}
 	view.parent.parent.Render()
+}
+
+// leaveNetworks names the networks where leaving a chat here also leaves it there.
+var leaveNetworks = map[string]string{
+	"whatsapp": "WhatsApp", "telegram": "Telegram", "slack": "Slack", "slackgo": "Slack",
+	"instagram": "Instagram", "instagramgo": "Instagram",
+}
+
+// confirmLeave asks before /leave: leaving here leaves the chat on the network too, which others can see.
+func (view *RoomView) confirmLeave() bool {
+	name := ptr.Val(view.Room.Meta.Current().Name)
+	if name == "" {
+		name = "this chat"
+	}
+	network := leaveNetworks[view.Room.BridgeID()]
+	if network == "" {
+		network = "the network"
+	}
+	return view.parent.Confirm("Leave this chat?", []string{
+		"Leave " + runewidth.Truncate(name, 36, "…") + "?",
+		"You leave it on " + network + " too, and the",
+		"other members can see that you left.",
+	}, "Leave")
 }
 
 func (view *RoomView) handleInternalCommand(cmd *event.MSC4391BotCommandInput) bool {
