@@ -210,20 +210,7 @@ func (gs *GomuksStore) ApplySync(sync *jsoncmd.SyncComplete) {
 			if entry == nil {
 				continue
 			}
-			if len(updatedRoomList) == 0 || !entry.SortingTimestamp.Before(updatedRoomList[len(updatedRoomList)-1].SortingTimestamp) {
-				updatedRoomList = append(updatedRoomList, entry)
-			} else if entry.SortingTimestamp.Before(updatedRoomList[0].SortingTimestamp) {
-				updatedRoomList = append([]*RoomListEntry{entry}, updatedRoomList...)
-			} else {
-				var i int
-				for i = len(updatedRoomList) - 1; i >= 0; i-- {
-					if updatedRoomList[i].SortingTimestamp.Before(entry.SortingTimestamp) {
-						i++
-						break
-					}
-				}
-				updatedRoomList = slices.Insert(updatedRoomList, i, entry)
-			}
+			updatedRoomList = insertSorted(updatedRoomList, entry)
 		}
 	}
 	if updatedRoomList != nil {
@@ -232,6 +219,15 @@ func (gs *GomuksStore) ApplySync(sync *jsoncmd.SyncComplete) {
 		slices.Reverse(reversed)
 		gs.ReversedRoomList.Emit(reversed)
 	}
+}
+
+// insertSorted puts entry into a list sorted by SortingTimestamp (oldest first), after any entries with the same time.
+func insertSorted(list []*RoomListEntry, entry *RoomListEntry) []*RoomListEntry {
+	i := len(list)
+	for i > 0 && entry.SortingTimestamp.Before(list[i-1].SortingTimestamp) {
+		i--
+	}
+	return slices.Insert(list, i, entry)
 }
 
 func (gs *GomuksStore) GetAccountData(evtType event.Type) *database.AccountData {
