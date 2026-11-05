@@ -168,6 +168,20 @@ func (gr *GomuksRPC) Authenticate(ctx context.Context, username, password string
 	return nil
 }
 
+// Run connects with retries until ctx is cancelled, sending events to handler and connection changes to onState.
+func (gr *GomuksRPC) Run(ctx context.Context, handler EventHandler, onState ConnStateHandler) error {
+	gr.EventHandler = handler
+	if onState != nil {
+		gr.ConnStateHandler = onState
+	}
+	return gr.ConnectWithRetry(ctx)
+}
+
+// MediaURL is the daemon's HTTP address for a media file.
+func (gr *GomuksRPC) MediaURL(mxc id.ContentURI, query url.Values) string {
+	return gr.BuildURLWithQuery(GomuksURLPath{"media", mxc.Homeserver, mxc.FileID}, query)
+}
+
 type DownloadMediaParams struct {
 	MXC               id.ContentURI
 	FallbackColor     string

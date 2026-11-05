@@ -11,7 +11,6 @@ import (
 	"maunium.net/go/mautrix/event"
 
 	"go.mau.fi/gomuks/pkg/hicli/jsoncmd"
-	"go.mau.fi/gomuks/pkg/rpc"
 	"go.mau.fi/gomuks/tui/debug"
 )
 
@@ -252,8 +251,7 @@ func (view *RoomView) uploadAndSend(path, caption string, relatesTo *event.Relat
 
 	meta := view.Room.Meta.Current()
 	encrypt := meta != nil && meta.EncryptionEvent != nil
-	rpcClient := view.parent.matrix.GomuksAPI.(*rpc.GomuksRPC)
-	content, err := rpcClient.UploadMedia(context.TODO(), name, encrypt, file)
+	content, err := view.parent.matrix.Backend.UploadMedia(context.TODO(), name, encrypt, file)
 	if err != nil {
 		view.AddServiceMessage("Failed to upload %s: %v", name, err)
 		view.parent.parent.Render()

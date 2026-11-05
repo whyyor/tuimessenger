@@ -28,6 +28,7 @@ import (
 type GomuksClient struct {
 	jsoncmd.GomuksAPI
 	*store.GomuksStore
+	Backend Backend
 
 	InitComplete *exsync.Event
 	EventHandler rpc.EventHandler
@@ -41,18 +42,37 @@ type GomuksClient struct {
 	stateRequestQueueLock sync.Mutex
 }
 
+// NewGomuksClient makes a client for the gomuks daemon at baseURL (it still needs Authenticate before Connect).
 func NewGomuksClient(baseURL string) (*GomuksClient, error) {
 	rpcClient, err := rpc.NewGomuksRPC(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	gc := &GomuksClient{
-		GomuksAPI:    rpcClient,
+	return New(rpcClient), nil
+}
+
+// New makes a client for any backend.
+func New(backend Backend) *GomuksClient {
+	return &GomuksClient{
+		GomuksAPI:    backend,
+		Backend:      backend,
 		GomuksStore:  store.NewStore(),
 		InitComplete: exsync.NewEvent(),
 	}
-	rpcClient.EventHandler = gc.handleEvent
-	return gc, nil
+}
+
+// Connect runs the backend connection until ctx is cancelled, applying its events to the store.
+func (gc *GomuksClient) Connect(ctx context.Context, onState rpc.ConnStateHandler) error {
+	return gc.Backend.Run(ctx, gc.handleEvent, onState)
+}
+
+// Authenticate logs in to the gomuks daemon; only the websocket backend needs it.
+func (gc *GomuksClient) Authenticate(ctx context.Context, username, password string) error {
+	rpcClient, ok := gc.Backend.(*rpc.GomuksRPC)
+	if !ok {
+		return nil
+	}
+	return rpcClient.Authenticate(ctx, username, password)
 }
 
 func (gc *GomuksClient) handleEvent(ctx context.Context, rawEvt any) {
@@ -214,13 +234,11 @@ func (gc *GomuksClient) GetDownloadURL(mxc id.ContentURI, encrypted, preauthed b
 	if preauthed {
 		query.Set("image_auth", gc.GomuksStore.ImageAuthToken)
 	}
-	// TODO fix downloads with non-remote backend
-	return gc.GomuksAPI.(*rpc.GomuksRPC).BuildURLWithQuery(rpc.GomuksURLPath{"media", mxc.Homeserver, mxc.FileID}, query)
+	return gc.Backend.MediaURL(mxc, query)
 }
 
 func (gc *GomuksClient) Download(mxc id.ContentURI, encrypted bool) ([]byte, error) {
-	// TODO fix downloads with non-remote backend
-	resp, err := gc.GomuksAPI.(*rpc.GomuksRPC).DownloadMedia(context.TODO(), rpc.DownloadMediaParams{
+	resp, err := gc.Backend.DownloadMedia(context.TODO(), rpc.DownloadMediaParams{
 		MXC:       mxc,
 		Encrypted: encrypted,
 	})

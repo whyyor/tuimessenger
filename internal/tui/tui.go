@@ -53,6 +53,9 @@ type GomuksTUI struct {
 	gmx *client.GomuksClient
 	app *mauview.Application
 
+	// Backend, if set before Run, is used instead of logging in to a gomuks daemon from the config.
+	Backend client.Backend
+
 	Config *config.Config
 
 	MainView  *MainView
@@ -121,9 +124,12 @@ func (ui *GomuksTUI) Run() {
 	log := exerrors.Must(ui.Config.LogConfig.Compile())
 	exzerolog.SetupDefaults(log)
 	loggedIn := false
-	if ui.Config.Server != "" && ui.Config.Username != "" && ui.Config.Password != "" {
+	if ui.Backend != nil {
+		ui.gmx = client.New(ui.Backend)
+		loggedIn = true
+	} else if ui.Config.Server != "" && ui.Config.Username != "" && ui.Config.Password != "" {
 		ui.gmx = exerrors.Must(client.NewGomuksClient(ui.Config.Server))
-		exerrors.PanicIfNotNil(ui.gmx.GomuksAPI.(*rpc.GomuksRPC).Authenticate(context.TODO(), ui.Config.Username, ui.Config.Password))
+		exerrors.PanicIfNotNil(ui.gmx.Authenticate(context.TODO(), ui.Config.Username, ui.Config.Password))
 		loggedIn = true
 	}
 
@@ -178,9 +184,7 @@ func (ui *GomuksTUI) Connect() {
 	ui.gmx.EventHandler = ui.gomuksEventHandler
 	messages.RequestRender = ui.Render
 	ui.MainView.matrix = ui.gmx
-	rpcClient := ui.gmx.GomuksAPI.(*rpc.GomuksRPC)
-	rpcClient.ConnStateHandler = ui.onConnStateChange
-	err := rpcClient.ConnectWithRetry(ui.ctx)
+	err := ui.gmx.Connect(ui.ctx, ui.onConnStateChange)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		exerrors.PanicIfNotNil(err)
 	}
@@ -192,7 +196,7 @@ func (ui *GomuksTUI) Resync() {
 	debug.Print("Manual resync requested")
 	ui.Resyncing = true
 	ui.Render()
-	ui.gmx.GomuksAPI.(*rpc.GomuksRPC).Resync()
+	ui.gmx.Backend.Resync()
 }
 
 func (ui *GomuksTUI) onConnStateChange(state rpc.ConnState, err error) {
@@ -246,7 +250,7 @@ func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
 func (ui *GomuksTUI) Stop() {
 	debug.Print("Stopping")
 	ui.cancel()
-	ui.gmx.GomuksAPI.(*rpc.GomuksRPC).Disconnect()
+	ui.gmx.Backend.Disconnect()
 	debug.Print("Disconnection complete")
 	ui.app.Stop()
 	debug.Print("Stopped")
