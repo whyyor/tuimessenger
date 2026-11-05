@@ -33,6 +33,7 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
+	"github.com/whyyor/tuimessenger/internal/hicli/database"
 	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 	"github.com/whyyor/tuimessenger/internal/rpc"
 	"github.com/whyyor/tuimessenger/internal/rpc/client"
@@ -639,6 +640,9 @@ func (view *MainView) switchRoom(roomID id.RoomID, peek bool) {
 	view.parent.Render()
 }
 
+// notifyMemberTimeout caps how long a notification waits for its sender's name.
+const notifyMemberTimeout = 3 * time.Second
+
 func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNotification) {
 	if view.config.Preferences.DisableNotifications {
 		return
@@ -652,6 +656,18 @@ func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNot
 		body = body[:350] + " […]"
 	}
 	memberEvt := room.GetMember(notif.Event.Sender)
+	if memberEvt == nil {
+		// Members load lazily, so a chat that was never opened may not know the sender yet: fetch just them.
+		ctx, cancel := context.WithTimeout(context.Background(), notifyMemberTimeout)
+		err := view.matrix.LoadSpecificRoomState(ctx, []database.RoomStateGUID{{
+			RoomID: room.ID, Type: event.StateMember, StateKey: notif.Event.Sender.String(),
+		}})
+		cancel()
+		if err != nil {
+			debug.Print("Failed to load notification sender:", err)
+		}
+		memberEvt = room.GetMember(notif.Event.Sender)
+	}
 	notifTitle := notif.Event.Sender.Localpart()
 	if memberEvt != nil && memberEvt.Displayname != "" {
 		if stripped := emojistrip.Strip(memberEvt.Displayname); stripped != "" {
