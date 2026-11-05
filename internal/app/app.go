@@ -112,6 +112,10 @@ func (a *App) addBridge(name string, med *media.Store, typ *typing.Tracker) erro
 	}
 	a.dbs = append(a.dbs, db)
 	conn := matrixconn.New(log, a.Store, med, typ, name, a.opts.ServerName, a.opts.Owner)
+	conn.FetchDirect = func(ctx context.Context, fileID string) (*os.File, error) {
+		file, _, err := a.FetchMedia(ctx, fileID, nil)
+		return file, err
+	}
 	br := bridgev2.NewBridge(networkid.BridgeID(name), db, log, &network.Config, conn, network.Connector, commands.NewProcessor)
 	// Direct media: files stay on the network until opened. This must come after NewBridge (which sets the
 	// network up) and before Start.
