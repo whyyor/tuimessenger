@@ -16,7 +16,7 @@ func newSlack(cfg *config.Config) (*Network, error) {
 	if err != nil {
 		return nil, err
 	}
-	// DMs and group DMs only (like Beeper) unless slack.include_channels is set.
+	// Channels too, unless slack.include_channels is false (then only DMs and group DMs).
 	sl.DMOnly = !cfg.Slack.IncludeChannels
 	return &Network{Connector: connector, Config: baseConfig("!sl")}, nil
 }

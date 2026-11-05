@@ -23,15 +23,20 @@ type Telegram struct {
 }
 
 type Slack struct {
-	// By default only DMs and group DMs are bridged, like Beeper did; this adds channels too.
+	// Channels are bridged by default; false keeps Slack to DMs and group DMs.
 	IncludeChannels bool `yaml:"include_channels"`
+}
+
+// defaults is what a setting is when config.yaml doesn't mention it.
+func defaults() *Config {
+	return &Config{Slack: Slack{IncludeChannels: true}}
 }
 
 // Load reads the settings file; a missing file just means "all defaults".
 func Load(path string) (*Config, error) {
 	info, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return &Config{}, nil
+		return defaults(), nil
 	} else if err != nil {
 		return nil, err
 	}
@@ -43,11 +48,12 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	var cfg Config
+	// Decoding into the defaults only overwrites the settings the file mentions.
+	cfg := defaults()
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true) // a typo like "api-id" is an error instead of being silently ignored
-	if err = decoder.Decode(&cfg); err != nil && !errors.Is(err, io.EOF) {
+	if err = decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
-	return &cfg, nil
+	return cfg, nil
 }
