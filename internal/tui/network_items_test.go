@@ -1,0 +1,53 @@
+package tui
+
+import (
+	"context"
+	"testing"
+
+	"github.com/whyyor/tuimessenger/internal/rpc"
+	"github.com/whyyor/tuimessenger/internal/rpc/client"
+)
+
+// fakeNetworkBackend is a backend that reports networks; the embedded GomuksRPC fills in the rest of the interface.
+type fakeNetworkBackend struct {
+	*rpc.GomuksRPC
+	networks []client.Network
+}
+
+func (f *fakeNetworkBackend) Networks(context.Context) ([]client.Network, error) {
+	return f.networks, nil
+}
+
+func (f *fakeNetworkBackend) SetNetworkSetting(context.Context, string, string, bool) error {
+	return nil
+}
+
+func TestNetworkItems(t *testing.T) {
+	titles := func(networks ...client.Network) []string {
+		backend := &fakeNetworkBackend{GomuksRPC: rpc.NewWithTransport(nil), networks: networks}
+		p := &CommandPalette{parent: &MainView{matrix: client.New(backend)}}
+		var out []string
+		for _, item := range p.networkItems() {
+			out = append(out, item.title)
+		}
+		return out
+	}
+	slackOn := client.Network{Name: "slack", State: "CONNECTED", Settings: map[string]bool{"include_channels": true}}
+	whatsapp := client.Network{Name: "whatsapp", State: "CONNECTED", Settings: map[string]bool{}}
+	if got := titles(slackOn, whatsapp); len(got) != 1 || got[0] != "Slack channels: on → off" {
+		t.Errorf("got %q", got)
+	}
+	slackOff := slackOn
+	slackOff.Settings = map[string]bool{"include_channels": false}
+	if got := titles(slackOff); len(got) != 1 || got[0] != "Slack channels: off → on" {
+		t.Errorf("got %q", got)
+	}
+	slackDown := slackOn
+	slackDown.State = "TRANSIENT_DISCONNECT"
+	if got := titles(slackDown); len(got) != 0 {
+		t.Errorf("a disconnected network shouldn't offer its settings: %q", got)
+	}
+	if got := (&CommandPalette{parent: &MainView{}}).networkItems(); got != nil {
+		t.Errorf("no client: got %v", got)
+	}
+}

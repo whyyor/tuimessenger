@@ -34,6 +34,10 @@ type Bridges interface {
 	FetchMedia(ctx context.Context, fileID string, params map[string]string) (*os.File, string, error)
 	// ReconnectUnhealthy reconnects networks whose connection looks broken and returns their names.
 	ReconnectUnhealthy(ctx context.Context) []string
+	// Networks lists the running networks with their state and settings.
+	Networks(ctx context.Context) []Network
+	// SetNetworkSetting saves and applies an on/off setting; ErrUnknownSetting if there's no such setting.
+	SetNetworkSetting(ctx context.Context, network, key string, value bool) error
 }
 
 type Options struct {
@@ -131,6 +135,8 @@ func (s *Server) routes() {
 
 	s.route("PUT "+viewingPath, true, s.viewing)
 	s.route("POST "+reconnectPath, true, s.reconnect)
+	s.route("GET "+networksPath, true, s.networks)
+	s.route("PUT "+networksPath+"/{network}/settings", true, s.setNetworkSettings)
 	s.encryptionRoutes()
 
 	// Everything else (search, room directory, ...) isn't supported (yet).

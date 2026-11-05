@@ -56,6 +56,9 @@ type App struct {
 
 	reconnectLock sync.Mutex
 	lastReconnect time.Time // when a client last made us reconnect a network
+
+	settings     map[string]map[string]*bridges.Setting // network name → setting key → setting
+	settingsLock sync.Mutex                             // one settings change at a time
 }
 
 var _ csapi.Bridges = (*App)(nil)
@@ -128,6 +131,12 @@ func (a *App) addBridge(name string, med *media.Store, typ *typing.Tracker) erro
 	a.bridges = append(a.bridges, br)
 	if network.AfterStart != nil {
 		a.afterStart[br] = network.AfterStart
+	}
+	if len(network.Settings) > 0 {
+		if a.settings == nil {
+			a.settings = make(map[string]map[string]*bridges.Setting)
+		}
+		a.settings[name] = network.Settings
 	}
 	return nil
 }

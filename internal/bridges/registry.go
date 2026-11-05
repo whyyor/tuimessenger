@@ -19,6 +19,15 @@ type Network struct {
 	Config    bridgeconfig.BridgeConfig
 	// AfterStart, if set, runs in the background once the bridge has started, e.g. to tidy up after login.
 	AfterStart func(ctx context.Context, br *bridgev2.Bridge, owner *bridgev2.User)
+	// Settings are the on/off settings a client may change while the network runs, by config.yaml key.
+	Settings map[string]*Setting
+}
+
+// Setting is one on/off setting of a running network, saved in config.yaml under the network's name.
+type Setting struct {
+	Get func() bool
+	// Apply puts a new value into effect on the running bridge.
+	Apply func(ctx context.Context, br *bridgev2.Bridge, value bool) error
 }
 
 // Factory builds a fresh Network from tuimessenger's settings (e.g. the Telegram keys).

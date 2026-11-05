@@ -1,10 +1,12 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"codeberg.org/tslocum/cbind"
@@ -13,7 +15,9 @@ import (
 	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 
+	"github.com/whyyor/tuimessenger/internal/rpc/client"
 	"github.com/whyyor/tuimessenger/internal/tui/config"
+	"github.com/whyyor/tuimessenger/internal/tui/debug"
 	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
@@ -131,6 +135,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		go view.config.Save()
 		toasts.Show(toastSuccess, "Sidebar on startup: "+onOff(!onStart))
 	}))
+	items = append(items, p.networkItems()...)
 	aliases := "Hide aliases"
 	if view.config.Preferences.HideAliases {
 		aliases = "Show aliases"
@@ -576,4 +581,65 @@ func (p *CommandPalette) drawRow(screen mauview.Screen, row paletteRow, selected
 		}
 		writeNameAlias(screen, titleX, y, titleMax, item.title, alias, base.Bold(selected), aliasStyle)
 	}
+}
+
+// networkTimeout caps how long opening the palette waits for the backend's list of networks.
+const networkTimeout = time.Second
+
+// networkItems are settings of connected networks, e.g. Slack channels, when the backend supports them.
+func (p *CommandPalette) networkItems() []*paletteItem {
+	if p.parent.matrix == nil {
+		return nil
+	}
+	backend, ok := p.parent.matrix.Backend.(client.NetworkSettings)
+	if !ok {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), networkTimeout)
+	defer cancel()
+	networks, err := backend.Networks(ctx)
+	if err != nil {
+		debug.Print("Failed to list networks:", err)
+		return nil
+	}
+	var items []*paletteItem
+	for _, network := range networks {
+		on, has := network.Settings["include_channels"]
+		if !has || network.State != "CONNECTED" {
+			continue
+		}
+		name := networkName(network.Name)
+		detail := "you stay in them on " + name
+		if !on {
+			detail = "brings back recent messages"
+		}
+		items = append(items, &paletteItem{
+			section: sectionCommands,
+			title:   name + " channels: " + onOff(on) + " → " + onOff(!on),
+			detail:  detail,
+			run: func() {
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+					defer cancel()
+					if err := backend.SetNetworkSetting(ctx, network.Name, "include_channels", !on); err != nil {
+						toasts.Show(toastError, "Couldn't change "+name+" channels: "+err.Error())
+					} else if on {
+						toasts.Show(toastSuccess, name+" channels hidden; you're still in them on "+name)
+					} else {
+						toasts.Show(toastSuccess, name+" channels are coming back")
+					}
+					p.parent.parent.Render()
+				}()
+			},
+		})
+	}
+	return items
+}
+
+// networkName is how a network's name is shown, e.g. "Slack" for "slack".
+func networkName(name string) string {
+	if name == "" {
+		return name
+	}
+	return strings.ToUpper(name[:1]) + name[1:]
 }
