@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
+	"maunium.net/go/mautrix/event"
 
 	"github.com/whyyor/tuimessenger/internal/hicli/database"
 	"github.com/whyyor/tuimessenger/internal/tui/config"
@@ -40,7 +41,10 @@ func TestImageShowsCaptionBelow(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, img)
-	fm := &FileMessage{FileName: "image.jpg", Body: "hello caption", imageData: buf.Bytes()}
+	fm := &FileMessage{FileName: "image.jpg", Body: "hello caption"}
+	if err := fm.setPreview(buf.Bytes()); err != nil {
+		t.Fatal(err)
+	}
 	ui := &UIMessage{Event: &database.Event{}, Renderer: fm}
 	prefs := config.UserPreferences{ImageProtocol: "ansi"}
 	ui.CalculateBuffer(prefs, 40)
@@ -67,7 +71,10 @@ func TestStickerDrawnSmall(t *testing.T) {
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, img)
 	size := func(sticker bool) (int, int) {
-		fm := &FileMessage{imageData: buf.Bytes(), IsSticker: sticker}
+		fm := &FileMessage{IsSticker: sticker}
+		if err := fm.setPreview(buf.Bytes()); err != nil {
+			t.Fatal(err)
+		}
 		ui := &UIMessage{Event: &database.Event{}, Renderer: fm}
 		ui.CalculateBuffer(config.UserPreferences{ImageProtocol: "ansi"}, 100)
 		w := 0
@@ -81,5 +88,26 @@ func TestStickerDrawnSmall(t *testing.T) {
 	if sw > stickerMaxCols || sh > stickerMaxRows || sw >= pw || sh >= ph {
 		t.Errorf("sticker %dx%d should fit %dx%d and be smaller than a photo %dx%d",
 			sw, sh, stickerMaxCols, stickerMaxRows, pw, ph)
+	}
+}
+
+func TestImagePreviewMemory(t *testing.T) {
+	var buf bytes.Buffer
+	_ = png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 64, 32)))
+	fm := &FileMessage{Type: event.MsgImage}
+	if err := fm.setPreview(buf.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	if clone := fm.Clone().(*FileMessage); clone.imgW != 64 || clone.imgH != 32 || len(clone.kittyPNG) == 0 {
+		t.Errorf("clone lost the preview: %dx%d, %d bytes", clone.imgW, clone.imgH, len(clone.kittyPNG))
+	}
+
+	// In kitty mode the PNG is dropped once the terminal has it; half-blocks then have to fetch it again.
+	fm.kittyPNG = nil
+	fm.downloaded = true
+	ui := &UIMessage{Event: &database.Event{}, Renderer: fm}
+	ui.CalculateBuffer(config.UserPreferences{ImageProtocol: "ansi"}, 40)
+	if fm.downloaded || len(fm.buffer) != 1 || !strings.HasPrefix(fm.buffer[0].String(), "Loading image") {
+		t.Errorf("want a refetch and a loading line, got downloaded=%v buffer=%v", fm.downloaded, fm.buffer)
 	}
 }

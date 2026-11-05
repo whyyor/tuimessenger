@@ -60,11 +60,15 @@ type FileMessage struct {
 
 	eventID id.EventID
 
-	imageData   []byte
 	downloading bool
+	downloaded  bool
 	buffer      []tstring.TString
 
+	// kittyPNG is the display-sized preview. The original isn't kept, and in kitty mode the preview is dropped
+	// too once the terminal has it: images are only sent once, so keeping them would just pile up memory.
 	kittyPNG  []byte
+	imgW      int
+	imgH      int
 	kittyCols int
 	kittyRows int
 
@@ -142,8 +146,6 @@ func (msg *FileMessage) setAudio(content *event.MessageEventContent, eventID id.
 }
 
 func (msg *FileMessage) Clone() MessageRenderer {
-	data := make([]byte, len(msg.imageData))
-	copy(data, msg.imageData)
 	return &FileMessage{
 		Type:        msg.Type,
 		Body:        msg.Body,
@@ -152,7 +154,10 @@ func (msg *FileMessage) Clone() MessageRenderer {
 		LinkURL:     msg.LinkURL,
 		URL:         msg.URL,
 		IsEncrypted: msg.IsEncrypted,
-		imageData:   data,
+		kittyPNG:    msg.kittyPNG, // never modified, only replaced, so sharing it is safe
+		imgW:        msg.imgW,
+		imgH:        msg.imgH,
+		downloaded:  msg.downloaded,
 		eventID:     msg.eventID,
 		IsSticker:   msg.IsSticker,
 		Duration:    msg.Duration,
@@ -195,34 +200,52 @@ func (msg *FileMessage) String() string {
 // message buffer is invalidated and a repaint requested, so the "Download
 // media" placeholder upgrades to an inline rendering.
 func (msg *FileMessage) DownloadPreview(uiMsg *UIMessage) {
-	if msg.Type != event.MsgImage || len(msg.imageData) > 0 || msg.downloading || msg.URL.IsEmpty() {
+	if msg.Type != event.MsgImage || msg.downloaded || msg.downloading || msg.URL.IsEmpty() {
 		return
 	}
 	msg.downloading = true
 	go func() {
 		defer debug.Recover()
+		defer func() { msg.downloading = false }()
 		data, err := msg.matrix.Download(msg.URL, msg.IsEncrypted)
 		if err != nil {
 			debug.Printf("Failed to download image %s: %v", msg.URL, err)
 			return
 		}
-		msg.imageData = data
 		// Pre-encode a display-sized preview off the render thread; both the
 		// kitty and the half-block path render from it so HD originals are
-		// decoded at full resolution exactly once.
+		// decoded at full resolution exactly once. The original is dropped.
+		previewSlots <- struct{}{}
 		pngData, err := encodeToPNG(data)
 		if err != nil {
 			// Animated webp and friends: let ffmpeg take the first frame.
 			pngData, err = ffmpegFirstFramePNG(data)
 		}
+		<-previewSlots
 		if err == nil {
-			msg.kittyPNG = pngData
-		} else {
+			err = msg.setPreview(pngData)
+		}
+		if err != nil {
 			debug.Print("Failed to prepare image preview:", err)
 		}
+		msg.downloaded = true
 		uiMsg.bufferedWidth = -1
 		RequestRender()
 	}()
+}
+
+// previewSlots limits how many images are decoded at once: a phone photo takes ~50 MB at full size, and opening a
+// chat starts one decode per image.
+var previewSlots = make(chan struct{}, 2)
+
+// setPreview stores the display-sized PNG and its size, which layout needs even after the PNG is dropped.
+func (msg *FileMessage) setPreview(pngData []byte) error {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(pngData))
+	if err != nil {
+		return err
+	}
+	msg.kittyPNG, msg.imgW, msg.imgH = pngData, cfg.Width, cfg.Height
+	return nil
 }
 
 func (msg *FileMessage) ThumbnailPath() string {
@@ -248,7 +271,7 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 		return
 	}
 
-	if prefs.BareMessageView || prefs.DisableImages || len(msg.imageData) == 0 {
+	if prefs.BareMessageView || prefs.DisableImages || msg.imgW == 0 || msg.imgH == 0 {
 		url := msg.matrix.GetDownloadURL(msg.URL, msg.IsEncrypted, true)
 		var urlTString tstring.TString
 		if prefs.EnableInlineURLs() {
@@ -263,23 +286,13 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 		return
 	}
 
-	// Render from the downscaled preview when available; decoding the
-	// original again would repeat the full-resolution work per width change.
-	renderData := msg.imageData
-	if len(msg.kittyPNG) > 0 {
-		renderData = msg.kittyPNG
-	}
-	img, _, err := image.DecodeConfig(bytes.NewReader(renderData))
-	if err != nil || img.Width <= 0 || img.Height <= 0 {
-		debug.Print("File could not be decoded:", err)
-		msg.buffer = []tstring.TString{tstring.NewColorTString("Failed to display image", tcell.ColorRed)}
-		return
-	}
+	// The preview's size was stored when it was made, so layout works even after the PNG was dropped.
+	img := image.Config{Width: msg.imgW, Height: msg.imgH}
 
 	// Kitty placeholder path: real pixels instead of half-blocks. Reply
 	// bubbles keep the text fallback; a virtual placement has one geometry
 	// per image, and the bubble preview would fight the full-size one.
-	if len(msg.kittyPNG) > 0 && !uiMsg.IsReplyBubble && kittyUsable(prefs.ImageProtocol) {
+	if (len(msg.kittyPNG) > 0 || kittyTransmitted(msg.URL.String())) && !uiMsg.IsReplyBubble && kittyUsable(prefs.ImageProtocol) {
 		limitCols, maxRows := msg.imageLimits()
 		maxCols := min(width-2, limitCols)
 		cols := maxCols
@@ -322,7 +335,14 @@ func (msg *FileMessage) CalculateBuffer(prefs config.UserPreferences, width int,
 		pxWidth = 1
 	}
 
-	ansFile, err := ansimage.NewScaledFromReader(bytes.NewReader(renderData), 0, pxWidth, color.Black)
+	if len(msg.kittyPNG) == 0 {
+		// The PNG went to the terminal and was dropped; half-blocks need it again, so fetch it once more.
+		msg.downloaded = false
+		msg.DownloadPreview(uiMsg)
+		msg.buffer = []tstring.TString{tstring.NewTString("Loading image…")}
+		return
+	}
+	ansFile, err := ansimage.NewScaledFromReader(bytes.NewReader(msg.kittyPNG), 0, pxWidth, color.Black)
 	if err != nil {
 		msg.buffer = []tstring.TString{tstring.NewColorTString("Failed to display image", tcell.ColorRed)}
 		debug.Print("Failed to display image:", err)
@@ -445,6 +465,7 @@ func (msg *FileMessage) Draw(screen mauview.Screen, _ *UIMessage) {
 	} else if msg.kittyRows > 0 {
 		img := kittyImageFor(msg.URL.String())
 		if kittyEnsurePlaced(img, msg.kittyPNG, msg.kittyCols, msg.kittyRows) {
+			msg.kittyPNG = nil // the terminal keeps the image now
 			// Foreground color carries the image ID; diacritics carry the
 			// cell's position in the virtual placement grid.
 			style := tcell.StyleDefault.Foreground(tcell.NewRGBColor(
