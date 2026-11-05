@@ -25,16 +25,16 @@ import (
 	"github.com/whyyor/tuimessenger/internal/rpc/store"
 )
 
-type GomuksClient struct {
-	jsoncmd.GomuksAPI
-	*store.GomuksStore
+type Client struct {
+	jsoncmd.API
+	*store.Store
 	Backend Backend
 
 	InitComplete *exsync.Event
 	EventHandler rpc.EventHandler
 
 	SendNotification func(room *store.RoomStore, notif jsoncmd.SyncNotification)
-	// OnNotice gets gomuks' own replies (fake events) to sends; returning
+	// OnNotice gets hicli's own replies (fake events) to sends; returning
 	// true keeps them out of the timeline.
 	OnNotice func(evt *database.Event) bool
 
@@ -42,54 +42,36 @@ type GomuksClient struct {
 	stateRequestQueueLock sync.Mutex
 }
 
-// NewGomuksClient makes a client for the gomuks daemon at baseURL (it still needs Authenticate before Connect).
-func NewGomuksClient(baseURL string) (*GomuksClient, error) {
-	rpcClient, err := rpc.NewGomuksRPC(baseURL)
-	if err != nil {
-		return nil, err
-	}
-	return New(rpcClient), nil
-}
-
-// New makes a client for any backend.
-func New(backend Backend) *GomuksClient {
-	return &GomuksClient{
-		GomuksAPI:    backend,
+// New makes a client for a backend (in tuimessenger: hicli in the same process).
+func New(backend Backend) *Client {
+	return &Client{
+		API:          backend,
 		Backend:      backend,
-		GomuksStore:  store.NewStore(),
+		Store:        store.NewStore(),
 		InitComplete: exsync.NewEvent(),
 	}
 }
 
 // Connect runs the backend connection until ctx is cancelled, applying its events to the store.
-func (gc *GomuksClient) Connect(ctx context.Context, onState rpc.ConnStateHandler) error {
+func (gc *Client) Connect(ctx context.Context, onState rpc.ConnStateHandler) error {
 	return gc.Backend.Run(ctx, gc.handleEvent, onState)
 }
 
-// Authenticate logs in to the gomuks daemon; only the websocket backend needs it.
-func (gc *GomuksClient) Authenticate(ctx context.Context, username, password string) error {
-	rpcClient, ok := gc.Backend.(*rpc.GomuksRPC)
-	if !ok {
-		return nil
-	}
-	return rpcClient.Authenticate(ctx, username, password)
-}
-
-func (gc *GomuksClient) handleEvent(ctx context.Context, rawEvt any) {
+func (gc *Client) handleEvent(ctx context.Context, rawEvt any) {
 	switch evt := rawEvt.(type) {
 	case *jsoncmd.ClientState:
-		gc.GomuksStore.ClientState = *evt
+		gc.Store.ClientState = *evt
 	case *jsoncmd.SyncStatus:
 		// TODO
 	case *jsoncmd.InitComplete:
 		gc.InitComplete.Set()
 	case *jsoncmd.SyncComplete:
-		gc.GomuksStore.ApplySync(evt)
+		gc.Store.ApplySync(evt)
 		for _, room := range evt.Rooms {
 			if len(room.Notifications) == 0 {
 				continue
 			}
-			roomStore := gc.GomuksStore.GetRoom(room.Meta.ID)
+			roomStore := gc.Store.GetRoom(room.Meta.ID)
 			for _, notif := range room.Notifications {
 				notif.Room = roomStore.Meta.Current()
 				notif.Event = roomStore.GetEventByRowID(notif.RowID)
@@ -104,7 +86,7 @@ func (gc *GomuksClient) handleEvent(ctx context.Context, rawEvt any) {
 	case *jsoncmd.SendComplete:
 		callRoomMethod(gc, evt.Event.RoomID, (*store.RoomStore).ApplySendComplete, evt.Event)
 	case *jsoncmd.ImageAuthToken:
-		gc.GomuksStore.ImageAuthToken = string(*evt)
+		gc.Store.ImageAuthToken = string(*evt)
 	case *jsoncmd.Typing:
 		callRoomMethod(gc, evt.RoomID, (*store.RoomStore).ApplyTyping, evt.UserIDs)
 	}
@@ -113,28 +95,28 @@ func (gc *GomuksClient) handleEvent(ctx context.Context, rawEvt any) {
 	}
 }
 
-func callRoomMethod[T any](gc *GomuksClient, roomID id.RoomID, fn func(room *store.RoomStore, val T), val T) {
-	room := gc.GomuksStore.GetRoom(roomID)
+func callRoomMethod[T any](gc *Client, roomID id.RoomID, fn func(room *store.RoomStore, val T), val T) {
+	room := gc.Store.GetRoom(roomID)
 	if room == nil {
 		return
 	}
 	fn(room, val)
 }
 
-func (gc *GomuksClient) RequestEvent(ctx context.Context, room *store.RoomStore, eventID id.EventID) {
+func (gc *Client) RequestEvent(ctx context.Context, room *store.RoomStore, eventID id.EventID) {
 
 }
 
-func (gc *GomuksClient) SendMessage(ctx context.Context, params *jsoncmd.SendMessageParams) error {
-	room := gc.GomuksStore.GetRoom(params.RoomID)
+func (gc *Client) SendMessage(ctx context.Context, params *jsoncmd.SendMessageParams) error {
+	room := gc.Store.GetRoom(params.RoomID)
 	if room == nil {
 		return fmt.Errorf("room not found in store")
 	}
-	dbEvt, err := gc.GomuksAPI.SendMessage(ctx, params)
+	dbEvt, err := gc.API.SendMessage(ctx, params)
 	if err != nil {
 		return err
 	} else if dbEvt != nil {
-		if dbEvt.Sender == cmdspec.FakeGomuksSender && gc.OnNotice != nil && gc.OnNotice(dbEvt) {
+		if dbEvt.Sender == cmdspec.FakeSender && gc.OnNotice != nil && gc.OnNotice(dbEvt) {
 			return nil
 		}
 		room.ApplyPending(dbEvt)
@@ -142,13 +124,13 @@ func (gc *GomuksClient) SendMessage(ctx context.Context, params *jsoncmd.SendMes
 	return nil
 }
 
-func (gc *GomuksClient) QueueRoomStateRequest(key database.RoomStateGUID) {
+func (gc *Client) QueueRoomStateRequest(key database.RoomStateGUID) {
 	gc.stateRequestQueueLock.Lock()
 	defer gc.stateRequestQueueLock.Unlock()
 	gc.stateRequestQueue = append(gc.stateRequestQueue, key)
 }
 
-func (gc *GomuksClient) FlushRoomStateRequests(ctx context.Context) error {
+func (gc *Client) FlushRoomStateRequests(ctx context.Context) error {
 	gc.stateRequestQueueLock.Lock()
 	keys := gc.stateRequestQueue
 	gc.stateRequestQueue = nil
@@ -159,20 +141,20 @@ func (gc *GomuksClient) FlushRoomStateRequests(ctx context.Context) error {
 	return gc.LoadSpecificRoomState(ctx, keys)
 }
 
-func (gc *GomuksClient) LoadSpecificRoomState(ctx context.Context, keys []database.RoomStateGUID) error {
+func (gc *Client) LoadSpecificRoomState(ctx context.Context, keys []database.RoomStateGUID) error {
 	keys = slices.DeleteFunc(keys, func(guid database.RoomStateGUID) bool {
-		room := gc.GomuksStore.GetRoom(guid.RoomID)
+		room := gc.Store.GetRoom(guid.RoomID)
 		return room == nil || room.GetStateEvent(guid.Type, guid.StateKey) != nil
 	})
 	if len(keys) == 0 {
 		return nil
 	}
-	resp, err := gc.GomuksAPI.GetSpecificRoomState(ctx, &jsoncmd.GetSpecificRoomStateParams{Keys: keys})
+	resp, err := gc.API.GetSpecificRoomState(ctx, &jsoncmd.GetSpecificRoomStateParams{Keys: keys})
 	if err != nil {
 		return err
 	}
 	for _, evt := range resp {
-		room := gc.GomuksStore.GetRoom(evt.RoomID)
+		room := gc.Store.GetRoom(evt.RoomID)
 		if room == nil {
 			continue
 		}
@@ -181,8 +163,8 @@ func (gc *GomuksClient) LoadSpecificRoomState(ctx context.Context, keys []databa
 	return nil
 }
 
-func (gc *GomuksClient) LoadRoomState(ctx context.Context, roomID id.RoomID, includeMembers, refetch bool) error {
-	room := gc.GomuksStore.GetRoom(roomID)
+func (gc *Client) LoadRoomState(ctx context.Context, roomID id.RoomID, includeMembers, refetch bool) error {
+	room := gc.Store.GetRoom(roomID)
 	if room == nil {
 		return fmt.Errorf("room not found in store")
 	}
@@ -191,7 +173,7 @@ func (gc *GomuksClient) LoadRoomState(ctx context.Context, roomID id.RoomID, inc
 	if !refetch && (room.FullMembersLoaded.Load() || (!includeMembers && room.StateLoaded.Load())) {
 		return nil
 	}
-	resp, err := gc.GomuksAPI.GetRoomState(ctx, &jsoncmd.GetRoomStateParams{
+	resp, err := gc.API.GetRoomState(ctx, &jsoncmd.GetRoomStateParams{
 		RoomID:         roomID,
 		Refetch:        refetch,
 		FetchMembers:   !room.Meta.Current().HasMemberList,
@@ -205,8 +187,8 @@ func (gc *GomuksClient) LoadRoomState(ctx context.Context, roomID id.RoomID, inc
 	return nil
 }
 
-func (gc *GomuksClient) LoadMoreHistory(ctx context.Context, roomID id.RoomID) error {
-	room := gc.GomuksStore.GetRoom(roomID)
+func (gc *Client) LoadMoreHistory(ctx context.Context, roomID id.RoomID) error {
+	room := gc.Store.GetRoom(roomID)
 	if room == nil {
 		return fmt.Errorf("room not found in store")
 	} else if !room.Paginating.CompareAndSwap(false, true) {
@@ -214,7 +196,7 @@ func (gc *GomuksClient) LoadMoreHistory(ctx context.Context, roomID id.RoomID) e
 	}
 	defer room.Paginating.Store(false)
 	oldestRowID, count := room.GetPaginationParams()
-	resp, err := gc.GomuksAPI.Paginate(ctx, &jsoncmd.PaginateParams{
+	resp, err := gc.API.Paginate(ctx, &jsoncmd.PaginateParams{
 		RoomID:        room.ID,
 		MaxTimelineID: oldestRowID,
 		Limit:         count,
@@ -227,17 +209,17 @@ func (gc *GomuksClient) LoadMoreHistory(ctx context.Context, roomID id.RoomID) e
 	return nil
 }
 
-func (gc *GomuksClient) GetDownloadURL(mxc id.ContentURI, encrypted, preauthed bool) string {
+func (gc *Client) GetDownloadURL(mxc id.ContentURI, encrypted, preauthed bool) string {
 	query := url.Values{
 		"encrypted": {strconv.FormatBool(encrypted)},
 	}
 	if preauthed {
-		query.Set("image_auth", gc.GomuksStore.ImageAuthToken)
+		query.Set("image_auth", gc.Store.ImageAuthToken)
 	}
 	return gc.Backend.MediaURL(mxc, query)
 }
 
-func (gc *GomuksClient) Download(mxc id.ContentURI, encrypted bool) ([]byte, error) {
+func (gc *Client) Download(mxc id.ContentURI, encrypted bool) ([]byte, error) {
 	resp, err := gc.Backend.DownloadMedia(context.TODO(), rpc.DownloadMediaParams{
 		MXC:       mxc,
 		Encrypted: encrypted,

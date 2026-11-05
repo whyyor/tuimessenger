@@ -42,7 +42,7 @@ func StateKeySub(evtType event.Type, stateKey string) string {
 }
 
 type RoomStore struct {
-	parent     *GomuksStore
+	parent     *Store
 	lock       sync.RWMutex
 	ID         id.RoomID
 	Meta       EventDispatcher[*database.Room]
@@ -80,7 +80,7 @@ type WrappedCommand struct {
 	Source id.UserID
 }
 
-func NewRoomStore(parent *GomuksStore, meta *database.Room) *RoomStore {
+func NewRoomStore(parent *Store, meta *database.Room) *RoomStore {
 	return &RoomStore{
 		ID:               meta.ID,
 		parent:           parent,
@@ -212,7 +212,7 @@ func (rs *RoomStore) ApplySync(sync *jsoncmd.SyncRoom) {
 	}
 	for evtType, ad := range sync.AccountData {
 		evtType.Class = event.AccountDataEventType
-		if evtType == AccountDataGomuksPreferences {
+		if evtType == AccountDataPreferences {
 			parsedPreferences := DefaultPreferences
 			_ = json.Unmarshal(ad.Content, &parsedPreferences)
 			rs.PreferenceCache.Emit(&parsedPreferences)
@@ -281,7 +281,7 @@ func (rs *RoomStore) ApplyPending(evt *database.Event) {
 	if !slices.Contains(rs.pendingEvents, evt.RowID) {
 		rs.pendingEvents = append(rs.pendingEvents, evt.RowID)
 	}
-	isFake := evt.Sender == cmdspec.FakeGomuksSender
+	isFake := evt.Sender == cmdspec.FakeSender
 	rs.applyEvent(evt, !isFake)
 	if isFake {
 		content := evt.GetMautrixContent().AsMessage()
@@ -629,7 +629,7 @@ func (rs *RoomStore) GetMarkAsReadParams() *jsoncmd.MarkReadParams {
 			break
 		}
 		evt, ok := rs.eventsByRowID[tuple.Event]
-		if ok && strings.HasPrefix(evt.ID.String(), "$") && evt.Sender != cmdspec.FakeGomuksSender && isReadableEvent(evt) {
+		if ok && strings.HasPrefix(evt.ID.String(), "$") && evt.Sender != cmdspec.FakeSender && isReadableEvent(evt) {
 			readEvt = evt
 			rs.lastMarkedRead = tuple.Event
 			break

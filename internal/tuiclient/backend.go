@@ -20,16 +20,16 @@ import (
 )
 
 const (
-	// initialBatchSize is how many rooms go into each initial sync message, the same as the gomuks daemon.
+	// initialBatchSize is how many rooms go into each initial sync message, the same as the tuimessenger daemon.
 	initialBatchSize = 100
 	// reconnectTimeout caps how long resync waits for the backend's answer to "reconnect broken networks".
 	reconnectTimeout = 10 * time.Second
 )
 
-// Backend gives the TUI the same view of hicli that the gomuks daemon's websocket did. Commands and events are
+// Backend gives the TUI the same view of hicli that the tuimessenger daemon's websocket did. Commands and events are
 // copied through JSON, so the TUI never shares objects with hicli, which keeps changing them from its own goroutines.
 type Backend struct {
-	*rpc.GomuksRPC // the typed commands; they reach hicli through submit
+	*rpc.Commands // the typed commands; they reach hicli through submit
 
 	hc     *hicli.HiClient
 	log    zerolog.Logger
@@ -48,7 +48,7 @@ var _ client.Backend = (*Backend)(nil)
 
 func newBackend(log zerolog.Logger) *Backend {
 	b := &Backend{log: log, events: newQueue()}
-	b.GomuksRPC = rpc.NewWithTransport(b.submit)
+	b.Commands = rpc.New(b.submit)
 	return b
 }
 

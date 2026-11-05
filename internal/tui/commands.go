@@ -201,7 +201,7 @@ func (view *RoomView) allCommands(yield func(command *store.WrappedCommand) bool
 	for _, cmd := range LocalCommands {
 		if !yield(&store.WrappedCommand{
 			EventContent: cmd,
-			Source:       cmdspec.FakeGomuksSender,
+			Source:       cmdspec.FakeSender,
 		}) {
 			return
 		}
@@ -209,7 +209,7 @@ func (view *RoomView) allCommands(yield func(command *store.WrappedCommand) bool
 	for _, cmd := range cmdspec.CommandDefinitions {
 		if !yield(&store.WrappedCommand{
 			EventContent: cmd,
-			Source:       cmdspec.FakeGomuksSender,
+			Source:       cmdspec.FakeSender,
 		}) {
 			return
 		}
@@ -239,7 +239,7 @@ func (view *RoomView) ParseCommand(input string) (*event.MessageEventContent, er
 }
 
 func (view *RoomView) HandleCommand(cmd *event.MessageEventContent) {
-	if cmd.Mentions.Has(cmdspec.FakeGomuksSender) &&
+	if cmd.Mentions.Has(cmdspec.FakeSender) &&
 		len(cmd.Mentions.UserIDs) == 1 &&
 		view.handleInternalCommand(cmd.MSC4391BotCommand) {
 		// Handled internally

@@ -63,6 +63,7 @@ func Run(ctx context.Context, opts Options) error {
 	if err != nil {
 		return fmt.Errorf("failed to open the client database: %w", err)
 	}
+	hicli.InitialDeviceDisplayName = "tuimessenger" // how this login shows up in the backend's device list
 	b := newBackend(log)
 	// The pickle key protects encryption keys; tuimessenger has none, so a fixed value is fine.
 	b.hc = hicli.New(db, nil, log.With().Str("component", "hicli").Logger(), []byte("tuimessenger"), b.onEvent)
@@ -83,7 +84,7 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}
 
-	ui := tui.NewGomuksTUI()
+	ui := tui.New()
 	ui.Config = config.NewConfigAt(filepath.Join(dir, "config"), opts.LogDir)
 	ui.Backend = b
 	ui.Run()

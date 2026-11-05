@@ -12,11 +12,11 @@ import (
 	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
-// AccountDataChatView holds per-chat display choices that only affect gomuks;
+// AccountDataChatView holds per-chat display choices that only affect tuimessenger;
 // private room account data, so it syncs and the network never sees it.
 var AccountDataChatView = event.Type{Type: "com.whyyor.gomuks.view", Class: event.AccountDataEventType}
 
-// ChatView is how gomuks shows one chat. HideDeleted leaves deleted messages
+// ChatView is how tuimessenger shows one chat. HideDeleted leaves deleted messages
 // out of the timeline (nothing is removed anywhere).
 type ChatView struct {
 	HideDeleted bool `json:"hide_deleted,omitempty"`

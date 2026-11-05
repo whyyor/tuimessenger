@@ -39,7 +39,7 @@ func TestSeenMarkerCovers(t *testing.T) {
 
 func TestApplyLocalSeen(t *testing.T) {
 	gs := store.NewStore()
-	gmx := &client.GomuksClient{GomuksStore: gs}
+	gmx := &client.Client{Store: gs}
 	const roomID = "!r:beeper.local"
 	sync := func(ad map[event.Type]*database.AccountData) {
 		gs.ApplySync(&jsoncmd.SyncComplete{Rooms: map[id.RoomID]*jsoncmd.SyncRoom{
@@ -59,13 +59,13 @@ func TestApplyLocalSeen(t *testing.T) {
 	if got := applyLocalSeen(nil, rooms)[0]; got != entry {
 		t.Fatal("no client: entry passes through untouched")
 	}
-	// Read up to the newest message in gomuks: counts cleared, on a copy.
+	// Read up to the newest message in tuimessenger: counts cleared, on a copy.
 	sync(map[event.Type]*database.AccountData{
 		AccountDataSeen: {Type: AccountDataSeen.Type, Content: []byte(`{"event_id":"$new","timestamp":1}`)},
 	})
 	got := applyLocalSeen(gmx, rooms)[0]
 	if got == entry || !got.UnreadCounts.IsZero() {
-		t.Errorf("read in gomuks: %+v, want a zeroed copy", got.UnreadCounts)
+		t.Errorf("read in tuimessenger: %+v, want a zeroed copy", got.UnreadCounts)
 	}
 	if entry.UnreadMessages != 3 || rooms[0] != entry {
 		t.Error("the shared entry and slice must not be modified")
@@ -84,7 +84,7 @@ func TestApplyLocalSeen(t *testing.T) {
 // which holds the store lock, freezing the whole UI on the next sync.
 func TestRoomListHookDoesNotDeadlock(t *testing.T) {
 	gs := store.NewStore()
-	gmx := &client.GomuksClient{GomuksStore: gs}
+	gmx := &client.Client{Store: gs}
 	gs.ReversedRoomList.Listen(func(rooms []*store.RoomListEntry) {
 		onRoomListChange(gmx, rooms)
 	})
@@ -111,7 +111,7 @@ func TestRoomListHookDoesNotDeadlock(t *testing.T) {
 // the store and room locks held; it used to check mute state (store lock).
 func TestMetaUpdateUnderLockDoesNotDeadlock(t *testing.T) {
 	gs := store.NewStore()
-	gmx := &client.GomuksClient{GomuksStore: gs}
+	gmx := &client.Client{Store: gs}
 	const roomID = "!r:x"
 	name := func(n string) *jsoncmd.SyncComplete {
 		return &jsoncmd.SyncComplete{Rooms: map[id.RoomID]*jsoncmd.SyncRoom{
@@ -121,7 +121,7 @@ func TestMetaUpdateUnderLockDoesNotDeadlock(t *testing.T) {
 	gs.ApplySync(name("before"))
 	cfg := &config.Config{}
 	cfg.Preferences.HideRoomList = true // header shows the name and mute bell
-	main := &MainView{matrix: gmx, config: cfg, parent: &GomuksTUI{}}
+	main := &MainView{matrix: gmx, config: cfg, parent: &App{}}
 	main.roomList = &RoomList{parent: main}
 	view := &RoomView{Room: gs.GetRoom(roomID), config: cfg, parent: main, input: mauview.NewInputArea(), topic: mauview.NewTextView()}
 	view.Room.Meta.Listen(view.Update)

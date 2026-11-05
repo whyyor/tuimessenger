@@ -36,7 +36,7 @@ func aliasMain(t *testing.T) *MainView {
 		"!peter:x": room("!peter:x", "Peter", time.Minute, nil),
 	}})
 	cfg := &config.Config{}
-	main := &MainView{matrix: &client.GomuksClient{GomuksStore: gs}, config: cfg, parent: &GomuksTUI{}}
+	main := &MainView{matrix: &client.Client{Store: gs}, config: cfg, parent: &App{}}
 	main.roomList = &RoomList{parent: main}
 	if len(gs.ReversedRoomList.Current()) != 2 {
 		t.Fatalf("test rooms missing from the room list: %d", len(gs.ReversedRoomList.Current()))

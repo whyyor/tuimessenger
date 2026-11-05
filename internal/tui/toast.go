@@ -15,7 +15,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
-// Toasts replace gomuks' notices in the timeline: opencode's layout (top
+// Toasts replace tuimessenger's notices in the timeline: opencode's layout (top
 // right, click to dismiss) with one coloured ┃ on the left, like a message, in our theme: a Nerd Font
 // icon per kind, the terminal's Monokai colours, transparent background.
 type toastKind int
@@ -274,7 +274,7 @@ func (t *toaster) drawBox(screen mauview.Screen, cur *toast, y int, extras bool)
 	return x, w, h
 }
 
-// classifyNotice picks the toast colour from how gomuks words its notices.
+// classifyNotice picks the toast colour from how tuimessenger words its notices.
 func classifyNotice(text string) toastKind {
 	lower := strings.ToLower(text)
 	hasPrefix := func(prefixes ...string) bool {

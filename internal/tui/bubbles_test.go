@@ -21,7 +21,7 @@ const me = id.UserID("@me:beeper.com")
 
 func bubbleView(t *testing.T) (*MessageView, *store.RoomStore) {
 	t.Helper()
-	gs := &store.GomuksStore{}
+	gs := &store.Store{}
 	gs.UserID = me
 	room := store.NewRoomStore(gs, &database.Room{ID: "!room:beeper.com"})
 	cfg := &config.Config{}
@@ -237,13 +237,13 @@ func TestTimestampStyleOff(t *testing.T) {
 	}
 }
 
-// Regression: a gomuks notice ("Seen in this chat: on") or a bridge bot's
-// message after yours made gomuks show blue ticks nobody had earned.
-func TestMarkReadIgnoresGomuksAndBots(t *testing.T) {
+// Regression: a tuimessenger notice ("Seen in this chat: on") or a bridge bot's
+// message after yours made tuimessenger show blue ticks nobody had earned.
+func TestMarkReadIgnoresNoticesAndBots(t *testing.T) {
 	view, room := bubbleView(t)
 	now := time.Now()
 	mine := textMsg(room, me, now, "hsr")
-	notice := textMsg(room, cmdspec.FakeGomuksSender, now.Add(time.Second), "Seen in this chat: on")
+	notice := textMsg(room, cmdspec.FakeSender, now.Add(time.Second), "Seen in this chat: on")
 	notice.ID = "$gomuks-internal-abc"
 	bot := textMsg(room, "@instagramgobot:beeper.local", now.Add(2*time.Second), "bridge notice")
 	layout := func(msgs ...*messages.UIMessage) map[*messages.UIMessage]*bubbleLayout {
@@ -259,7 +259,7 @@ func TestMarkReadIgnoresGomuksAndBots(t *testing.T) {
 	layouts := layout(msgs...)
 	view.markRead(msgs, layouts)
 	if layouts[mine].read {
-		t.Error("a gomuks notice or bot message is not the other person reading")
+		t.Error("a tuimessenger notice or bot message is not the other person reading")
 	}
 	reply := textMsg(room, "@instagramgo_100000000000003:beeper.local", now.Add(3*time.Second), "haan")
 	msgs = append(msgs, reply)

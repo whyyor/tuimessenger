@@ -79,7 +79,7 @@ func (view *MessageView) SearchRows(query string) []searchHit {
 			continue
 		}
 		prev = m
-		if m.IsService || m.Event == nil || m.RowID == 0 || m.Sender == cmdspec.FakeGomuksSender {
+		if m.IsService || m.Event == nil || m.RowID == 0 || m.Sender == cmdspec.FakeSender {
 			continue
 		}
 		if strings.Contains(strings.ToLower(searchText(m)), query) {
@@ -157,7 +157,7 @@ var searchLocal = func(view *RoomView, query string) ([]*database.Event, error) 
 	return resp.Events, nil
 }
 
-// visibleHits drops results /clear or h hid in gomuks.
+// visibleHits drops results /clear or h hid in tuimessenger.
 func (view *RoomView) visibleHits(evts []*database.Event) []searchHit {
 	clear := view.Room.ClearState()
 	cleared := clear.At()

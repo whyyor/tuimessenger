@@ -41,7 +41,7 @@ import (
 type MessageView struct {
 	parent *RoomView
 	config *config.Config
-	matrix *client.GomuksClient
+	matrix *client.Client
 	lock   sync.RWMutex
 
 	SenderWidth     int

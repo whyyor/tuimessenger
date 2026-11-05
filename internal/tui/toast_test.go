@@ -201,7 +201,7 @@ func TestStatusToastIsStickyAndStacks(t *testing.T) {
 
 func TestConnStateBecomesStatusToast(t *testing.T) {
 	ts, _, _ := fakeToasts(t)
-	main := &MainView{parent: &GomuksTUI{}}
+	main := &MainView{parent: &App{}}
 	for _, c := range []struct {
 		state rpc.ConnState
 		sync  jsoncmd.SyncStatusType

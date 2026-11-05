@@ -10,7 +10,7 @@ import (
 )
 
 // AccountDataCleared is private room account data written by the terminal
-// client's /clear and hide: only gomuks reads it, so Beeper and the bridges
+// client's /clear and hide: only tuimessenger reads it, so Beeper and the bridges
 // never act on it and nothing is deleted anywhere.
 var AccountDataCleared = event.Type{Type: "com.whyyor.gomuks.cleared", Class: event.AccountDataEventType}
 

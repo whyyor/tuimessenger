@@ -10,7 +10,7 @@ import (
 
 func TestTransport(t *testing.T) {
 	var got *jsoncmd.Container[json.RawMessage]
-	gr := NewWithTransport(func(_ context.Context, cmd *jsoncmd.Container[json.RawMessage]) *jsoncmd.Container[json.RawMessage] {
+	gr := New(func(_ context.Context, cmd *jsoncmd.Container[json.RawMessage]) *jsoncmd.Container[json.RawMessage] {
 		got = cmd
 		if cmd.Command != jsoncmd.ReqGetState {
 			return &jsoncmd.Container[json.RawMessage]{Command: jsoncmd.RespError, Data: json.RawMessage(`"nope"`)}

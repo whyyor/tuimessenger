@@ -16,7 +16,7 @@ import (
 )
 
 // SetMuted mutes or unmutes the chat with a server-side push rule, the same
-// one Beeper and gomuks web write, so every device follows it.
+// one Beeper and tuimessenger web write, so every device follows it.
 func (view *RoomView) SetMuted(muted bool) {
 	defer debug.Recover()
 	name := view.Room.ID.String()
@@ -143,7 +143,7 @@ func bridgeMuted(room *store.RoomStore) bool {
 
 // mutedRooms reads m.push_rules content into the set of muted chats: an
 // enabled room rule (rule_id is the room ID) with no "notify" action. That's
-// what MuteRoom writes, and how gomuks web decides it too.
+// what MuteRoom writes, and how tuimessenger web decides it too.
 func mutedRooms(content json.RawMessage) map[id.RoomID]bool {
 	var rules struct {
 		Global struct {
@@ -175,7 +175,7 @@ func mutedRooms(content json.RawMessage) map[id.RoomID]bool {
 	return muted
 }
 
-// notify shows a gomuks notice as a toast; for commands that need no chat.
+// notify shows a tuimessenger notice as a toast; for commands that need no chat.
 func (view *MainView) notify(text string, args ...any) {
 	if len(args) > 0 {
 		text = fmt.Sprintf(text, args...)

@@ -787,7 +787,7 @@ func MakeFakeEvent(roomID id.RoomID, html string) *Event {
 		TimelineRowID: 0,
 		RoomID:        roomID,
 		ID:            id.EventID("$gomuks-internal-" + random.String(10)),
-		Sender:        cmdspec.FakeGomuksSender,
+		Sender:        cmdspec.FakeSender,
 		Type:          event.EventMessage.Type,
 		Timestamp:     jsontime.UnixMilliNow(),
 		Content:       json.RawMessage(`{"msgtype":"m.text"}`),

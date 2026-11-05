@@ -37,7 +37,7 @@ func chatAlias(room *store.RoomStore) string {
 	return strings.TrimSpace(c.Alias)
 }
 
-func aliasOf(gmx *client.GomuksClient, roomID id.RoomID) string {
+func aliasOf(gmx *client.Client, roomID id.RoomID) string {
 	if gmx == nil {
 		return ""
 	}

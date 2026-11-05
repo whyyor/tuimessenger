@@ -62,15 +62,15 @@ type MainView struct {
 	// hintRows maps hint-screen unread rows to rooms for mouse clicks.
 	hintRows []hintRow
 
-	matrix *client.GomuksClient
+	matrix *client.Client
 	config *config.Config
-	parent *GomuksTUI
+	parent *App
 }
 
 // roomListWidth is the sidebar's width in columns.
 const roomListWidth = 25
 
-func (ui *GomuksTUI) NewMainView() mauview.Component {
+func (ui *App) NewMainView() mauview.Component {
 	mainView := &MainView{
 		flex:     mauview.NewFlex().SetDirection(mauview.FlexColumn),
 		roomView: mauview.NewBox(nil).SetBorder(false),
@@ -150,7 +150,7 @@ func (view *MainView) updateConnStatus() {
 	case view.parent.ConnState != rpc.ConnStateConnected:
 		toasts.SetStatus(toastWarning, "Disconnected from the tuimessenger backend")
 	case view.parent.SyncStatus == jsoncmd.SyncStatusErroring:
-		// The daemon is connected to us but cannot sync with the homeserver;
+		// The engine runs but can't sync with the tuimessenger backend;
 		// this is what actually delays new messages.
 		toasts.SetStatus(toastWarning, "Sync erroring…")
 	case view.parent.SyncStatus == jsoncmd.SyncStatusFailed:

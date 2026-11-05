@@ -42,7 +42,7 @@ func receiptTypeFor(room *store.RoomStore) event.ReceiptType {
 }
 
 // sendsPublicRead: automatic reads go public only with /seen on and not
-// peeking; otherwise gomuks records them locally.
+// peeking; otherwise tuimessenger records them locally.
 func sendsPublicRead(view *RoomView) bool {
 	return !view.peek && receiptTypeFor(view.Room) == event.ReceiptTypeRead
 }

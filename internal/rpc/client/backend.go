@@ -19,9 +19,9 @@ import (
 	"github.com/whyyor/tuimessenger/internal/rpc"
 )
 
-// Backend is what the client talks to: the gomuks daemon over a websocket, or a backend in the same process.
+// Backend is what the client talks to; tuimessenger's runs hicli in the same process (internal/tuiclient).
 type Backend interface {
-	jsoncmd.GomuksAPI
+	jsoncmd.API
 	// Run connects and delivers events to handler until ctx is cancelled; onState reports connection changes.
 	Run(ctx context.Context, handler rpc.EventHandler, onState rpc.ConnStateHandler) error
 	// Resync reconnects right away and asks for a fresh copy of the client state.
@@ -32,5 +32,3 @@ type Backend interface {
 	// MediaURL is an HTTP address the user can open to get a media file.
 	MediaURL(mxc id.ContentURI, query url.Values) string
 }
-
-var _ Backend = (*rpc.GomuksRPC)(nil)

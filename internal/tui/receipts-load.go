@@ -12,7 +12,7 @@ import (
 const receiptFetchLimit = 500
 
 // loadReceipts refills read receipts for an opened chat from the local
-// database, so ticks don't depend on gomuks having been watching at the time.
+// database, so ticks don't depend on tuimessenger having been watching at the time.
 func (view *MainView) loadReceipts(room *store.RoomStore) {
 	defer debug.Recover()
 	ids := room.LoadedEventIDs(receiptFetchLimit)

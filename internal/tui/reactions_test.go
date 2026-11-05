@@ -109,7 +109,7 @@ func TestReactPickerKeysSwitchToSearch(t *testing.T) {
 func TestBareReactParses(t *testing.T) {
 	for _, cmd := range LocalCommands {
 		if cmd.Command == CmdReact {
-			parsed, err := cmd.ParseInput(cmdspec.FakeGomuksSender, cmdSigils, "/react")
+			parsed, err := cmd.ParseInput(cmdspec.FakeSender, cmdSigils, "/react")
 			if err != nil || parsed == nil {
 				t.Fatalf("bare /react: %v", err)
 			}

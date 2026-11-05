@@ -13,7 +13,7 @@ func TestUnreadCommandAndKey(t *testing.T) {
 	found := false
 	for _, cmd := range LocalCommands {
 		if cmd.Command == CmdUnread {
-			parsed, err := cmd.ParseInput(cmdspec.FakeGomuksSender, cmdSigils, "/unread")
+			parsed, err := cmd.ParseInput(cmdspec.FakeSender, cmdSigils, "/unread")
 			if err != nil || parsed == nil || parsed.MSC4391BotCommand.Command != CmdUnread {
 				t.Fatalf("/unread: %v", err)
 			}

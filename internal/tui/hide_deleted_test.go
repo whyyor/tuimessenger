@@ -66,7 +66,7 @@ func TestHideDeletedCommandParses(t *testing.T) {
 			continue
 		}
 		for _, input := range []string{"/hide-deleted", "/hide-deleted on", "/hide-deleted off"} {
-			if parsed, err := cmd.ParseInput(cmdspec.FakeGomuksSender, cmdSigils, input); err != nil || parsed == nil {
+			if parsed, err := cmd.ParseInput(cmdspec.FakeSender, cmdSigils, input); err != nil || parsed == nil {
 				t.Errorf("%s: %v", input, err)
 			}
 		}

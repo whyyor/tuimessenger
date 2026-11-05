@@ -192,7 +192,7 @@ type JSONAPI struct {
 	*HiClient
 }
 
-var _ jsoncmd.GomuksAPI = (*JSONAPI)(nil)
+var _ jsoncmd.API = (*JSONAPI)(nil)
 
 func (h *JSONAPI) GetState(ctx context.Context) (*jsoncmd.ClientState, error) {
 	return h.State(), nil

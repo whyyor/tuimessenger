@@ -211,7 +211,7 @@ func (list *RoomList) Blur()  {}
 func (list *RoomList) mutedSet() map[id.RoomID]bool {
 	list.mutedLock.Lock()
 	defer list.mutedLock.Unlock()
-	if ad := list.parent.matrix.GomuksStore.GetAccountData(event.AccountDataPushRules); ad != list.pushRules {
+	if ad := list.parent.matrix.Store.GetAccountData(event.AccountDataPushRules); ad != list.pushRules {
 		list.pushRules = ad
 		list.muted = nil
 		if ad != nil {

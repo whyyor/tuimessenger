@@ -87,7 +87,7 @@ func PrettyPanic(panic interface{}) {
 		fmt.Println(err)
 		fmt.Println("--------------------------------------------------------------------------------")
 		fmt.Println("")
-		fmt.Println("You can file an issue at https://github.com/gomuks/gomuks/issues.")
+		fmt.Println("You can file an issue at https://github.com/whyyor/tuimessenger/issues.")
 		fmt.Println("Please provide the file save error (above) and the stack trace of the original error (below) when filing an issue.")
 		fmt.Println("")
 		fmt.Println("--------------------------------------------------------------------------------")
@@ -97,7 +97,7 @@ func PrettyPanic(panic interface{}) {
 	} else {
 		fmt.Println("The stack trace has been saved to", traceFile)
 		fmt.Println("")
-		fmt.Println("You can file an issue at https://github.com/gomuks/gomuks/issues.")
+		fmt.Println("You can file an issue at https://github.com/whyyor/tuimessenger/issues.")
 		fmt.Println("Please provide the contents of that file when filing an issue.")
 	}
 	os.Exit(1)

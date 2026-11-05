@@ -174,7 +174,7 @@ func (h *HiClient) SendMessage(
 	urlPreviews []*event.BeeperLinkPreview,
 ) (*database.Event, error) {
 	hasCommand := base != nil && base.MSC4391BotCommand != nil
-	if hasCommand && mentions.Has(cmdspec.FakeGomuksSender) && len(mentions.UserIDs) == 1 {
+	if hasCommand && mentions.Has(cmdspec.FakeSender) && len(mentions.UserIDs) == 1 {
 		return h.ProcessCommand(ctx, roomID, base.MSC4391BotCommand, base, relatesTo)
 	}
 	var unencrypted bool

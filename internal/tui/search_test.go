@@ -39,11 +39,11 @@ func TestChatSearch(t *testing.T) {
 	a := mk(10, "@peter:x", "bring the Harness")
 	b := mk(11, me, "ok")
 	c := mk(12, "@peter:x", "harness and chalk")
-	notice := mk(13, cmdspec.FakeGomuksSender, "harness notice")
+	notice := mk(13, cmdspec.FakeSender, "harness notice")
 	mv.msgBuffer = []*messages.UIMessage{a, a, b, c, notice}
 
 	if got := mv.SearchRows("HARNESS"); len(got) != 2 || got[0].row != 10 || got[1].row != 12 {
-		t.Fatalf("case-insensitive, oldest first, no gomuks notices: %v", got)
+		t.Fatalf("case-insensitive, oldest first, no tuimessenger notices: %v", got)
 	}
 
 	// The local database knows an older match that isn't loaded yet.
