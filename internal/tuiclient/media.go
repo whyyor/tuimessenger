@@ -61,9 +61,15 @@ func (b *Backend) UploadMedia(ctx context.Context, filename string, encrypt bool
 	return content, nil
 }
 
+// photoTypes are the image formats every network accepts as a photo; other images (SVG, TIFF, HEIC…) go as files.
+var photoTypes = map[string]bool{"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true}
+
 func msgTypeFor(mime string) event.MessageType {
 	switch strings.Split(mime, "/")[0] {
 	case "image":
+		if !photoTypes[mime] {
+			return event.MsgFile
+		}
 		return event.MsgImage
 	case "video":
 		return event.MsgVideo
