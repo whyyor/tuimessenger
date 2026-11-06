@@ -8,10 +8,15 @@ import (
 
 	"github.com/tidwall/gjson"
 	"go.mau.fi/util/ptr"
+	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
 	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 )
+
+// messageStatusEvent is how the bridges report whether something reached the network (sent, delivered, failed).
+// Its name comes from the bridge protocol in mautrix-go, which all four bridges speak, so it isn't ours to rename.
+var messageStatusEvent = event.BeeperMessageStatus.Type
 
 // failureMaxAge skips failures older than this, e.g. ones replayed after a long disconnect.
 const failureMaxAge = 10 * time.Minute
@@ -30,7 +35,7 @@ var reportedFailures = struct {
 	seen map[id.EventID]bool
 }{seen: make(map[id.EventID]bool)}
 
-// sendFailures finds new failure statuses (com.beeper.message_send_status) in a live sync. Startup data and
+// sendFailures finds new failure statuses (messageStatusEvent) in a live sync. Startup data and
 // loaded history have no since token: those failures are old and already show as a red ! tick.
 func sendFailures(evt *jsoncmd.SyncComplete, now time.Time) []sendFailure {
 	if ptr.Val(evt.Since) == "" {
@@ -39,7 +44,7 @@ func sendFailures(evt *jsoncmd.SyncComplete, now time.Time) []sendFailure {
 	var out []sendFailure
 	for roomID, room := range evt.Rooms {
 		for _, e := range room.Events {
-			if e == nil || e.Type != "com.beeper.message_send_status" || now.Sub(e.Timestamp.Time) > failureMaxAge {
+			if e == nil || e.Type != messageStatusEvent || now.Sub(e.Timestamp.Time) > failureMaxAge {
 				continue
 			}
 			content := e.GetContent()

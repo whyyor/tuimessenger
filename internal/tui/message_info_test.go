@@ -56,13 +56,13 @@ func TestWhoSaw(t *testing.T) {
 func TestDeliveryInfo(t *testing.T) {
 	base := time.Now()
 	at, failed := deliveryInfo([]*database.Event{
-		infoEvt("$s2", "@bot:x", "com.beeper.message_send_status", base.Add(time.Second), map[string]any{"status": "SUCCESS"}),
-		infoEvt("$s1", "@bot:x", "com.beeper.message_send_status", base, map[string]any{"status": "SUCCESS"}),
+		infoEvt("$s2", "@bot:x", messageStatusEvent, base.Add(time.Second), map[string]any{"status": "SUCCESS"}),
+		infoEvt("$s1", "@bot:x", messageStatusEvent, base, map[string]any{"status": "SUCCESS"}),
 	})
 	if at.UnixMilli() != base.UnixMilli() || failed != "" {
 		t.Errorf("first success wins: %v %q", at, failed)
 	}
-	_, failed = deliveryInfo([]*database.Event{infoEvt("$f", "@bot:x", "com.beeper.message_send_status", base,
+	_, failed = deliveryInfo([]*database.Event{infoEvt("$f", "@bot:x", messageStatusEvent, base,
 		map[string]any{"status": "FAIL_PERMANENT", "message": "not on WhatsApp"})})
 	if failed != "not on WhatsApp" {
 		t.Errorf("failure message: %q", failed)
@@ -99,7 +99,7 @@ func TestMessageInfoPopup(t *testing.T) {
 	done := make(chan struct{})
 	fetchInfo = func(*RoomView, *database.Event, []*database.Event) ([]*database.Event, []*database.Event, map[id.EventID][]*database.Receipt) {
 		defer close(done)
-		mss := []*database.Event{infoEvt("$s", "@bot:x", "com.beeper.message_send_status", base.Add(2*time.Second), map[string]any{"status": "SUCCESS"})}
+		mss := []*database.Event{infoEvt("$s", "@bot:x", messageStatusEvent, base.Add(2*time.Second), map[string]any{"status": "SUCCESS"})}
 		return mss, nil, map[id.EventID][]*database.Receipt{"$mine": {receipt("@nadia:x", event.ReceiptTypeRead, base.Add(time.Minute))}}
 	}
 	view.OpenMessageInfo(msg)

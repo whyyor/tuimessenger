@@ -599,7 +599,7 @@ func (rs *RoomStore) GetDisplayname(userID id.UserID) string {
 }
 
 // isReadableEvent limits read receipts to messages people see: a receipt on
-// a bridge's hidden com.beeper.message_send_status isn't tied to a message.
+// a bridge's hidden delivery status isn't tied to a message.
 func isReadableEvent(evt *database.Event) bool {
 	switch evt.GetType().Type {
 	case event.EventMessage.Type, event.EventSticker.Type, event.EventEncrypted.Type:

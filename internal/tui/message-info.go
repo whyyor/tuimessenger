@@ -208,7 +208,7 @@ var fetchInfo = func(view *RoomView, msg *database.Event, later []*database.Even
 	gmx := view.parent.matrix
 	mss, _ = gmx.GetRelatedEvents(ctx, &jsoncmd.GetRelatedEventsParams{
 		RoomID: view.Room.ID, EventID: msg.ID, RelationType: event.RelReference,
-		EventType: "com.beeper.message_send_status",
+		EventType: messageStatusEvent,
 	})
 	reactions, _ = gmx.GetRelatedEvents(ctx, &jsoncmd.GetRelatedEventsParams{
 		// No type filter: encrypted reactions are stored as m.room.encrypted.

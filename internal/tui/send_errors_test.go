@@ -18,7 +18,7 @@ func statusEvent(target, status, message, reason string, at time.Time) *database
 		"m.relates_to": map[string]string{"rel_type": "m.reference", "event_id": target},
 		"status":       status, "message": message, "reason": reason,
 	})
-	return &database.Event{Type: "com.beeper.message_send_status", Content: content, Timestamp: jsontime.UM(at)}
+	return &database.Event{Type: messageStatusEvent, Content: content, Timestamp: jsontime.UM(at)}
 }
 
 func TestSendFailures(t *testing.T) {
