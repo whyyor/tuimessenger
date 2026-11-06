@@ -12,7 +12,7 @@ func TestMsgTypeFor(t *testing.T) {
 		"image/png":          event.MsgImage,
 		"image/gif":          event.MsgImage,
 		"image/webp":         event.MsgImage,
-		"image/svg+xml":      event.MsgFile, // Telegram refused this as a photo
+		"image/svg+xml":      event.MsgFile,
 		"image/tiff":         event.MsgFile,
 		"image/heic":         event.MsgFile,
 		"video/mp4":          event.MsgVideo,
