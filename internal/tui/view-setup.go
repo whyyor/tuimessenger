@@ -11,6 +11,7 @@ import (
 
 	"github.com/whyyor/tuimessenger/internal/hicli/jsoncmd"
 	"github.com/whyyor/tuimessenger/internal/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
 type setupMode int
@@ -22,14 +23,17 @@ const (
 )
 
 type setupModeInfo struct {
-	name, hint string
-	available  bool
+	icon, name, hint string
+	available        bool
 }
 
+// setupIcon is the terminal glyph the palette's pill uses too.
+const setupIcon = "\uf120"
+
 var setupModes = []setupModeInfo{
-	setupComplete:    {"Complete setup", "backend and TUI on this machine", true},
-	setupSelfHosted:  {"TUI with self-hosted backend", "connect to your backend elsewhere (e.g. a Pi)", true},
-	setupHostBackend: {"Host backend", "run only the backend here, for other devices (coming soon)", false},
+	setupComplete:    {"\uf108", "Complete setup", "backend and TUI on this machine", true},
+	setupSelfHosted:  {"\uf0c2", "TUI with self-hosted backend", "connect to your backend, e.g. a Pi", true},
+	setupHostBackend: {"\uf233", "Host backend", "only the backend here · coming soon", false},
 }
 
 // SetupDefaults are this machine's backend address and username; Complete setup uses them as they are.
@@ -39,7 +43,7 @@ type SetupDefaults struct {
 }
 
 const (
-	setupBoxWidth   = 68
+	setupPanelWidth = 72 // the palette's width
 	setupLabelWidth = 10
 )
 
@@ -49,9 +53,10 @@ type setupField struct {
 }
 
 type setupRow struct {
+	kind  setupRowKind
 	text  string
 	style tcell.Style
-	field int // index into fields, or -1
+	index int // the mode or field the row shows
 }
 
 // SetupView is the first screen when the TUI isn't logged in: pick how tuimessenger runs, then log in.
@@ -111,7 +116,7 @@ func nextMode(from setupMode, delta int) setupMode {
 
 func newSetupInput(text, placeholder string, password bool) *mauview.InputField {
 	input := mauview.NewInputField().SetText(text).SetPlaceholder(placeholder).
-		SetTextColor(tcell.ColorWhite).SetBackgroundColor(ColorBarBackground).SetPlaceholderTextColor(ColorStatusText)
+		SetTextColor(tcell.ColorDefault).SetPlaceholderTextColor(ColorStatusText)
 	if password {
 		input.SetMaskCharacter('*')
 	}
@@ -296,107 +301,139 @@ func (view *SetupView) OnPasteEvent(event mauview.PasteEvent) bool {
 
 func (view *SetupView) OnMouseEvent(mauview.MouseEvent) bool { return false }
 
-// rows lays out the box's content for an inner width.
+// The setup panel follows the palette and Ctrl+k: a borderless panel, a centred pill title in the accent colour,
+// rows on one grid (▌ col 1, icon col 3, text col 5), and dim key hints in the bottom row.
+var (
+	ColorSetupPill   = ColorComposerBar
+	ColorOnSetupPill = tcell.NewHexColor(0x000000)
+)
+
+const (
+	setupTextX  = 5 // titles, labels and text, like the palette's titles
+	setupInputX = setupTextX + setupLabelWidth
+)
+
+type setupRowKind int
+
+const (
+	rowBlank setupRowKind = iota
+	rowText
+	rowMode
+	rowField
+)
+
+// rows lays out the panel's content between the title pill and the hint row.
 func (view *SetupView) rows(width int) []setupRow {
-	plain := tcell.StyleDefault
-	dim := plain.Foreground(ColorStatusText)
+	dim := tcell.StyleDefault.Foreground(ColorStatusText)
 	var rows []setupRow
-	add := func(text string, style tcell.Style) { rows = append(rows, setupRow{mauview.Escape(text), style, -1}) }
-	wrapped := func(text string, style tcell.Style) {
-		for _, line := range wrapText(text, width-4) {
-			add(line, style)
+	blank := func() { rows = append(rows, setupRow{kind: rowBlank}) }
+	text := func(s string, style tcell.Style) {
+		for _, line := range wrapText(s, width-setupTextX-2) {
+			rows = append(rows, setupRow{kind: rowText, text: line, style: style})
 		}
 	}
-	add("", plain)
 	if view.choosing {
-		for i, mode := range setupModes {
-			marker, style := "  ", plain
-			if setupMode(i) == view.selected {
-				marker, style = "▸ ", plain.Bold(true).Foreground(ColorSelectionBackground)
-			}
-			if !mode.available {
-				style = dim
-			}
-			add(marker+mode.name, style)
-			add("    "+mode.hint, dim)
-			add("", plain)
+		for i := range setupModes {
+			rows = append(rows, setupRow{kind: rowMode, index: i})
 		}
-		add("↑/↓ choose · Enter continue · Ctrl+C quit", dim)
 		return rows
 	}
 	if view.mode == setupComplete {
-		wrapped("Log in to the backend on this machine ("+view.defaults.Server+") as "+view.defaults.Username+".", dim)
+		text("Log in to the backend on this machine ("+view.defaults.Server+") as "+view.defaults.Username+".", dim)
 	} else {
-		wrapped("Your backend's address, and the username and password you set on it.", dim)
+		text("Your backend's address, and the username and password you set on it.", dim)
 	}
-	add("", plain)
+	blank()
 	for i := range view.fields {
-		rows = append(rows, setupRow{field: i})
-		add("", plain)
+		rows = append(rows, setupRow{kind: rowField, index: i})
 	}
 	view.mu.Lock()
 	status, errText := view.status, view.errText
 	view.mu.Unlock()
 	if errText != "" {
-		wrapped(errText, plain.Foreground(ColorMonokaiRed))
-		add("", plain)
+		blank()
+		text(errText, tcell.StyleDefault.Foreground(ColorMonokaiRed))
 	} else if status != "" {
-		wrapped(status, dim)
-		add("", plain)
+		blank()
+		text(status, dim)
 	}
-	add("Enter log in · Tab next field · Esc back · Ctrl+C quit", dim)
 	return rows
+}
+
+func (view *SetupView) hints() string {
+	if view.choosing {
+		return "↑↓ choose  enter continue  ctrl+c quit"
+	}
+	return "tab next field  enter log in  esc back"
 }
 
 func (view *SetupView) Draw(screen mauview.Screen) {
 	sw, sh := screen.Size()
-	width := min(setupBoxWidth, sw)
-	rows := view.rows(width - 2)
-	height := min(len(rows)+2, sh)
-	x, y := (sw-width)/2, (sh-height)/2
-	title := "Set up tuimessenger"
+	if sw < 24 || sh < 9 {
+		return
+	}
+	w := min(sw-4, setupPanelWidth)
+	rows := view.rows(w)
+	listH := min(len(rows), sh-5)
+	h := listH + 5 // pill, blank, rows, blank, hints, padding
+	x, y := (sw-w)/2, max(0, (sh-h)/2)
+
+	panel := &panelScreen{Screen: screen, bg: ColorPanel}
+	for py := y; py < y+h; py++ {
+		for px := x; px < x+w; px++ {
+			panel.SetContent(px, py, ' ', nil, tcell.StyleDefault)
+		}
+	}
+	title := " " + setupIcon + " Set up tuimessenger "
 	if !view.choosing {
-		title = setupModes[view.mode].name
+		title = " " + setupModes[view.mode].icon + " " + setupModes[view.mode].name + " "
 	}
-	drawSetupBox(screen, x, y, width, height, title)
-	for i, row := range rows {
-		if i >= height-2 {
-			break
-		}
-		line := mauview.NewProxyScreen(screen, x+2, y+1+i, width-4, 1)
-		if row.field < 0 {
-			mauview.PrintWithStyle(line, row.text, 0, 0, width-4, mauview.AlignLeft, row.style)
-			continue
-		}
-		field := view.fields[row.field]
-		labelStyle := tcell.StyleDefault
-		if row.field == view.focus {
-			labelStyle = labelStyle.Bold(true)
-		}
-		mauview.PrintWithStyle(line, field.label, 0, 0, setupLabelWidth, mauview.AlignLeft, labelStyle)
-		field.input.Draw(mauview.NewProxyScreen(line, setupLabelWidth, 0, width-4-setupLabelWidth, 1))
+	if tw := runewidth.StringWidth(title); tw <= w {
+		widget.WriteLine(screen, mauview.AlignLeft, title, x+(w-tw)/2, y,
+			tw, tcell.StyleDefault.Background(ColorSetupPill).Foreground(ColorOnSetupPill))
 	}
+	for i := 0; i < listH; i++ {
+		view.drawRow(panel, rows[i], x, y+2+i, w)
+	}
+	widget.WriteLine(panel, mauview.AlignRight, view.hints(), x+1, y+2+listH+1, w-3,
+		tcell.StyleDefault.Foreground(ColorStatusText))
 	toasts.Draw(screen)
 }
 
-// drawSetupBox draws a rounded border with a title, the same look as the other boxes.
-func drawSetupBox(screen mauview.Screen, x, y, width, height int, title string) {
-	if width < 2 || height < 2 {
-		return
+// drawRow draws one row on the palette's grid; the selected mode or focused field gets the selection bar and ▌.
+func (view *SetupView) drawRow(screen mauview.Screen, row setupRow, x, y, w int) {
+	dim := tcell.StyleDefault.Foreground(ColorStatusText)
+	selected := (row.kind == rowMode && setupMode(row.index) == view.selected) ||
+		(row.kind == rowField && row.index == view.focus)
+	base := tcell.StyleDefault
+	if selected {
+		base, dim = base.Background(ColorBarBackground), dim.Background(ColorBarBackground)
+		widget.WriteLinePadded(screen, mauview.AlignLeft, "", x+1, y, w-2, base)
+		screen.SetContent(x+1, y, '▌', nil, base.Foreground(ColorSetupPill))
 	}
-	border := tcell.StyleDefault.Foreground(ColorBorder)
-	for i := x + 1; i < x+width-1; i++ {
-		screen.SetContent(i, y, '─', nil, border)
-		screen.SetContent(i, y+height-1, '─', nil, border)
+	switch row.kind {
+	case rowText:
+		widget.WriteLine(screen, mauview.AlignLeft, row.text, x+setupTextX, y, w-setupTextX-2, row.style)
+	case rowMode:
+		mode := setupModes[row.index]
+		titleStyle, iconColor := base.Bold(selected), ColorSetupPill
+		if !mode.available {
+			titleStyle, iconColor = dim, ColorStatusText
+		} else if selected {
+			iconColor = vivid(iconColor)
+		}
+		widget.WriteLine(screen, mauview.AlignLeft, mode.icon, x+3, y, 2, base.Foreground(iconColor).Bold(false))
+		detailW := runewidth.StringWidth(mode.hint)
+		widget.WriteLine(screen, mauview.AlignLeft, mode.hint, x+w-detailW-2, y, detailW, dim)
+		widget.WriteLine(screen, mauview.AlignLeft, mode.name, x+setupTextX, y, w-setupTextX-detailW-4, titleStyle)
+	case rowField:
+		field := view.fields[row.index]
+		widget.WriteLine(screen, mauview.AlignLeft, field.label, x+setupTextX, y, setupLabelWidth, base.Bold(selected))
+		bg := tcell.ColorDefault // the panel shows through
+		if selected {
+			bg = ColorBarBackground
+		}
+		field.input.SetBackgroundColor(bg)
+		field.input.Draw(mauview.NewProxyScreen(screen, x+setupInputX, y, w-setupInputX-2, 1))
 	}
-	for j := y + 1; j < y+height-1; j++ {
-		screen.SetContent(x, j, '│', nil, border)
-		screen.SetContent(x+width-1, j, '│', nil, border)
-	}
-	screen.SetContent(x, y, '╭', nil, border)
-	screen.SetContent(x+width-1, y, '╮', nil, border)
-	screen.SetContent(x, y+height-1, '╰', nil, border)
-	screen.SetContent(x+width-1, y+height-1, '╯', nil, border)
-	title = " " + mauview.Escape(runewidth.Truncate(title, width-6, "…")) + " "
-	mauview.PrintWithStyle(screen, title, x+2, y, width-4, mauview.AlignLeft, tcell.StyleDefault.Bold(true))
 }
