@@ -67,19 +67,37 @@ func Run(ctx context.Context, opts Options) error {
 	// The pickle key protects encryption keys; tuimessenger has none, so a fixed value is fine.
 	b.hc = hicli.New(db, nil, log.With().Str("component", "hicli").Logger(), []byte("tuimessenger"), b.onEvent)
 
+	cfg := config.NewConfigAt(filepath.Join(dir, "config"), opts.LogDir)
+	cfg.Load()
+	local := &localBackend{opts: opts}
+	// Complete setup: when no backend is answering (no service), this TUI runs it until you quit.
+	if cfg.Mode == tui.ModeComplete {
+		if err = tui.CheckBackend(ctx, opts.Server); tui.IsUnreachable(err) {
+			fmt.Println("Starting the backend…")
+			if _, err = local.Start(ctx); err != nil {
+				return fmt.Errorf("can't start the backend: %w", err)
+			}
+		}
+	}
+
 	userID, err := b.hc.DB.Account.GetFirstUserID(ctx)
 	if err != nil {
+		local.Stop()
 		return err
 	}
 	err = b.hc.Start(ctx, userID, nil)
+	if err != nil {
+		local.Stop()
+	}
 	if errors.Is(err, mautrix.MUnknownToken) {
 		return fmt.Errorf("the saved login isn't valid anymore; delete %s and run this again", filepath.Join(dir, "client.db"))
 	} else if err != nil {
 		return fmt.Errorf("can't start the client (is tuimessenger running at %s?): %w", opts.Server, err)
 	}
 	ui := tui.New()
-	ui.Config = config.NewConfigAt(filepath.Join(dir, "config"), opts.LogDir)
+	ui.Config = cfg
 	ui.Backend = b
+	ui.Local, ui.OnExit = local, local.Stop
 	ui.LoggedIn = b.hc.IsLoggedIn() // without a login, the TUI opens on the setup screen
 	ui.Setup = tui.SetupDefaults{Server: opts.Server, Username: opts.Username}
 	ui.Run()

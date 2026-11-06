@@ -12,6 +12,8 @@ import (
 )
 
 type Config struct {
+	// Networks to run, e.g. [whatsapp, slack]; empty means all of DefaultNetworks that can run.
+	Networks []string `yaml:"networks"`
 	Telegram Telegram `yaml:"telegram"`
 	Slack    Slack    `yaml:"slack"`
 }
@@ -25,6 +27,24 @@ type Telegram struct {
 type Slack struct {
 	// Channels are bridged by default; false keeps Slack to DMs and group DMs.
 	IncludeChannels bool `yaml:"include_channels"`
+}
+
+// DefaultNetworks are the networks run when config.yaml doesn't list any.
+var DefaultNetworks = []string{"whatsapp", "telegram", "slack", "instagram"}
+
+// EnabledNetworks is the networks to run: the ones listed, or the default ones that can run (Telegram needs its app keys).
+func (c *Config) EnabledNetworks() []string {
+	if len(c.Networks) > 0 {
+		return c.Networks
+	}
+	var networks []string
+	for _, name := range DefaultNetworks {
+		if name == "telegram" && (c.Telegram.APIID == 0 || c.Telegram.APIHash == "") {
+			continue
+		}
+		networks = append(networks, name)
+	}
+	return networks
 }
 
 // defaults is what a setting is when config.yaml doesn't mention it.

@@ -119,6 +119,10 @@ type Config struct {
 
 	LogConfig zeroconfig.Config `yaml:"log_config"`
 
+	// Mode is how this machine was set up: "complete" runs the backend inside the TUI when none is running,
+	// "self-hosted" only connects to one elsewhere. Empty (set up before modes existed): only connect.
+	Mode string `yaml:"mode,omitempty"`
+
 	Dir string `yaml:"-"`
 
 	Preferences UserPreferences   `yaml:"preferences"`

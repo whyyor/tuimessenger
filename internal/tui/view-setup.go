@@ -2,6 +2,8 @@ package tui
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -59,34 +61,46 @@ type setupRow struct {
 	index int // the mode or field the row shows
 }
 
+// LocalBackend runs the backend inside this process, for Complete setup when none is running.
+type LocalBackend interface {
+	// Start runs the backend if it isn't running yet and reports whether it has a password (clients can log in).
+	Start(ctx context.Context) (hasPassword bool, err error)
+	Running() bool
+	SetPassword(ctx context.Context, password string) error
+}
+
 // SetupView is the first screen when the TUI isn't logged in: pick how tuimessenger runs, then log in.
 type SetupView struct {
 	defaults SetupDefaults
+	local    LocalBackend // nil: Complete setup only connects to a backend that's already running
 
-	choosing bool
-	selected setupMode
-	mode     setupMode
-	fields   []setupField
-	focus    int
-
-	mu      sync.Mutex
-	busy    bool
-	status  string
-	errText string
+	// mu guards the state below: Draw and keys run on the UI thread, backend checks and logins in goroutines.
+	// Callbacks that draw (render, toasts) must run without it, as drawing takes it.
+	mu          sync.Mutex
+	choosing    bool
+	selected    setupMode
+	mode        setupMode
+	newPassword bool // Complete setup on a backend without a password: choose one first
+	fields      []setupField
+	focus       int
+	busy        bool
+	status      string
+	errText     string
 
 	check      func(ctx context.Context, base string) error
 	login      func(ctx context.Context, base, username, password string) error
-	onLoggedIn func()
+	onLoggedIn func(mode setupMode)
 	render     func()
 	quit       func()
 }
 
 func (ui *App) NewSetupView() *SetupView {
 	view := newSetupView(ui.Setup)
+	view.local = ui.Local
 	view.login = func(ctx context.Context, base, username, password string) error {
 		return ui.gmx.API.Login(ctx, &jsoncmd.LoginParams{HomeserverURL: base, Username: username, Password: password})
 	}
-	view.onLoggedIn = ui.leaveSetup
+	view.onLoggedIn = ui.finishSetup
 	view.render = ui.Render
 	view.quit = ui.Stop
 	return view
@@ -94,11 +108,12 @@ func (ui *App) NewSetupView() *SetupView {
 
 func newSetupView(defaults SetupDefaults) *SetupView {
 	return &SetupView{
-		defaults: defaults,
-		choosing: true,
-		check:    checkBackend,
-		render:   func() {},
-		quit:     func() {},
+		defaults:   defaults,
+		choosing:   true,
+		check:      checkBackend,
+		onLoggedIn: func(setupMode) {},
+		render:     func() {},
+		quit:       func() {},
 	}
 }
 
@@ -123,31 +138,107 @@ func newSetupInput(text, placeholder string, password bool) *mauview.InputField 
 	return input
 }
 
-func (view *SetupView) choose(mode setupMode) {
+// effects are what a locked step asks for once the lock is released.
+type effects struct {
+	toast string
+	quit  bool
+}
+
+func (view *SetupView) apply(fx effects) {
+	if fx.toast != "" {
+		toasts.Show(toastError, fx.toast)
+	}
+	if fx.quit {
+		view.quit()
+	}
+	view.render()
+}
+
+func (view *SetupView) setFieldsLocked(fields ...setupField) {
+	view.fields, view.focus = fields, 0
+	if len(fields) > 0 {
+		fields[0].input.Focus()
+	}
+}
+
+func (view *SetupView) passwordFieldsLocked() {
+	if view.newPassword {
+		view.setFieldsLocked(
+			setupField{"Password", newSetupInput("", "at least 8 characters", true)},
+			setupField{"Again", newSetupInput("", "the same password again", true)},
+		)
+	} else {
+		view.setFieldsLocked(setupField{"Password", newSetupInput("", "your tuimessenger password", true)})
+	}
+}
+
+func (view *SetupView) chooseLocked(mode setupMode) {
 	if !setupModes[mode].available {
 		return
 	}
-	view.mode, view.choosing, view.focus = mode, false, 0
-	password := setupField{"Password", newSetupInput("", "your tuimessenger password", true)}
-	if mode == setupComplete {
-		view.fields = []setupField{password}
-	} else {
-		view.fields = []setupField{
-			{"Address", newSetupInput("", "http://pi:8008", false)},
-			{"Username", newSetupInput(view.defaults.Username, "me", false)},
-			password,
-		}
+	view.mode, view.choosing, view.newPassword = mode, false, false
+	view.status, view.errText = "", ""
+	if mode == setupSelfHosted {
+		view.setFieldsLocked(
+			setupField{"Address", newSetupInput("", "http://pi:8008", false)},
+			setupField{"Username", newSetupInput(view.defaults.Username, "me", false)},
+			setupField{"Password", newSetupInput("", "your tuimessenger password", true)},
+		)
+		return
 	}
-	view.fields[0].input.Focus()
-	view.setResult("", "")
+	// Complete setup: find (or start) the backend first; whether it has a password decides the form.
+	view.setFieldsLocked()
+	view.busy, view.status = true, "Looking for the backend on this machine…"
+	go view.prepare()
 }
 
-func (view *SetupView) back() {
-	view.choosing, view.fields = true, nil
-	view.setResult("", "")
+// ensureBackend makes sure this machine's backend answers, starting it in this process if need be.
+func (view *SetupView) ensureBackend(ctx context.Context) (hasPassword bool, err error) {
+	if view.local != nil && view.local.Running() {
+		return view.local.Start(ctx)
+	}
+	err = view.check(ctx, view.defaults.Server)
+	if err == nil {
+		return true, nil // a backend running on its own was given a password when it first started
+	} else if !errors.Is(err, errBackendUnreachable) || view.local == nil {
+		return false, err
+	}
+	view.mu.Lock()
+	view.status = "Starting the backend on this machine…"
+	view.mu.Unlock()
+	view.render()
+	if hasPassword, err = view.local.Start(ctx); err != nil {
+		return false, fmt.Errorf("%w: %w", errLocalStart, err)
+	}
+	return hasPassword, nil
 }
 
-func (view *SetupView) moveFocus(delta int) {
+func (view *SetupView) prepare() {
+	defer debug.Recover()
+	hasPassword, err := view.ensureBackend(context.Background())
+	view.mu.Lock()
+	view.busy, view.status, view.errText = false, "", ""
+	view.newPassword = err == nil && !hasPassword
+	view.passwordFieldsLocked()
+	var fx effects
+	if err != nil {
+		view.errText = setupErrorText(setupComplete, view.defaults.Server, err)
+		fx.toast = view.errText
+	}
+	view.mu.Unlock()
+	view.apply(fx)
+}
+
+func (view *SetupView) backLocked() {
+	view.choosing, view.newPassword = true, false
+	view.setFieldsLocked()
+	view.status, view.errText = "", ""
+}
+
+func (view *SetupView) moveFocusLocked(delta int) {
+	if len(view.fields) == 0 {
+		return
+	}
 	view.fields[view.focus].input.Blur()
 	view.focus = (view.focus + delta + len(view.fields)) % len(view.fields)
 	view.fields[view.focus].input.Focus()
@@ -159,79 +250,94 @@ func (view *SetupView) isBusy() bool {
 	return view.busy
 }
 
-func (view *SetupView) setResult(status, errText string) {
-	view.mu.Lock()
-	view.status, view.errText = status, errText
-	view.mu.Unlock()
-}
-
-// submit reads the form and, when it's complete, checks the backend and logs in in the background.
-func (view *SetupView) submit() {
-	if view.isBusy() {
-		return
-	}
-	base, username := view.defaults.Server, view.defaults.Username
-	password := view.fields[len(view.fields)-1].input.GetText()
-	if view.mode == setupSelfHosted {
-		var err error
-		if base, err = normalizeBackendURL(view.fields[0].input.GetText()); err != nil {
-			view.fail(err.Error())
-			return
-		}
-		username = strings.TrimSpace(view.fields[1].input.GetText())
-		if username == "" {
-			view.fail("Enter your username.")
-			return
-		}
-	}
-	if password == "" {
-		view.fail("Enter your password.")
-		return
-	}
-	view.mu.Lock()
-	view.busy, view.status, view.errText = true, "Checking the backend at "+base+"…", ""
-	view.mu.Unlock()
-	go view.run(view.mode, base, username, password)
-}
-
-func (view *SetupView) run(mode setupMode, base, username, password string) {
-	defer debug.Recover()
-	ctx := context.Background()
-	err := view.check(ctx, base)
-	if err == nil {
-		view.setResult("Logging in…", "")
-		view.render()
-		err = view.login(ctx, base, username, password)
-	}
-	if err != nil {
-		debug.Print("Setup failed:", err)
-		text := setupErrorText(mode, base, err)
-		toasts.Show(toastError, text)
-		view.finish("", text)
-		return
-	}
-	view.onLoggedIn()
-	view.finish("Logged in. Loading your chats…", "")
-}
-
-// finish ends a login attempt; the result and busy change together so Enter can't start another in between.
-func (view *SetupView) finish(status, errText string) {
-	view.mu.Lock()
-	view.busy, view.status, view.errText = false, status, errText
-	view.mu.Unlock()
-	view.render()
-}
-
 func (view *SetupView) errorText() string {
 	view.mu.Lock()
 	defer view.mu.Unlock()
 	return view.errText
 }
 
-// fail shows an error in the form and as a toast, so it's seen even when the form is scrolled out of view.
-func (view *SetupView) fail(text string) {
-	view.setResult("", text)
-	toasts.Show(toastError, text)
+func (view *SetupView) failLocked(text string) effects {
+	view.status, view.errText = "", text
+	return effects{toast: text}
+}
+
+// submitLocked reads the form and, when it's complete, checks the backend and logs in in the background.
+func (view *SetupView) submitLocked() effects {
+	if view.busy || len(view.fields) == 0 {
+		return effects{}
+	}
+	base, username := view.defaults.Server, view.defaults.Username
+	password := view.fields[0].input.GetText()
+	switch {
+	case view.mode == setupSelfHosted:
+		var err error
+		if base, err = normalizeBackendURL(view.fields[0].input.GetText()); err != nil {
+			return view.failLocked(err.Error())
+		}
+		if username = strings.TrimSpace(view.fields[1].input.GetText()); username == "" {
+			return view.failLocked("Enter your username.")
+		}
+		password = view.fields[2].input.GetText()
+	case view.newPassword:
+		if len(password) < minPasswordLength {
+			return view.failLocked(fmt.Sprintf("The password needs at least %d characters.", minPasswordLength))
+		} else if password != view.fields[1].input.GetText() {
+			return view.failLocked("The two passwords don't match.")
+		}
+	}
+	if password == "" {
+		return view.failLocked("Enter your password.")
+	}
+	view.busy, view.status, view.errText = true, "Checking the backend at "+base+"…", ""
+	go view.run(view.mode, view.newPassword, base, username, password)
+	return effects{}
+}
+
+// minPasswordLength matches what the backend accepts.
+const minPasswordLength = 8
+
+func (view *SetupView) run(mode setupMode, choosePassword bool, base, username, password string) {
+	defer debug.Recover()
+	ctx := context.Background()
+	var err error
+	if mode == setupComplete {
+		var hasPassword bool
+		if hasPassword, err = view.ensureBackend(ctx); err == nil && !hasPassword && !choosePassword {
+			// The backend only just started here and has no password yet: ask for a new one instead.
+			view.mu.Lock()
+			view.busy, view.status, view.newPassword = false, "", true
+			view.passwordFieldsLocked()
+			view.mu.Unlock()
+			view.render()
+			return
+		} else if err == nil && choosePassword {
+			err = view.local.SetPassword(ctx, password)
+		}
+	} else {
+		err = view.check(ctx, base)
+	}
+	if err == nil {
+		view.mu.Lock()
+		view.status = "Logging in…"
+		view.mu.Unlock()
+		view.render()
+		err = view.login(ctx, base, username, password)
+	}
+	var fx effects
+	view.mu.Lock()
+	if err != nil {
+		debug.Print("Setup failed:", err)
+		fx = view.failLocked(setupErrorText(mode, base, err))
+		view.busy = false
+		view.mu.Unlock()
+		view.apply(fx)
+		return
+	}
+	view.mu.Unlock()
+	view.onLoggedIn(mode)
+	view.mu.Lock()
+	view.busy, view.status, view.errText = false, "Logged in. Loading your chats…", ""
+	view.mu.Unlock()
 	view.render()
 }
 
@@ -240,41 +346,51 @@ func (view *SetupView) OnKeyEvent(event mauview.KeyEvent) bool {
 		view.quit()
 		return true
 	}
+	view.mu.Lock()
+	handled, fx := view.keyLocked(event)
+	view.mu.Unlock()
+	if fx != (effects{}) {
+		view.apply(fx)
+	}
+	return handled
+}
+
+func (view *SetupView) keyLocked(event mauview.KeyEvent) (bool, effects) {
 	if view.choosing {
-		return view.chooserKey(event)
+		return view.chooserKeyLocked(event)
 	}
 	switch event.Key() {
 	case tcell.KeyEscape:
-		if !view.isBusy() {
-			view.back()
+		if !view.busy {
+			view.backLocked()
 		}
 	case tcell.KeyEnter:
 		if view.focus < len(view.fields)-1 {
-			view.moveFocus(1)
+			view.moveFocusLocked(1)
 		} else {
-			view.submit()
+			return true, view.submitLocked()
 		}
 	case tcell.KeyTab, tcell.KeyDown:
-		view.moveFocus(1)
+		view.moveFocusLocked(1)
 	case tcell.KeyBacktab, tcell.KeyUp:
-		view.moveFocus(-1)
+		view.moveFocusLocked(-1)
 	default:
-		if view.isBusy() {
-			return true
+		if view.busy || len(view.fields) == 0 {
+			return true, effects{}
 		}
-		return view.fields[view.focus].input.OnKeyEvent(event)
+		return view.fields[view.focus].input.OnKeyEvent(event), effects{}
 	}
-	return true
+	return true, effects{}
 }
 
-func (view *SetupView) chooserKey(event mauview.KeyEvent) bool {
+func (view *SetupView) chooserKeyLocked(event mauview.KeyEvent) (bool, effects) {
 	switch event.Key() {
 	case tcell.KeyUp, tcell.KeyBacktab:
 		view.selected = nextMode(view.selected, -1)
 	case tcell.KeyDown, tcell.KeyTab:
 		view.selected = nextMode(view.selected, 1)
 	case tcell.KeyEnter:
-		view.choose(view.selected)
+		view.chooseLocked(view.selected)
 	case tcell.KeyRune:
 		switch r := event.Rune(); {
 		case r == 'k':
@@ -282,18 +398,20 @@ func (view *SetupView) chooserKey(event mauview.KeyEvent) bool {
 		case r == 'j':
 			view.selected = nextMode(view.selected, 1)
 		case r == 'q':
-			view.quit()
+			return true, effects{quit: true}
 		case r >= '1' && r < '1'+rune(len(setupModes)):
-			view.choose(setupMode(r - '1'))
+			view.chooseLocked(setupMode(r - '1'))
 		}
 	default:
-		return false
+		return false, effects{}
 	}
-	return true
+	return true, effects{}
 }
 
 func (view *SetupView) OnPasteEvent(event mauview.PasteEvent) bool {
-	if view.choosing || view.isBusy() {
+	view.mu.Lock()
+	defer view.mu.Unlock()
+	if view.choosing || view.busy || len(view.fields) == 0 {
 		return false
 	}
 	return view.fields[view.focus].input.OnPasteEvent(event)
@@ -338,7 +456,9 @@ func (view *SetupView) rows(width int) []setupRow {
 		}
 		return rows
 	}
-	if view.mode == setupComplete {
+	if view.mode == setupComplete && view.newPassword {
+		text("First run: choose the password you'll log in with, here and from your other devices.", dim)
+	} else if view.mode == setupComplete {
 		text("Log in to the backend on this machine ("+view.defaults.Server+") as "+view.defaults.Username+".", dim)
 	} else {
 		text("Your backend's address, and the username and password you set on it.", dim)
@@ -347,9 +467,7 @@ func (view *SetupView) rows(width int) []setupRow {
 	for i := range view.fields {
 		rows = append(rows, setupRow{kind: rowField, index: i})
 	}
-	view.mu.Lock()
 	status, errText := view.status, view.errText
-	view.mu.Unlock()
 	if errText != "" {
 		blank()
 		text(errText, tcell.StyleDefault.Foreground(ColorMonokaiRed))
@@ -368,6 +486,8 @@ func (view *SetupView) hints() string {
 }
 
 func (view *SetupView) Draw(screen mauview.Screen) {
+	view.mu.Lock()
+	defer view.mu.Unlock()
 	sw, sh := screen.Size()
 	if sw < 24 || sh < 9 {
 		return

@@ -20,6 +20,7 @@ const backendCheckTimeout = 5 * time.Second
 var (
 	errBackendUnreachable = errors.New("backend unreachable")
 	errNotTuimessenger    = errors.New("not a tuimessenger backend")
+	errLocalStart         = errors.New("couldn't start the backend here")
 )
 
 // normalizeBackendURL accepts "pi:8008" or "http://pi:8008/" and returns "http://pi:8008".
@@ -37,6 +38,12 @@ func normalizeBackendURL(raw string) (string, error) {
 	}
 	return strings.TrimRight(parsed.String(), "/"), nil
 }
+
+// CheckBackend is checkBackend for the client's start-up: is a tuimessenger backend answering at base?
+func CheckBackend(ctx context.Context, base string) error { return checkBackend(ctx, base) }
+
+// IsUnreachable reports whether CheckBackend found nothing answering.
+func IsUnreachable(err error) bool { return errors.Is(err, errBackendUnreachable) }
 
 // checkBackend makes sure base answers, and answers like a tuimessenger backend rather than another server.
 func checkBackend(ctx context.Context, base string) error {
@@ -65,6 +72,8 @@ func checkBackend(ctx context.Context, base string) error {
 // setupErrorText turns what went wrong during setup into a sentence that says what to do.
 func setupErrorText(mode setupMode, base string, err error) string {
 	switch {
+	case errors.Is(err, errLocalStart):
+		return "Couldn't start the backend on this machine: " + strings.TrimPrefix(err.Error(), errLocalStart.Error()+": ")
 	case errors.Is(err, errBackendUnreachable) && mode == setupComplete:
 		return fmt.Sprintf("No tuimessenger backend is running on this machine (%s). Start it with `tuimessenger`, then press Enter to try again.", base)
 	case errors.Is(err, errBackendUnreachable):
