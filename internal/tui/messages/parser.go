@@ -68,7 +68,7 @@ func directParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences
 	}
 	switch evt.GetType() {
 	case event.EventMessage, event.EventSticker:
-		if evt.RelationType == event.RelReplace {
+		if evt.RelationType == event.RelReplace || isBridgeNoise(evt) {
 			return nil
 		} else if evt.RedactedBy != "" {
 			// The local database keeps the decrypted content of messages we
@@ -321,4 +321,16 @@ func ParseMembershipEvent(room *store.RoomStore, evt *database.Event) *UIMessage
 	ui := NewExpandedTextMessage(evt, room, text)
 	ui.OverrideSenderName = displayname
 	return ui
+}
+
+// bridgeNoise are bridge notices about actions that change nothing you can see here: WhatsApp's "Keep in chat"
+// (only meaningful with disappearing messages, and the bridge doesn't even say which message).
+var bridgeNoise = map[string]bool{
+	"Kept a message":   true,
+	"Unkept a message": true,
+}
+
+func isBridgeNoise(evt *database.Event) bool {
+	content := evt.GetMautrixContent().AsMessage()
+	return content != nil && content.MsgType == event.MsgNotice && bridgeNoise[content.Body]
 }
