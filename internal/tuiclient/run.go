@@ -11,7 +11,6 @@ import (
 
 	"github.com/rs/zerolog"
 	"go.mau.fi/util/dbutil"
-	"golang.org/x/term"
 	"maunium.net/go/mautrix"
 
 	"github.com/whyyor/tuimessenger/internal/hicli"
@@ -78,30 +77,12 @@ func Run(ctx context.Context, opts Options) error {
 	} else if err != nil {
 		return fmt.Errorf("can't start the client (is tuimessenger running at %s?): %w", opts.Server, err)
 	}
-	if !b.hc.IsLoggedIn() {
-		if err = logIn(ctx, b.hc, opts); err != nil {
-			return err
-		}
-	}
-
 	ui := tui.New()
 	ui.Config = config.NewConfigAt(filepath.Join(dir, "config"), opts.LogDir)
 	ui.Backend = b
+	ui.LoggedIn = b.hc.IsLoggedIn() // without a login, the TUI opens on the setup screen
+	ui.Setup = tui.SetupDefaults{Server: opts.Server, Username: opts.Username}
 	ui.Run()
-	return nil
-}
-
-// logIn asks for the password once; hicli keeps the session in its database after that.
-func logIn(ctx context.Context, hc *hicli.HiClient, opts Options) error {
-	fmt.Printf("Log in to tuimessenger at %s as %s.\nPassword: ", opts.Server, opts.Username)
-	password, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Println()
-	if err != nil {
-		return err
-	}
-	if err = hc.LoginPassword(ctx, opts.Server, opts.Username, string(password)); err != nil {
-		return fmt.Errorf("login failed: %w", err)
-	}
 	return nil
 }
 
