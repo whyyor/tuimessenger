@@ -700,6 +700,7 @@ func (view *MainView) LoadHistory(roomID id.RoomID) {
 	err := view.matrix.LoadMoreHistory(context.TODO(), roomID)
 	if err != nil {
 		debug.Print("Failed to fetch history for", roomID, err)
+		toasts.Show(toastError, "Couldn't load older messages: "+err.Error())
 		return
 	}
 	view.parent.Render()

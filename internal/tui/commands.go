@@ -256,7 +256,8 @@ func (view *RoomView) HandleCommand(cmd *event.MessageEventContent) {
 		Mentions:    mentions,
 	})
 	if err != nil {
-		debug.Print("Failed to send message:", err)
+		debug.Print("Failed to send command:", err)
+		toasts.Show(toastError, "Failed: "+err.Error())
 	}
 	view.parent.parent.Render()
 }

@@ -816,6 +816,7 @@ func (view *RoomView) MarkReadExplicit() {
 			defer debug.Recover()
 			if err := view.parent.matrix.MarkRead(context.TODO(), req); err != nil {
 				debug.Print("Failed to mark read:", err)
+				toasts.Show(toastError, "Couldn't mark it read: "+err.Error())
 				return
 			}
 			notePublicReadOf(view.Room, req.EventID)
@@ -1197,14 +1198,11 @@ func (view *RoomView) CopyToClipboard(text string, register string) {
 		register = "clipboard"
 	}
 	if register == "clipboard" || register == "primary" {
-		err := writeClipboard(text, register)
-		if err != nil {
-			//view.AddServiceMessage(fmt.Sprintf("Clipboard unsupported: %v", err))
-			//view.parent.parent.Render()
+		if err := writeClipboard(text, register); err != nil {
+			toasts.Show(toastError, "Couldn't copy: "+err.Error())
 		}
 	} else {
-		//view.AddServiceMessage(fmt.Sprintf("Clipboard register %v unsupported", register))
-		//view.parent.parent.Render()
+		toasts.Show(toastError, "Unknown clipboard "+register)
 	}
 }
 
@@ -1231,8 +1229,8 @@ func (view *RoomView) Redact(eventID id.EventID, reason string) {
 		Reason:  reason,
 	})
 	if err != nil {
-		//view.AddServiceMessage(fmt.Sprintf("Failed to redact message: %v", err))
-		//view.parent.parent.Render()
+		debug.Print("Failed to delete message:", err)
+		toasts.Show(toastError, "Couldn't delete the message: "+err.Error())
 	}
 }
 
@@ -1281,6 +1279,7 @@ func (view *RoomView) SendMessage(msgtype event.MessageType, text string) {
 	if err != nil {
 		debug.Print("Failed to send message:", err)
 		view.AddServiceMessage("Failed to send message: %v", err)
+		toasts.Show(toastError, "Failed to send message: "+err.Error())
 	}
 	debug.Print("Rendering after sending message")
 	view.parent.parent.Render()

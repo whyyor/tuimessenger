@@ -196,6 +196,7 @@ func (ui *App) onConnStateChange(state rpc.ConnState, err error) {
 func (ui *App) eventHandler(ctx context.Context, rawEvt any) {
 	switch evt := rawEvt.(type) {
 	case *jsoncmd.SyncComplete:
+		ui.reportSendFailures(evt)
 		// Our own public reads from any device hide the Ctrl+m hint.
 		for roomID, sr := range evt.Rooms {
 			if len(sr.Receipts) > 0 {
@@ -221,6 +222,8 @@ func (ui *App) eventHandler(ctx context.Context, rawEvt any) {
 			ui.SyncStatus = evt.Type
 			ui.Render()
 		}
+	case *jsoncmd.SendComplete:
+		reportSendError(evt)
 	case *jsoncmd.Typing:
 		debug.Print("Typing in", evt.RoomID, evt.UserIDs)
 		// Typing arrives outside sync batches, so nothing else repaints for
