@@ -1,7 +1,13 @@
-# tuimessenger
+<p align="center">
+  <img src="assets/icon.svg" alt="tuimessenger icon" width="128">
+</p>
 
+<h1 align="center">tuimessenger</h1>
+
+<p align="center">
 Your chats from WhatsApp, Telegram, Slack and Instagram in one terminal app, with the bridges running on your own
 machine.
+</p>
 
 ## Building
 
