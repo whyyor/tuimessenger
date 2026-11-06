@@ -187,9 +187,9 @@ const (
 
 const PrevBatchPaginationComplete = "com.whyyor.tuimessenger.pagination_complete"
 
-// IsPaginationComplete also accepts the marker rooms got before the rename.
+// IsPaginationComplete reports whether a room's whole history has been loaded.
 func IsPaginationComplete(prevBatch string) bool {
-	return prevBatch == PrevBatchPaginationComplete || prevBatch == "fi.mau.gomuks.pagination_complete"
+	return prevBatch == PrevBatchPaginationComplete
 }
 
 type Room struct {

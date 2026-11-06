@@ -138,15 +138,6 @@ func (gs *Store) ApplySync(sync *jsoncmd.SyncComplete) {
 	defer gs.lock.Unlock()
 	resyncRoomList := len(gs.roomList) == 0
 	changedRoomListEntries := make(map[id.RoomID]*RoomListEntry)
-	renameLegacyAccountData(sync.AccountData, func(t event.Type) bool { return gs.accountData[t] != nil })
-	for roomID, data := range sync.Rooms {
-		if data != nil && len(data.AccountData) > 0 {
-			renameLegacyAccountData(data.AccountData, func(t event.Type) bool {
-				existing := gs.rooms[roomID]
-				return existing != nil && existing.GetAccountData(t) != nil
-			})
-		}
-	}
 	for evtType, ad := range sync.AccountData {
 		evtType.Class = event.AccountDataEventType
 		if evtType == AccountDataPreferences {

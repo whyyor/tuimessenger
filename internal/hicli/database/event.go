@@ -428,7 +428,7 @@ func (eq *EventQuery) GetReactions(ctx context.Context, roomID id.RoomID, eventI
 	})
 }
 
-// An EventRowID uniquely identifies a single Matrix room event in the gomuks database.
+// An EventRowID uniquely identifies a single Matrix room event in the client database.
 //
 // Event row IDs are always positive integers. They are not ordered in any useful way, the counter
 // is simply incremented whenever a new event is persisted. Paginating up in history will cause old
@@ -454,7 +454,7 @@ type LocalContent struct {
 	// Whether the event contains LaTeX math.
 	HasMath bool `json:"has_math,omitempty"`
 	// The message content that should be used as the initial composer state when editing this message.
-	// For messages sent from this gomuks instance, this will be the raw user input. For messages sent
+	// For messages sent from this client, this will be the raw user input. For messages sent
 	// from other clients, this is parsed from the HTML and therefore may have slight changes to the
 	// original markdown (but the resulting HTML is the same anyway).
 	EditSource string `json:"edit_source,omitempty"`

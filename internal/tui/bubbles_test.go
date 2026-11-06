@@ -244,7 +244,7 @@ func TestMarkReadIgnoresNoticesAndBots(t *testing.T) {
 	now := time.Now()
 	mine := textMsg(room, me, now, "hsr")
 	notice := textMsg(room, cmdspec.FakeSender, now.Add(time.Second), "Seen in this chat: on")
-	notice.ID = "$gomuks-internal-abc"
+	notice.ID = "$tuimessenger-internal-abc"
 	bot := textMsg(room, "@instagramgobot:beeper.local", now.Add(2*time.Second), "bridge notice")
 	layout := func(msgs ...*messages.UIMessage) map[*messages.UIMessage]*bubbleLayout {
 		out := map[*messages.UIMessage]*bubbleLayout{}

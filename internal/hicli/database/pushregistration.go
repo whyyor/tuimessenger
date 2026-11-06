@@ -67,7 +67,7 @@ type PushRegistration struct {
 	// For web push, this is the subscription info as a JSON object
 	// (`endpoint` string and `keys` object with `p256dh` and `auth` strings).
 	Data json.RawMessage `json:"data"`
-	// An optional gomuks-specific encryption configuration. Mostly relevant for FCM (and APNs in
+	// An optional client-specific encryption configuration. Mostly relevant for FCM (and APNs in
 	// the future), as web push has built-in encryption.
 	Encryption EncryptionKey `json:"encryption"`
 	// Unix timestamp (seconds) when the registration should be considered stale.

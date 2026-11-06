@@ -254,9 +254,6 @@ var (
 	ResolveAlias = &CommandSpec[*ResolveAliasParams, *mautrix.RespAliasResolve]{Name: ReqResolveAlias}
 	// RequestOpenIDToken returns an OpenID token from the homeserver. OpenID tokens are used to
 	// authenticate with various external services. Widgets also need this method.
-	//
-	// To log into css.gomuks.app, use the response data to form the following URL and open it in
-	// a browser: `https://css.gomuks.app/login?token=${access_token}&server_name=${matrix_server_name}`
 	RequestOpenIDToken = &CommandSpecWithoutRequest[*mautrix.RespOpenIDToken]{Name: ReqRequestOpenIDToken}
 	// Logout logs out the current session. Note that this may break the process until it's restarted.
 	Logout = &CommandSpecWithoutData{Name: ReqLogout}
@@ -306,9 +303,8 @@ var (
 	GetLoginFlows = &CommandSpec[*GetLoginFlowsParams, *LoginFlowsResponse]{Name: ReqGetLoginFlows}
 	// GetVersions returns the spec versions and unstable features supported by the homeserver.
 	GetVersions = &CommandSpecWithoutRequest[*mautrix.RespVersions]{Name: ReqGetVersions}
-	// RegisterPush stores a gomuks-specific pusher in the database. This will not register a
-	// pusher on the homeserver. Push notifications will not work without the gomuks backend
-	// being online.
+	// RegisterPush stores a client-specific pusher in the database. This will not register a
+	// pusher on the homeserver. Push notifications only work while the client is running.
 	RegisterPush = &CommandSpecWithoutResponse[*database.PushRegistration]{Name: ReqRegisterPush}
 	// ListenToDevice toggles including to-device messages in `sync_complete` events. Only relevant for widgets.
 	// Returns the previous value of the setting.

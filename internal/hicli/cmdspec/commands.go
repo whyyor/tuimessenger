@@ -14,12 +14,9 @@ import (
 
 const FakeSender id.UserID = "@tuimessenger"
 
-// legacyFakeSender sent the client's own notices before the rename; older ones in the local database still have it.
-const legacyFakeSender id.UserID = "@gomuks"
-
-// IsFakeSender reports whether a sender is the client itself (its own notices), under the current or the old name.
+// IsFakeSender reports whether a sender is the client itself (its own notices).
 func IsFakeSender(user id.UserID) bool {
-	return user == FakeSender || user == legacyFakeSender
+	return user == FakeSender
 }
 
 const (

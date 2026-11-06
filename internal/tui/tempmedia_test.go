@@ -35,9 +35,9 @@ func TestClearMediaCache(t *testing.T) {
 	t.Setenv("TMPDIR", tmp)
 	dir, _ := freshTempMediaDir()
 	touch(t, filepath.Join(dir, "video.mp4"), 1000)
-	touch(t, filepath.Join(tmp, "gomuks-DeeCOejClvX.mp4"), 500) // yt-dlp reel from before the rename
-	touch(t, filepath.Join(tmp, "other-app.log"), 7)            // not ours
-	if err := os.Mkdir(filepath.Join(tmp, "gomuks-somedir"), 0700); err != nil {
+	touch(t, filepath.Join(tmp, "tuimessenger-DeeCOejClvX.mp4"), 500) // yt-dlp reel
+	touch(t, filepath.Join(tmp, "other-app.log"), 7)                  // not ours
+	if err := os.Mkdir(filepath.Join(tmp, "tuimessenger-somedir"), 0700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -45,7 +45,7 @@ func TestClearMediaCache(t *testing.T) {
 	if count != 2 || size != 1500 {
 		t.Errorf("got %d files / %d bytes, want 2 / 1500", count, size)
 	}
-	for _, keep := range []string{"other-app.log", "gomuks-somedir"} {
+	for _, keep := range []string{"other-app.log", "tuimessenger-somedir"} {
 		if _, err := os.Stat(filepath.Join(tmp, keep)); err != nil {
 			t.Errorf("%s should be untouched", keep)
 		}

@@ -139,7 +139,7 @@ func parseTextFormatCommand(text string) (event.MessageEventContent, bool) {
 	return event.MessageEventContent{}, false
 }
 
-const gomuksInputMime = "text/x-gomuks-input"
+const inputMime = "text/x-tuimessenger-input"
 
 func inputTextToExtensible(text string) *event.ExtensibleTextContainer {
 	content, ok := parseTextFormatCommand(text)
@@ -157,7 +157,7 @@ func inputTextToExtensible(text string) *event.ExtensibleTextContainer {
 		Body:     content.Body,
 		MimeType: "text/plain",
 	}, event.ExtensibleText{
-		MimeType: gomuksInputMime,
+		MimeType: inputMime,
 		Body:     text,
 	})
 	return container
