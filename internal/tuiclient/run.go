@@ -7,13 +7,17 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"syscall"
 
 	"github.com/rs/zerolog"
 	"go.mau.fi/util/dbutil"
 	"maunium.net/go/mautrix"
+	"maunium.net/go/mautrix/id"
 
 	"github.com/whyyor/tuimessenger/internal/hicli"
+	"github.com/whyyor/tuimessenger/internal/server"
+	"github.com/whyyor/tuimessenger/internal/service"
 	"github.com/whyyor/tuimessenger/internal/tui"
 	"github.com/whyyor/tuimessenger/internal/tui/config"
 )
@@ -70,20 +74,15 @@ func Run(ctx context.Context, opts Options) error {
 	cfg := config.NewConfigAt(filepath.Join(dir, "config"), opts.LogDir)
 	cfg.Load()
 	local := &localBackend{opts: opts}
-	// Complete setup: when no backend is answering (no service), this TUI runs it until you quit.
-	if cfg.Mode == tui.ModeComplete {
-		if err = tui.CheckBackend(ctx, opts.Server); tui.IsUnreachable(err) {
-			fmt.Println("Starting the backend…")
-			if _, err = local.Start(ctx); err != nil {
-				return fmt.Errorf("can't start the backend: %w", err)
-			}
-		}
-	}
-
 	userID, err := b.hc.DB.Account.GetFirstUserID(ctx)
 	if err != nil {
-		local.Stop()
 		return err
+	}
+	if userID != "" {
+		// Logged in: make sure the backend answers before the engine starts, which would otherwise retry silently.
+		if err = ensureBackend(ctx, b.hc, userID, cfg.Mode, local, opts); err != nil {
+			return err
+		}
 	}
 	err = b.hc.Start(ctx, userID, nil)
 	if err != nil {
@@ -102,6 +101,37 @@ func Run(ctx context.Context, opts Options) error {
 	ui.Setup = tui.SetupDefaults{Server: opts.Server, Username: opts.Username}
 	ui.Run()
 	return nil
+}
+
+// ensureBackend brings this machine's backend up when it isn't answering (the service, or the backend inside the TUI
+// for Complete setup), and otherwise says clearly what's wrong instead of hanging.
+func ensureBackend(ctx context.Context, hc *hicli.HiClient, userID id.UserID, mode string, local *localBackend, opts Options) error {
+	acc, err := hc.DB.Account.Get(ctx, userID)
+	if err != nil || acc == nil {
+		return err
+	}
+	base := acc.HomeserverURL
+	if err = tui.CheckBackend(ctx, base); !tui.IsUnreachable(err) {
+		return nil // answering, or answering wrongly: the engine reports that itself
+	}
+	installed := service.InstalledFor(opts.DataDir, server.DefaultDataDir())
+	if !canStartHere(mode, installed, base, opts.Server) {
+		return fmt.Errorf("no tuimessenger backend is answering at %s; check that it's running and reachable", base)
+	}
+	fmt.Println("Starting the backend…")
+	if _, err = local.Start(ctx); err != nil {
+		return fmt.Errorf("can't start the backend: %w", err)
+	}
+	return nil
+}
+
+// canStartHere decides whether a backend that isn't answering is this machine's to start: Complete setup, or a
+// machine set up before modes existed that has the service installed; never for a backend elsewhere.
+func canStartHere(mode string, serviceInstalled bool, base, localServer string) bool {
+	if strings.TrimRight(base, "/") != strings.TrimRight(localServer, "/") {
+		return false
+	}
+	return mode == tui.ModeComplete || (mode == "" && serviceInstalled)
 }
 
 // lockFile stays open for the whole run: if it were garbage collected, Go would close it and release the lock.

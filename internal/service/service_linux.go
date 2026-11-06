@@ -35,6 +35,11 @@ func Install(spec Spec) error {
 	return nil
 }
 
+// Start starts the installed unit now.
+func Start() error {
+	return runErr("systemctl", "--user", "start", unitName)
+}
+
 // Uninstall stops and disables the unit and removes its file.
 func Uninstall() error {
 	path, err := filePath()

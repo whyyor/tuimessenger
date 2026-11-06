@@ -50,6 +50,18 @@ func Install(spec Spec) error {
 	return runErr("launchctl", "bootstrap", fmt.Sprintf("gui/%d", os.Getuid()), path)
 }
 
+// Start starts the installed agent now, loading it first if launchd doesn't have it.
+func Start() error {
+	if !loaded() {
+		path, err := filePath()
+		if err != nil {
+			return err
+		}
+		return runErr("launchctl", "bootstrap", fmt.Sprintf("gui/%d", os.Getuid()), path)
+	}
+	return runErr("launchctl", "kickstart", target())
+}
+
 // Uninstall stops the agent and removes its file.
 func Uninstall() error {
 	path, err := filePath()
@@ -64,7 +76,7 @@ func Uninstall() error {
 }
 
 var (
-	launchdState = regexp.MustCompile(`(?m)^\s*state = (\S+)`)
+	launchdState = regexp.MustCompile(`(?m)^\s*state = (.+?)\s*$`)
 	launchdPID   = regexp.MustCompile(`(?m)^\s*pid = (\d+)`)
 )
 

@@ -51,10 +51,16 @@ func listenAddr(server string) (string, error) {
 	return parsed.Host, nil
 }
 
+// Start brings this machine's backend up: the service if one is installed for this data folder (it keeps running
+// after the TUI), otherwise the backend inside this process.
 func (l *localBackend) Start(ctx context.Context) (bool, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.srv == nil {
+		if service.InstalledFor(l.opts.DataDir, server.DefaultDataDir()) {
+			// A service backend asked for its password when it was installed.
+			return true, startService(ctx, l.opts.Server)
+		}
 		if err := l.start(ctx); err != nil {
 			return false, err
 		}
@@ -62,10 +68,31 @@ func (l *localBackend) Start(ctx context.Context) (bool, error) {
 	return l.srv.API.HasPassword(ctx)
 }
 
-func (l *localBackend) start(ctx context.Context) error {
-	if service.InstalledFor(l.opts.DataDir, server.DefaultDataDir()) {
-		return errors.New("the tuimessenger service is installed on this machine but isn't answering; check `tuimessenger service status`")
+// serviceStartTimeout is how long to wait for a started service's backend to answer.
+const serviceStartTimeout = 60 * time.Second
+
+func startService(ctx context.Context, base string) error {
+	if err := service.Start(); err != nil {
+		return fmt.Errorf("couldn't start the tuimessenger service: %w", err)
 	}
+	ctx, cancel := context.WithTimeout(ctx, serviceStartTimeout)
+	defer cancel()
+	for {
+		err := tui.CheckBackend(ctx, base)
+		if err == nil {
+			return nil
+		} else if !tui.IsUnreachable(err) {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return errors.New("the tuimessenger service started but its backend isn't answering; see tuimessenger.log or `tuimessenger service status`")
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
+func (l *localBackend) start(ctx context.Context) error {
 	addr, err := listenAddr(l.opts.Server)
 	if err != nil {
 		return err
