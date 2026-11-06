@@ -116,7 +116,7 @@ func (gc *Client) SendMessage(ctx context.Context, params *jsoncmd.SendMessagePa
 	if err != nil {
 		return err
 	} else if dbEvt != nil {
-		if dbEvt.Sender == cmdspec.FakeSender && gc.OnNotice != nil && gc.OnNotice(dbEvt) {
+		if cmdspec.IsFakeSender(dbEvt.Sender) && gc.OnNotice != nil && gc.OnNotice(dbEvt) {
 			return nil
 		}
 		room.ApplyPending(dbEvt)

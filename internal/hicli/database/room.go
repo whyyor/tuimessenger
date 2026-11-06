@@ -185,7 +185,12 @@ const (
 	NameQualityExplicit
 )
 
-const PrevBatchPaginationComplete = "fi.mau.gomuks.pagination_complete"
+const PrevBatchPaginationComplete = "com.whyyor.tuimessenger.pagination_complete"
+
+// IsPaginationComplete also accepts the marker rooms got before the rename.
+func IsPaginationComplete(prevBatch string) bool {
+	return prevBatch == PrevBatchPaginationComplete || prevBatch == "fi.mau.gomuks.pagination_complete"
+}
 
 type Room struct {
 	ID              id.RoomID                    `json:"room_id"`

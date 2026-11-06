@@ -153,7 +153,7 @@ func (view *MessageView) markRead(msgs []*messages.UIMessage, layouts map[*messa
 
 // isPeer is another human in the chat: not us, not tuimessenger, not a bridge bot.
 func isPeer(user, own id.UserID) bool {
-	return user != own && user != cmdspec.FakeSender && !strings.HasSuffix(user.Localpart(), "bot")
+	return user != own && !cmdspec.IsFakeSender(user) && !strings.HasSuffix(user.Localpart(), "bot")
 }
 
 // tickFor picks the glyphs and colour for one of our messages.

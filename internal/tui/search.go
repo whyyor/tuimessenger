@@ -79,7 +79,7 @@ func (view *MessageView) SearchRows(query string) []searchHit {
 			continue
 		}
 		prev = m
-		if m.IsService || m.Event == nil || m.RowID == 0 || m.Sender == cmdspec.FakeSender {
+		if m.IsService || m.Event == nil || m.RowID == 0 || cmdspec.IsFakeSender(m.Sender) {
 			continue
 		}
 		if strings.Contains(strings.ToLower(searchText(m)), query) {

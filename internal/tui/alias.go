@@ -20,7 +20,7 @@ import (
 
 // AccountDataAlias is your private nickname for a chat ("sis"); room account
 // data, so it syncs and the other side never sees it.
-var AccountDataAlias = event.Type{Type: "com.whyyor.gomuks.alias", Class: event.AccountDataEventType}
+var AccountDataAlias = event.Type{Type: "com.whyyor.tuimessenger.alias", Class: event.AccountDataEventType}
 
 type chatAliasContent struct {
 	Alias string `json:"alias,omitempty"`

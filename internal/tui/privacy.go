@@ -14,7 +14,7 @@ import (
 
 // AccountDataPrivacy holds per-chat opt-ins to share typing and "seen";
 // private room account data, so it follows the account to every device.
-var AccountDataPrivacy = event.Type{Type: "com.whyyor.gomuks.privacy", Class: event.AccountDataEventType}
+var AccountDataPrivacy = event.Type{Type: "com.whyyor.tuimessenger.privacy", Class: event.AccountDataEventType}
 
 // ChatPrivacy is what we share in one chat. Both default to off.
 type ChatPrivacy struct {

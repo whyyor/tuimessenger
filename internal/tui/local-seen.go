@@ -19,7 +19,7 @@ import (
 // AccountDataSeen is how far you've read a /seen-off chat in tuimessenger. Those
 // chats send no receipt at all until Ctrl+m: Beeper only bridges a read that
 // moves your read position, so a private receipt first would swallow it.
-var AccountDataSeen = event.Type{Type: "com.whyyor.gomuks.seen", Class: event.AccountDataEventType}
+var AccountDataSeen = event.Type{Type: "com.whyyor.tuimessenger.seen", Class: event.AccountDataEventType}
 
 type seenMarker struct {
 	EventID   id.EventID `json:"event_id"`

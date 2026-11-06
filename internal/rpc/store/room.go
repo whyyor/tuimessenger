@@ -281,7 +281,7 @@ func (rs *RoomStore) ApplyPending(evt *database.Event) {
 	if !slices.Contains(rs.pendingEvents, evt.RowID) {
 		rs.pendingEvents = append(rs.pendingEvents, evt.RowID)
 	}
-	isFake := evt.Sender == cmdspec.FakeSender
+	isFake := cmdspec.IsFakeSender(evt.Sender)
 	rs.applyEvent(evt, !isFake)
 	if isFake {
 		content := evt.GetMautrixContent().AsMessage()
@@ -629,7 +629,7 @@ func (rs *RoomStore) GetMarkAsReadParams() *jsoncmd.MarkReadParams {
 			break
 		}
 		evt, ok := rs.eventsByRowID[tuple.Event]
-		if ok && strings.HasPrefix(evt.ID.String(), "$") && evt.Sender != cmdspec.FakeSender && isReadableEvent(evt) {
+		if ok && strings.HasPrefix(evt.ID.String(), "$") && !cmdspec.IsFakeSender(evt.Sender) && isReadableEvent(evt) {
 			readEvt = evt
 			rs.lastMarkedRead = tuple.Event
 			break

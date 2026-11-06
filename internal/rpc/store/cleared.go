@@ -12,7 +12,7 @@ import (
 // AccountDataCleared is private room account data written by the terminal
 // client's /clear and hide: only tuimessenger reads it, so Beeper and the bridges
 // never act on it and nothing is deleted anywhere.
-var AccountDataCleared = event.Type{Type: "com.whyyor.gomuks.cleared", Class: event.AccountDataEventType}
+var AccountDataCleared = event.Type{Type: "com.whyyor.tuimessenger.cleared", Class: event.AccountDataEventType}
 
 // ClearState hides history older than TS and the listed events.
 type ClearState struct {

@@ -14,7 +14,7 @@ import (
 
 // AccountDataChatView holds per-chat display choices that only affect tuimessenger;
 // private room account data, so it syncs and the network never sees it.
-var AccountDataChatView = event.Type{Type: "com.whyyor.gomuks.view", Class: event.AccountDataEventType}
+var AccountDataChatView = event.Type{Type: "com.whyyor.tuimessenger.view", Class: event.AccountDataEventType}
 
 // ChatView is how tuimessenger shows one chat. HideDeleted leaves deleted messages
 // out of the timeline (nothing is removed anywhere).
