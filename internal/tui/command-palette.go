@@ -279,6 +279,7 @@ func keyItems(cfg *config.Config) []*paletteItem {
 		{"Visual: reaction popup", "+"},
 		{"Visual: view, play or open (image, voice, video, file, link)", "Space"},
 		{"Visual: hide message", "h"},
+		{"Visual: send a failed message again", "R"},
 		{"Visual: copy link", "u"},
 		{"Visual: message info (sent, delivered, seen)", "i"},
 		{"Emoji picker (recent, / to search)", "Ctrl+e"},
