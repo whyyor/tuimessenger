@@ -8,6 +8,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -187,12 +188,15 @@ func (gc *Client) LoadRoomState(ctx context.Context, roomID id.RoomID, includeMe
 	return nil
 }
 
+// ErrAlreadyPaginating means a history load for the room is still running; the caller can just skip this one.
+var ErrAlreadyPaginating = errors.New("already paginating room")
+
 func (gc *Client) LoadMoreHistory(ctx context.Context, roomID id.RoomID) error {
 	room := gc.Store.GetRoom(roomID)
 	if room == nil {
 		return fmt.Errorf("room not found in store")
 	} else if !room.Paginating.CompareAndSwap(false, true) {
-		return fmt.Errorf("already paginating room")
+		return ErrAlreadyPaginating
 	}
 	defer room.Paginating.Store(false)
 	oldestRowID, count := room.GetPaginationParams()

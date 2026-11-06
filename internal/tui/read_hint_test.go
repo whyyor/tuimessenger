@@ -88,7 +88,7 @@ func TestNoReadHintWhenLastMessageIsMine(t *testing.T) {
 			Type: "m.room.message", Timestamp: jsontime.UM(at.Add(time.Second))},
 		// The bridge's status event after our reply doesn't count as theirs.
 		{RowID: 3, TimelineRowID: 3, ID: "$mss:x", RoomID: room.ID, Sender: "@whatsappbot:beeper.local",
-			Type: "com.beeper.message_send_status", Timestamp: jsontime.UM(at.Add(2 * time.Second))},
+			Type: messageStatusEvent, Timestamp: jsontime.UM(at.Add(2 * time.Second))},
 	}
 	room.ApplySync(&jsoncmd.SyncRoom{
 		Events:   evts,

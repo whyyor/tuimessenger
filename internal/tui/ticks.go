@@ -43,7 +43,7 @@ type deliveryEntry struct {
 	inFlight bool
 }
 
-// deliveryCache remembers bridge send statuses (com.beeper.message_send_status).
+// deliveryCache remembers bridge send statuses (messageStatusEvent).
 type deliveryCache struct {
 	lock    sync.Mutex
 	entries map[id.EventID]*deliveryEntry
@@ -103,7 +103,7 @@ func (view *MessageView) fetchDelivery(eventID id.EventID, entry *deliveryEntry)
 		RoomID:       view.parent.Room.ID,
 		EventID:      eventID,
 		RelationType: event.RelReference,
-		EventType:    "com.beeper.message_send_status",
+		EventType:    messageStatusEvent,
 	})
 	deliveries.lock.Lock()
 	entry.inFlight = false

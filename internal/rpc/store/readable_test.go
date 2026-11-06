@@ -3,6 +3,7 @@ package store
 import (
 	"testing"
 
+	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
 	"github.com/whyyor/tuimessenger/internal/hicli/database"
@@ -12,7 +13,7 @@ import (
 func TestIsReadableEvent(t *testing.T) {
 	for typ, want := range map[string]bool{
 		"m.room.message": true, "m.sticker": true, "m.room.encrypted": true,
-		"com.beeper.message_send_status": false, "m.reaction": false,
+		event.BeeperMessageStatus.Type: false, "m.reaction": false,
 	} {
 		if got := isReadableEvent(&database.Event{Type: typ}); got != want {
 			t.Errorf("%s: got %v", typ, got)

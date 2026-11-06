@@ -34,6 +34,7 @@ func setMarkedUnread(view *MainView, room *store.RoomStore) {
 	})
 	if err != nil {
 		debug.Print("Failed to mark", room.ID, "unread:", err)
+		toasts.Show(toastError, "Couldn't mark it unread: "+err.Error())
 	}
 	view.parent.Render()
 }
