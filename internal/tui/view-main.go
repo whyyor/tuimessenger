@@ -19,6 +19,7 @@ package tui
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -698,7 +699,9 @@ func (view *MainView) LoadHistory(roomID id.RoomID) {
 		}
 	}
 	err := view.matrix.LoadMoreHistory(context.TODO(), roomID)
-	if err != nil {
+	if errors.Is(err, client.ErrAlreadyPaginating) {
+		return // a load for this chat is still running; it'll render when done
+	} else if err != nil {
 		debug.Print("Failed to fetch history for", roomID, err)
 		toasts.Show(toastError, "Couldn't load older messages: "+err.Error())
 		return
