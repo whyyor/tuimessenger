@@ -23,6 +23,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/gdamore/tcell/v2"
@@ -45,7 +46,8 @@ type View string
 
 // Allowed views in App
 const (
-	ViewMain View = "main"
+	ViewMain  View = "main"
+	ViewSetup View = "setup"
 )
 
 type App struct {
@@ -56,6 +58,12 @@ type App struct {
 	Backend client.Backend
 
 	Config *config.Config
+
+	// LoggedIn says whether the engine already has a login; without one the setup screen comes first.
+	LoggedIn bool
+	// Setup is what the setup screen's Complete setup logs in with.
+	Setup   SetupDefaults
+	inSetup atomic.Bool
 
 	MainView *MainView
 
@@ -134,7 +142,13 @@ func (ui *App) Run() {
 	ui.views = map[View]mauview.Component{
 		ViewMain: ui.NewMainView(),
 	}
-	ui.SetView(ViewMain)
+	if ui.LoggedIn {
+		ui.SetView(ViewMain)
+	} else {
+		ui.views[ViewSetup] = ui.NewSetupView()
+		ui.inSetup.Store(true)
+		ui.SetView(ViewSetup)
+	}
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -193,8 +207,20 @@ func (ui *App) onConnStateChange(state rpc.ConnState, err error) {
 	ui.Render()
 }
 
+// leaveSetup switches from the setup screen to the chats once there's a login; later calls do nothing.
+func (ui *App) leaveSetup() {
+	if ui.inSetup.CompareAndSwap(true, false) {
+		ui.SetView(ViewMain)
+		ui.Render()
+	}
+}
+
 func (ui *App) eventHandler(ctx context.Context, rawEvt any) {
 	switch evt := rawEvt.(type) {
+	case *jsoncmd.ClientState:
+		if evt.IsLoggedIn {
+			ui.leaveSetup()
+		}
 	case *jsoncmd.SyncComplete:
 		ui.reportSendFailures(evt)
 		// Our own public reads from any device hide the Ctrl+m hint.
