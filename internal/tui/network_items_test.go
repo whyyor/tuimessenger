@@ -2,17 +2,37 @@ package tui
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"net/url"
 	"testing"
+
+	"maunium.net/go/mautrix/event"
+	"maunium.net/go/mautrix/id"
 
 	"github.com/whyyor/tuimessenger/internal/rpc"
 	"github.com/whyyor/tuimessenger/internal/rpc/client"
 )
 
-// fakeNetworkBackend is a backend that reports networks; the embedded GomuksRPC fills in the rest of the interface.
+// fakeNetworkBackend is a backend that reports networks; the embedded Commands fills in the rest of the interface.
 type fakeNetworkBackend struct {
-	*rpc.GomuksRPC
+	*rpc.Commands
 	networks []client.Network
 }
+
+func (f *fakeNetworkBackend) Run(ctx context.Context, _ rpc.EventHandler, _ rpc.ConnStateHandler) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+func (f *fakeNetworkBackend) Resync()     {}
+func (f *fakeNetworkBackend) Disconnect() {}
+func (f *fakeNetworkBackend) UploadMedia(context.Context, string, bool, io.Reader) (*event.MessageEventContent, error) {
+	return nil, nil
+}
+func (f *fakeNetworkBackend) DownloadMedia(context.Context, rpc.DownloadMediaParams) (*http.Response, error) {
+	return nil, nil
+}
+func (f *fakeNetworkBackend) MediaURL(id.ContentURI, url.Values) string { return "" }
 
 func (f *fakeNetworkBackend) Networks(context.Context) ([]client.Network, error) {
 	return f.networks, nil
@@ -24,7 +44,7 @@ func (f *fakeNetworkBackend) SetNetworkSetting(context.Context, string, string, 
 
 func TestNetworkItems(t *testing.T) {
 	titles := func(networks ...client.Network) []string {
-		backend := &fakeNetworkBackend{GomuksRPC: rpc.NewWithTransport(nil), networks: networks}
+		backend := &fakeNetworkBackend{Commands: rpc.New(nil), networks: networks}
 		p := &CommandPalette{parent: &MainView{matrix: client.New(backend)}}
 		var out []string
 		for _, item := range p.networkItems() {

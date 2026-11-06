@@ -91,7 +91,7 @@ func TestMuteSyncParses(t *testing.T) {
 		if cmd.Command != CmdMuteSync {
 			continue
 		}
-		parsed, err := cmd.ParseInput(cmdspec.FakeGomuksSender, cmdSigils, "/mute-sync")
+		parsed, err := cmd.ParseInput(cmdspec.FakeSender, cmdSigils, "/mute-sync")
 		if err != nil || parsed == nil || parsed.MSC4391BotCommand.Command != CmdMuteSync {
 			t.Fatalf("got %+v, %v", parsed, err)
 		}

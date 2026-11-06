@@ -52,7 +52,7 @@ func isSelfClosing(tag atom.Atom) bool {
 var languageRegex = regexp.MustCompile(`^language-([a-zA-Z0-9-]+)$`)
 var allowedColorRegex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
-// This is approximately a mirror of web/src/util/mediasize.ts in gomuks
+// Fits media into a maximum display box, keeping its aspect ratio.
 func calculateMediaSize(widthInt, heightInt int) (width, height float64, ok bool) {
 	if widthInt <= 0 || heightInt <= 0 {
 		return

@@ -564,7 +564,7 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 					}
 					return true
 				}
-				// h hides the selected message in gomuks until /unclear.
+				// h hides the selected message in tuimessenger until /unclear.
 				if event.Rune() == 'h' {
 					if selected := msgView.GetSelected(); selected != nil {
 						go view.HideMessage(selected.ID)

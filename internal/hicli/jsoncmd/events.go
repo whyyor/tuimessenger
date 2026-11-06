@@ -189,7 +189,7 @@ type RunData struct {
 	// ETag is a hash of the frontend. If the ETag meta value in index.html doesn't match this,
 	// the web interface will reload itself to update. Non-web clients don't need to care about this.
 	ETag string `json:"etag"`
-	// VAPIDKey is the server key used for web push sent by the gomuks backend.
+	// VAPIDKey is the server key used for web push sent by the backend.
 	VAPIDKey string `json:"vapid_key"`
 	// ListenerID is an ID used to acknowledge events received via server-sent events.
 	ListenerID uint64 `json:"listener_id,omitempty"`

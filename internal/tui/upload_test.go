@@ -65,7 +65,7 @@ func TestPastedPathBecomesChip(t *testing.T) {
 func TestBareUploadParses(t *testing.T) {
 	for _, cmd := range LocalCommands {
 		if cmd.Command == CmdUpload {
-			if parsed, err := cmd.ParseInput(cmdspec.FakeGomuksSender, cmdSigils, "/upload"); err != nil || parsed == nil {
+			if parsed, err := cmd.ParseInput(cmdspec.FakeSender, cmdSigils, "/upload"); err != nil || parsed == nil {
 				t.Fatalf("bare /upload: %v", err)
 			}
 			return

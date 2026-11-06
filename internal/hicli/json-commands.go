@@ -192,7 +192,7 @@ type JSONAPI struct {
 	*HiClient
 }
 
-var _ jsoncmd.GomuksAPI = (*JSONAPI)(nil)
+var _ jsoncmd.API = (*JSONAPI)(nil)
 
 func (h *JSONAPI) GetState(ctx context.Context) (*jsoncmd.ClientState, error) {
 	return h.State(), nil
@@ -302,7 +302,7 @@ func (h *JSONAPI) GetProfile(ctx context.Context, params *jsoncmd.GetProfilePara
 				if bioHTML == "" {
 					bioHTML = strings.ReplaceAll(linkifyPlaintext(repr.Body), "\n", "<br/>")
 				}
-			case gomuksInputMime:
+			case inputMime:
 				if params.UserID == h.Account.UserID {
 					bioEditSource = repr.Body
 				}
@@ -327,7 +327,7 @@ func (h *JSONAPI) SetProfileField(ctx context.Context, params *jsoncmd.SetProfil
 	if params.Value == nil {
 		return h.Client.DeleteProfileField(ctx, params.Field)
 	}
-	if params.Field == "_gomuks_bio" {
+	if params.Field == "_tuimessenger_bio" {
 		var inputText string
 		err := json.Unmarshal(params.Value, &inputText)
 		if err != nil {
@@ -651,9 +651,9 @@ func (h *JSONAPI) OAuthSimpleDeviceCode(ctx context.Context, params *jsoncmd.OAu
 	return loginOAuthPrepare(h.HiClient, params.HomeserverURL, func() (*oauth.DeviceCodeResponse, error) {
 		clientMeta, err := h.Client.OAuthRegisterClient(ctx, &oauth.ClientMetadata{
 			ApplicationType:         oauth.ApplicationTypeNative,
-			ClientName:              "gomuks web",
-			ClientURI:               "https://gomuks.app/",
-			LogoURI:                 "https://gomuks.app/favicon.png",
+			ClientName:              "tuimessenger",
+			ClientURI:               "https://github.com/whyyor/tuimessenger",
+			LogoURI:                 "https://raw.githubusercontent.com/whyyor/tuimessenger/main/assets/icon.svg",
 			GrantTypes:              []oauth.GrantType{oauth.GrantTypeRefreshToken, oauth.GrantTypeDeviceCode},
 			TokenEndpointAuthMethod: oauth.AuthMethodNone,
 		})

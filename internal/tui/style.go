@@ -17,7 +17,7 @@ import (
 )
 
 // styleFileName is your own settings file next to terminal.yaml: colours and
-// preferences that win over terminal.yaml at startup. gomuks only reads it,
+// preferences that win over terminal.yaml at startup. tuimessenger only reads it,
 // so it can live in a dotfiles repo (terminal.yaml holds the password).
 const styleFileName = "tuimessenger.yaml"
 

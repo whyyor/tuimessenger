@@ -108,12 +108,8 @@ type RawKeybindings struct {
 	Visual map[string]string `yaml:"visual,omitempty"`
 }
 
-// Config contains the main config of gomuks.
+// Config contains the main config of tuimessenger.
 type Config struct {
-	Server   string `yaml:"server"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-
 	NotifySound bool `yaml:"notify_sound"`
 
 	Backspace1RemovesWord bool `yaml:"backspace1_removes_word"`
@@ -156,7 +152,7 @@ func GetLogDirectory() string {
 	}
 }
 
-// NewConfig creates a config in the default directories (or the ones from the GOMUKS_* environment variables).
+// NewConfig creates a config in the default directories (or the ones from the TUIMESSENGER_* environment variables).
 func NewConfig() *Config {
 	return NewConfigAt(GetConfigDirectory(), GetLogDirectory())
 }

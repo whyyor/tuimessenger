@@ -6,7 +6,7 @@ import (
 	"maunium.net/go/mautrix/event"
 )
 
-var AccountDataGomuksPreferences = event.Type{Type: "fi.mau.gomuks.preferences", Class: event.AccountDataEventType}
+var AccountDataPreferences = event.Type{Type: "com.whyyor.tuimessenger.preferences", Class: event.AccountDataEventType}
 
 type Preferences struct {
 	SendReadReceipts        bool   `json:"send_read_receipts,omitempty"`
@@ -62,5 +62,5 @@ var DefaultPreferences = Preferences{
 }
 
 func init() {
-	event.TypeMap[AccountDataGomuksPreferences] = reflect.TypeOf(Preferences{})
+	event.TypeMap[AccountDataPreferences] = reflect.TypeOf(Preferences{})
 }

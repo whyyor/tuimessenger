@@ -17,7 +17,7 @@ import (
 
 type InvitedRoom struct {
 	*RoomListEntry
-	parent         *GomuksStore
+	parent         *Store
 	RoomVersion    id.RoomVersion
 	Encryption     id.Algorithm
 	JoinRule       event.JoinRule
@@ -30,7 +30,7 @@ type InvitedRoom struct {
 
 const inviteTimeOffset = 1_000_000 * time.Hour
 
-func NewInvitedRoom(meta *database.InvitedRoom, parent *GomuksStore) *InvitedRoom {
+func NewInvitedRoom(meta *database.InvitedRoom, parent *Store) *InvitedRoom {
 	entry := &InvitedRoom{
 		parent: parent,
 		RoomListEntry: &RoomListEntry{

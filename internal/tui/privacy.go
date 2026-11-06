@@ -14,7 +14,7 @@ import (
 
 // AccountDataPrivacy holds per-chat opt-ins to share typing and "seen";
 // private room account data, so it follows the account to every device.
-var AccountDataPrivacy = event.Type{Type: "com.whyyor.gomuks.privacy", Class: event.AccountDataEventType}
+var AccountDataPrivacy = event.Type{Type: "com.whyyor.tuimessenger.privacy", Class: event.AccountDataEventType}
 
 // ChatPrivacy is what we share in one chat. Both default to off.
 type ChatPrivacy struct {
@@ -42,7 +42,7 @@ func receiptTypeFor(room *store.RoomStore) event.ReceiptType {
 }
 
 // sendsPublicRead: automatic reads go public only with /seen on and not
-// peeking; otherwise gomuks records them locally.
+// peeking; otherwise tuimessenger records them locally.
 func sendsPublicRead(view *RoomView) bool {
 	return !view.peek && receiptTypeFor(view.Room) == event.ReceiptTypeRead
 }

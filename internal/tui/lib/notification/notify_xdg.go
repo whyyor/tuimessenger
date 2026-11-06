@@ -57,8 +57,8 @@ func init() {
 			break
 		}
 	}
-	soundNormal = getSoundPath("GOMUKS_SOUND_NORMAL", soundNormal)
-	soundCritical = getSoundPath("GOMUKS_SOUND_CRITICAL", soundCritical)
+	soundNormal = getSoundPath("TUIMESSENGER_SOUND_NORMAL", soundNormal)
+	soundCritical = getSoundPath("TUIMESSENGER_SOUND_CRITICAL", soundCritical)
 }
 
 // SendFrom ignores the source network; only macOS attributes notifications.

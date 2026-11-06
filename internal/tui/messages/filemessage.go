@@ -82,11 +82,11 @@ type FileMessage struct {
 	voiceTail string
 	voiceRow  bool
 
-	matrix *client.GomuksClient
+	matrix *client.Client
 }
 
 // NewFileMessage creates a new FileMessage object with the provided values and the default state.
-func NewFileMessage(room *store.RoomStore, matrix *client.GomuksClient, evt *database.Event, content *event.MessageEventContent) *UIMessage {
+func NewFileMessage(room *store.RoomStore, matrix *client.Client, evt *database.Event, content *event.MessageEventContent) *UIMessage {
 	var url id.ContentURI
 	var isEncrypted bool
 	if content.File != nil {

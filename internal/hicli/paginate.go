@@ -414,7 +414,7 @@ func (h *HiClient) PaginateServer(ctx context.Context, roomID id.RoomID, limit i
 	if reset {
 		room.PrevBatch = ""
 	}
-	if room.PrevBatch == database.PrevBatchPaginationComplete {
+	if database.IsPaginationComplete(room.PrevBatch) {
 		return &jsoncmd.PaginationResponse{Events: []*database.Event{}, HasMore: false}, nil
 	}
 	resp, err := h.Client.Messages(ctx, roomID, room.PrevBatch, "", mautrix.DirectionBackward, nil, limit)

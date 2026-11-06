@@ -39,7 +39,7 @@ func TestWhoSaw(t *testing.T) {
 			receipt("@nadia:x", event.ReceiptTypeRead, base.Add(time.Minute)),
 			receipt("@priv:x", event.ReceiptTypeReadPrivate, base.Add(time.Minute)),
 			receipt(me, event.ReceiptTypeRead, base),
-			receipt(cmdspec.FakeGomuksSender, event.ReceiptTypeRead, base),
+			receipt(cmdspec.FakeSender, event.ReceiptTypeRead, base),
 		},
 		"$reply": {receipt("@roy:x", event.ReceiptTypeRead, base.Add(7*time.Minute))},
 		"$older": {receipt("@old:x", event.ReceiptTypeRead, base.Add(time.Hour))},

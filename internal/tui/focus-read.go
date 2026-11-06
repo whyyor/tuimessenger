@@ -11,7 +11,7 @@ import (
 // when the terminal never reports focus (e.g. a multiplexer swallows it).
 const activityWindow = 60 * time.Second
 
-// attention tracks whether you're looking at gomuks, so messages arriving in
+// attention tracks whether you're looking at tuimessenger, so messages arriving in
 // the open chat are only read (and receipts sent) while you can see them.
 type attention struct {
 	mu           sync.Mutex

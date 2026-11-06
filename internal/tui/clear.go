@@ -51,7 +51,7 @@ func (view *RoomView) writeClearState(state store.ClearState) error {
 	})
 }
 
-// SetCleared hides this chat's history in gomuks only, keeping individually
+// SetCleared hides this chat's history in tuimessenger only, keeping individually
 // hidden messages; unclearing resets both. Nothing is deleted anywhere.
 func (view *RoomView) SetCleared(clear bool) {
 	defer debug.Recover()
@@ -68,7 +68,7 @@ func (view *RoomView) SetCleared(clear bool) {
 	view.parent.parent.Render()
 }
 
-// HideMessage hides one message in gomuks until /unclear.
+// HideMessage hides one message in tuimessenger until /unclear.
 func (view *RoomView) HideMessage(evtID id.EventID) {
 	defer debug.Recover()
 	state, changed := view.Room.ClearState().WithHidden(evtID)

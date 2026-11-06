@@ -21,7 +21,7 @@ func TestIsReadableEvent(t *testing.T) {
 }
 
 func TestForgetMarkedReadResends(t *testing.T) {
-	gs := &GomuksStore{}
+	gs := &Store{}
 	room := NewRoomStore(gs, &database.Room{ID: "!r:x"})
 	room.ApplySync(&jsoncmd.SyncRoom{
 		Events:   []*database.Event{{RowID: 1, ID: "$m:x", RoomID: "!r:x", Sender: "@a:x", Type: "m.room.message"}},
@@ -42,7 +42,7 @@ func TestForgetMarkedReadResends(t *testing.T) {
 // A receipt synced before its event is in memory is dropped; fetching
 // receipts when the chat opens brings it back.
 func TestFetchedReceiptsFillTheGap(t *testing.T) {
-	room := NewRoomStore(&GomuksStore{}, &database.Room{ID: "!r:x"})
+	room := NewRoomStore(&Store{}, &database.Room{ID: "!r:x"})
 	her := id.UserID("@whatsapp_lid-1:beeper.local")
 	receipt := map[id.EventID][]*database.Receipt{"$krlo:x": {{UserID: her, EventID: "$krlo:x"}}}
 	room.ApplySync(&jsoncmd.SyncRoom{Receipts: receipt})

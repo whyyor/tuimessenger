@@ -185,7 +185,12 @@ const (
 	NameQualityExplicit
 )
 
-const PrevBatchPaginationComplete = "fi.mau.gomuks.pagination_complete"
+const PrevBatchPaginationComplete = "com.whyyor.tuimessenger.pagination_complete"
+
+// IsPaginationComplete reports whether a room's whole history has been loaded.
+func IsPaginationComplete(prevBatch string) bool {
+	return prevBatch == PrevBatchPaginationComplete
+}
 
 type Room struct {
 	ID              id.RoomID                    `json:"room_id"`

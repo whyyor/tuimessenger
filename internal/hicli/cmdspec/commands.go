@@ -12,7 +12,12 @@ import (
 	"maunium.net/go/mautrix/id"
 )
 
-const FakeGomuksSender id.UserID = "@gomuks"
+const FakeSender id.UserID = "@tuimessenger"
+
+// IsFakeSender reports whether a sender is the client itself (its own notices).
+func IsFakeSender(user id.UserID) bool {
+	return user == FakeSender
+}
 
 const (
 	Join           = "join"

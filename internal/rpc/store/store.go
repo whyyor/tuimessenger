@@ -37,7 +37,7 @@ type RoomListEntry struct {
 	database.UnreadCounts
 }
 
-type GomuksStore struct {
+type Store struct {
 	jsoncmd.ClientState
 	ImageAuthToken string
 
@@ -51,8 +51,8 @@ type GomuksStore struct {
 	PreferenceCache  EventDispatcher[*Preferences]
 }
 
-func NewStore() *GomuksStore {
-	gs := &GomuksStore{
+func NewStore() *Store {
+	gs := &Store{
 		rooms:        make(map[id.RoomID]*RoomStore),
 		invitedRooms: make(map[id.RoomID]*InvitedRoom),
 		accountData:  make(map[event.Type]*database.AccountData),
@@ -84,7 +84,7 @@ func hasClearUpdate(entry *jsoncmd.SyncRoom) bool {
 	return false
 }
 
-func (gs *GomuksStore) shouldHideRoom(entry *database.Room) bool {
+func (gs *Store) shouldHideRoom(entry *database.Room) bool {
 	switch entry.CreationContent.Type {
 	default:
 		// The room is not a normal room
@@ -104,7 +104,7 @@ func (gs *GomuksStore) shouldHideRoom(entry *database.Room) bool {
 	return false
 }
 
-func (gs *GomuksStore) makeRoomListEntry(roomStore *RoomStore) *RoomListEntry {
+func (gs *Store) makeRoomListEntry(roomStore *RoomStore) *RoomListEntry {
 	meta := roomStore.Meta.Current()
 	roomStore.Hidden = gs.shouldHideRoom(meta)
 	if roomStore.Hidden {
@@ -133,14 +133,14 @@ func (gs *GomuksStore) makeRoomListEntry(roomStore *RoomStore) *RoomListEntry {
 	return entry
 }
 
-func (gs *GomuksStore) ApplySync(sync *jsoncmd.SyncComplete) {
+func (gs *Store) ApplySync(sync *jsoncmd.SyncComplete) {
 	gs.lock.Lock()
 	defer gs.lock.Unlock()
 	resyncRoomList := len(gs.roomList) == 0
 	changedRoomListEntries := make(map[id.RoomID]*RoomListEntry)
 	for evtType, ad := range sync.AccountData {
 		evtType.Class = event.AccountDataEventType
-		if evtType == AccountDataGomuksPreferences {
+		if evtType == AccountDataPreferences {
 			parsedPreferences := DefaultPreferences
 			_ = json.Unmarshal(ad.Content, &parsedPreferences)
 			gs.PreferenceCache.Emit(&parsedPreferences)
@@ -230,25 +230,25 @@ func insertSorted(list []*RoomListEntry, entry *RoomListEntry) []*RoomListEntry 
 	return slices.Insert(list, i, entry)
 }
 
-func (gs *GomuksStore) GetAccountData(evtType event.Type) *database.AccountData {
+func (gs *Store) GetAccountData(evtType event.Type) *database.AccountData {
 	gs.lock.RLock()
 	defer gs.lock.RUnlock()
 	return gs.accountData[event.Type{Type: evtType.Type, Class: event.AccountDataEventType}]
 }
 
-func (gs *GomuksStore) GetRoom(roomID id.RoomID) *RoomStore {
+func (gs *Store) GetRoom(roomID id.RoomID) *RoomStore {
 	gs.lock.RLock()
 	defer gs.lock.RUnlock()
 	return gs.rooms[roomID]
 }
 
-func (gs *GomuksStore) GetInviteRoom(roomID id.RoomID) *InvitedRoom {
+func (gs *Store) GetInviteRoom(roomID id.RoomID) *InvitedRoom {
 	gs.lock.RLock()
 	defer gs.lock.RUnlock()
 	return gs.invitedRooms[roomID]
 }
 
-func (gs *GomuksStore) Clear() {
+func (gs *Store) Clear() {
 	gs.lock.Lock()
 	defer gs.lock.Unlock()
 	clear(gs.rooms)

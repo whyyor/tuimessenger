@@ -155,7 +155,7 @@ var suspendTerminal = func(view *RoomView, fn func()) {
 // pickWithYazi runs yazi full-screen as a chooser: Enter on a file (Space
 // marks several) picks it, q cancels. It starts in ~/Downloads.
 func (view *RoomView) pickWithYazi(yazi string) ([]string, error) {
-	// Not "gomuks-…": the media cache cleaner deletes those from the temp dir.
+	// Not "tuimessenger-…": the media cache cleaner deletes those from the temp dir.
 	f, err := os.CreateTemp("", "yazi-chooser-*")
 	if err != nil {
 		return nil, err

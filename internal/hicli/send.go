@@ -139,7 +139,7 @@ func parseTextFormatCommand(text string) (event.MessageEventContent, bool) {
 	return event.MessageEventContent{}, false
 }
 
-const gomuksInputMime = "text/x-gomuks-input"
+const inputMime = "text/x-tuimessenger-input"
 
 func inputTextToExtensible(text string) *event.ExtensibleTextContainer {
 	content, ok := parseTextFormatCommand(text)
@@ -157,7 +157,7 @@ func inputTextToExtensible(text string) *event.ExtensibleTextContainer {
 		Body:     content.Body,
 		MimeType: "text/plain",
 	}, event.ExtensibleText{
-		MimeType: gomuksInputMime,
+		MimeType: inputMime,
 		Body:     text,
 	})
 	return container
@@ -174,7 +174,7 @@ func (h *HiClient) SendMessage(
 	urlPreviews []*event.BeeperLinkPreview,
 ) (*database.Event, error) {
 	hasCommand := base != nil && base.MSC4391BotCommand != nil
-	if hasCommand && mentions.Has(cmdspec.FakeGomuksSender) && len(mentions.UserIDs) == 1 {
+	if hasCommand && mentions.Has(cmdspec.FakeSender) && len(mentions.UserIDs) == 1 {
 		return h.ProcessCommand(ctx, roomID, base.MSC4391BotCommand, base, relatesTo)
 	}
 	var unencrypted bool

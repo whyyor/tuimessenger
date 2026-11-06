@@ -10,7 +10,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/hicli/database"
 )
 
-type GomuksAPI interface {
+type API interface {
 	GetState(ctx context.Context) (*ClientState, error)
 	SendMessage(ctx context.Context, params *SendMessageParams) (*database.Event, error)
 	SendEvent(ctx context.Context, params *SendEventParams) (*database.Event, error)

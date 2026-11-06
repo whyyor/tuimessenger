@@ -34,7 +34,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
-func ParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
+func ParseEvent(matrix *client.Client, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
 	msg := directParseEvent(matrix, prefs, room, evt)
 	if msg == nil {
 		return nil
@@ -62,7 +62,7 @@ func ParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences, room
 	return msg
 }
 
-func directParseEvent(matrix *client.GomuksClient, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
+func directParseEvent(matrix *client.Client, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
 	if evt.DecryptionError != "" {
 		return NewExpandedTextMessage(evt, room, tstring.NewStyleTString(evt.DecryptionError, tcell.StyleDefault.Italic(true)))
 	}
@@ -187,7 +187,7 @@ func ParseStateEvent(room *store.RoomStore, evt *database.Event) *UIMessage {
 	return NewExpandedTextMessage(evt, room, text)
 }
 
-func ParseMessage(matrix *client.GomuksClient, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
+func ParseMessage(matrix *client.Client, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
 	content := evt.GetMautrixContent().AsMessage()
 	if evt.GetType() == event.EventSticker {
 		// m.sticker content has no msgtype but is otherwise an image; without

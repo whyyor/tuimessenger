@@ -43,34 +43,31 @@ import (
 
 type View string
 
-// Allowed views in GomuksTUI
+// Allowed views in App
 const (
-	ViewLogin View = "login"
-	ViewMain  View = "main"
+	ViewMain View = "main"
 )
 
-type GomuksTUI struct {
-	gmx *client.GomuksClient
+type App struct {
+	gmx *client.Client
 	app *mauview.Application
 
-	// Backend, if set before Run, is used instead of logging in to a gomuks daemon from the config.
+	// Backend is what the TUI talks to; set it before Run (tuimessenger runs hicli in-process).
 	Backend client.Backend
 
 	Config *config.Config
 
-	MainView  *MainView
-	LoginView *LoginView
+	MainView *MainView
 
 	NeedsRender bool
 
-	// ConnState is the current state of the connection to the gomuks backend.
+	// ConnState is the state of the client engine (hicli) as the TUI sees it.
 	ConnState rpc.ConnState
-	// Resyncing is true from a manual resync until the backend finishes
-	// streaming the fresh initial data. The websocket reconnects in
-	// milliseconds; this is the phase a human can actually see.
+	// Resyncing is true from a manual resync until the engine finishes
+	// sending the fresh initial data; this is the phase a human can see.
 	Resyncing bool
-	// SyncStatus mirrors the daemon's own homeserver sync health, which is
-	// the layer a client-side reconnect cannot fix.
+	// SyncStatus mirrors the engine's sync with the tuimessenger backend,
+	// the layer that actually delays new messages when it fails.
 	SyncStatus jsoncmd.SyncStatusType
 
 	ctx    context.Context
@@ -100,9 +97,9 @@ func init() {
 	}
 }
 
-func NewGomuksTUI() *GomuksTUI {
+func New() *App {
 	ctx, cancel := context.WithCancel(context.Background())
-	ui := &GomuksTUI{
+	ui := &App{
 		app:    mauview.NewApplication(),
 		Config: config.NewConfig(),
 		ctx:    ctx,
@@ -112,7 +109,7 @@ func NewGomuksTUI() *GomuksTUI {
 	return ui
 }
 
-func (ui *GomuksTUI) Run() {
+func (ui *App) Run() {
 	ui.Config.LoadAll()
 	// tuimessenger.yaml (yours, in dotfiles) wins over terminal.yaml.
 	if problems := applyStyleFile(ui.Config); len(problems) > 0 {
@@ -123,15 +120,10 @@ func (ui *GomuksTUI) Run() {
 	ui.Config.Preferences.HideRoomList = !ui.Config.Preferences.SidebarOnStart
 	log := exerrors.Must(ui.Config.LogConfig.Compile())
 	exzerolog.SetupDefaults(log)
-	loggedIn := false
-	if ui.Backend != nil {
-		ui.gmx = client.New(ui.Backend)
-		loggedIn = true
-	} else if ui.Config.Server != "" && ui.Config.Username != "" && ui.Config.Password != "" {
-		ui.gmx = exerrors.Must(client.NewGomuksClient(ui.Config.Server))
-		exerrors.PanicIfNotNil(ui.gmx.Authenticate(context.TODO(), ui.Config.Username, ui.Config.Password))
-		loggedIn = true
+	if ui.Backend == nil {
+		panic("tui: App.Backend must be set before Run")
 	}
+	ui.gmx = client.New(ui.Backend)
 
 	mauview.Backspace2RemovesWord = ui.Config.Backspace2RemovesWord
 	mauview.Backspace1RemovesWord = ui.Config.Backspace1RemovesWord
@@ -140,14 +132,9 @@ func (ui *GomuksTUI) Run() {
 	ui.app.SetAlwaysClear(false)
 	_ = clipboard.Initialize()
 	ui.views = map[View]mauview.Component{
-		ViewLogin: ui.NewLoginView(),
-		ViewMain:  ui.NewMainView(),
+		ViewMain: ui.NewMainView(),
 	}
-	if loggedIn {
-		ui.SetView(ViewMain)
-	} else {
-		ui.SetView(ViewLogin)
-	}
+	ui.SetView(ViewMain)
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -157,13 +144,11 @@ func (ui *GomuksTUI) Run() {
 		ui.Finish()
 	}()
 
-	if ui.gmx != nil {
-		go ui.Connect()
-	}
+	go ui.Connect()
 	exerrors.PanicIfNotNil(ui.app.Start())
 }
 
-func (ui *GomuksTUI) Connect() {
+func (ui *App) Connect() {
 	ui.gmx.ReversedRoomList.Listen(func(rooms []*store.RoomListEntry) {
 		ui.NeedsRender = true
 		onRoomListChange(ui.gmx, rooms)
@@ -181,7 +166,7 @@ func (ui *GomuksTUI) Connect() {
 		toasts.Show(classifyNotice(text), text)
 		return true
 	}
-	ui.gmx.EventHandler = ui.gomuksEventHandler
+	ui.gmx.EventHandler = ui.eventHandler
 	messages.RequestRender = ui.Render
 	ui.MainView.matrix = ui.gmx
 	err := ui.gmx.Connect(ui.ctx, ui.onConnStateChange)
@@ -192,14 +177,14 @@ func (ui *GomuksTUI) Connect() {
 
 // Resync reconnects to the backend right away and asks for a full resync, which
 // is the terminal equivalent of reloading the web client.
-func (ui *GomuksTUI) Resync() {
+func (ui *App) Resync() {
 	debug.Print("Manual resync requested")
 	ui.Resyncing = true
 	ui.Render()
 	ui.gmx.Backend.Resync()
 }
 
-func (ui *GomuksTUI) onConnStateChange(state rpc.ConnState, err error) {
+func (ui *App) onConnStateChange(state rpc.ConnState, err error) {
 	debug.Printf("Connection state: %s (%v)", state, err)
 	ui.ConnState = state
 	// Render immediately: the localhost reconnect is over in milliseconds, so
@@ -208,7 +193,7 @@ func (ui *GomuksTUI) onConnStateChange(state rpc.ConnState, err error) {
 	ui.Render()
 }
 
-func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
+func (ui *App) eventHandler(ctx context.Context, rawEvt any) {
 	switch evt := rawEvt.(type) {
 	case *jsoncmd.SyncComplete:
 		// Our own public reads from any device hide the Ctrl+m hint.
@@ -247,7 +232,7 @@ func (ui *GomuksTUI) gomuksEventHandler(ctx context.Context, rawEvt any) {
 	}
 }
 
-func (ui *GomuksTUI) Stop() {
+func (ui *App) Stop() {
 	debug.Print("Stopping")
 	ui.cancel()
 	ui.gmx.Backend.Disconnect()
@@ -257,33 +242,25 @@ func (ui *GomuksTUI) Stop() {
 	os.Exit(0)
 }
 
-func (ui *GomuksTUI) Finish() {
+func (ui *App) Finish() {
 	ui.app.ForceStop()
 	os.Exit(0)
 }
 
-func (ui *GomuksTUI) Render() {
+func (ui *App) Render() {
 	ui.app.Redraw()
 	ui.NeedsRender = false
 }
 
-func (ui *GomuksTUI) OnLogin() {
-	ui.SetView(ViewMain)
-}
-
-func (ui *GomuksTUI) OnLogout() {
-	ui.SetView(ViewLogin)
-}
-
-func (ui *GomuksTUI) HandleNewPreferences() {
+func (ui *App) HandleNewPreferences() {
 	ui.Render()
 }
 
-func (ui *GomuksTUI) SetView(name View) {
+func (ui *App) SetView(name View) {
 	ui.app.SetRoot(newBufferedRoot(ui.views[name]))
 }
 
-func (ui *GomuksTUI) RunExternal(executablePath string, args ...string) error {
+func (ui *App) RunExternal(executablePath string, args ...string) error {
 	callback := make(chan error)
 	ui.app.Suspend(func() {
 		cmd := exec.Command(executablePath, args...)

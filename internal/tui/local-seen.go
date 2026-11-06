@@ -16,10 +16,10 @@ import (
 	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
-// AccountDataSeen is how far you've read a /seen-off chat in gomuks. Those
+// AccountDataSeen is how far you've read a /seen-off chat in tuimessenger. Those
 // chats send no receipt at all until Ctrl+m: Beeper only bridges a read that
 // moves your read position, so a private receipt first would swallow it.
-var AccountDataSeen = event.Type{Type: "com.whyyor.gomuks.seen", Class: event.AccountDataEventType}
+var AccountDataSeen = event.Type{Type: "com.whyyor.tuimessenger.seen", Class: event.AccountDataEventType}
 
 type seenMarker struct {
 	EventID   id.EventID `json:"event_id"`
@@ -59,9 +59,9 @@ func (m seenMarker) coveredBy(preview *database.Event) bool {
 	return m.EventID == preview.ID || m.Timestamp >= preview.Timestamp.UnixMilli()
 }
 
-// unreadCounts is what gomuks shows: the server's counts, zeroed for a chat
+// unreadCounts is what tuimessenger shows: the server's counts, zeroed for a chat
 // you've read here without sending a receipt (unless marked unread).
-func unreadCounts(gmx *client.GomuksClient, entry *store.RoomListEntry) database.UnreadCounts {
+func unreadCounts(gmx *client.Client, entry *store.RoomListEntry) database.UnreadCounts {
 	counts := entry.UnreadCounts
 	if entry.MarkedUnread || counts.IsZero() || gmx == nil {
 		return counts
@@ -73,8 +73,8 @@ func unreadCounts(gmx *client.GomuksClient, entry *store.RoomListEntry) database
 }
 
 // applyLocalSeen returns rooms with unread counts cleared for chats read in
-// gomuks; changed entries are copies, the rest are shared.
-func applyLocalSeen(gmx *client.GomuksClient, rooms []*store.RoomListEntry) []*store.RoomListEntry {
+// tuimessenger; changed entries are copies, the rest are shared.
+func applyLocalSeen(gmx *client.Client, rooms []*store.RoomListEntry) []*store.RoomListEntry {
 	out := rooms
 	copied := false
 	for i, entry := range rooms {
@@ -93,7 +93,7 @@ func applyLocalSeen(gmx *client.GomuksClient, rooms []*store.RoomListEntry) []*s
 	return out
 }
 
-// markSeenLocally records the read in gomuks only, and clears a marked-unread
+// markSeenLocally records the read in tuimessenger only, and clears a marked-unread
 // flag as opening the chat would.
 func (view *MainView) markSeenLocally(room *store.RoomStore, req *jsoncmd.MarkReadParams) {
 	defer debug.Recover()
@@ -122,7 +122,7 @@ func (view *MainView) markSeenLocally(room *store.RoomStore, req *jsoncmd.MarkRe
 
 // onRoomListChange runs inside the store's ApplySync, which holds its lock:
 // anything that looks rooms up (GetRoom) must happen after it returns.
-func onRoomListChange(gmx *client.GomuksClient, rooms []*store.RoomListEntry) {
+func onRoomListChange(gmx *client.Client, rooms []*store.RoomListEntry) {
 	// A closure: `go f(g())` would still evaluate g() right here, under the lock.
 	go func() { clearReadNotifications(applyLocalSeen(gmx, rooms)) }()
 }

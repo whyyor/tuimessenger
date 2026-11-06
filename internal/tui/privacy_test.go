@@ -44,7 +44,7 @@ func TestTypingAndSeenCommandsParse(t *testing.T) {
 	for _, input := range []string{"/typing", "/typing on", "/seen off", "/seen"} {
 		ok := false
 		for _, cmd := range LocalCommands {
-			if parsed, err := cmd.ParseInput(cmdspec.FakeGomuksSender, cmdSigils, input); parsed != nil && err == nil {
+			if parsed, err := cmd.ParseInput(cmdspec.FakeSender, cmdSigils, input); parsed != nil && err == nil {
 				ok = true
 				break
 			}

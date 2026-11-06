@@ -47,10 +47,9 @@ func clearDir(dir string, keep func(os.DirEntry) bool) (count int, size int64) {
 }
 
 // legacyTempFile matches files left directly in the temp folder: yt-dlp
-// reels and helper files, named tuimessenger-… (gomuks-… before the rename).
+// reels and helper files, all named tuimessenger-….
 func legacyTempFile(entry os.DirEntry) bool {
-	name := entry.Name()
-	return entry.Type().IsRegular() && (strings.HasPrefix(name, "tuimessenger-") || strings.HasPrefix(name, "gomuks-"))
+	return entry.Type().IsRegular() && strings.HasPrefix(entry.Name(), "tuimessenger-")
 }
 
 // clearMediaCache empties tempMediaDir plus the loose temp files above.
