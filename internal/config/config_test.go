@@ -75,3 +75,18 @@ func TestSetBool(t *testing.T) {
 		t.Errorf("empty section: %+v %v", cfg, err)
 	}
 }
+
+func TestEnabledNetworks(t *testing.T) {
+	cfg := defaults()
+	if got := strings.Join(cfg.EnabledNetworks(), ","); got != "whatsapp,slack,instagram" {
+		t.Errorf("no Telegram keys: %s", got)
+	}
+	cfg.Telegram = Telegram{APIID: 1, APIHash: "x"}
+	if got := strings.Join(cfg.EnabledNetworks(), ","); got != "whatsapp,telegram,slack,instagram" {
+		t.Errorf("with Telegram keys: %s", got)
+	}
+	cfg.Networks = []string{"slack"}
+	if got := strings.Join(cfg.EnabledNetworks(), ","); got != "slack" {
+		t.Errorf("listed: %s", got)
+	}
+}

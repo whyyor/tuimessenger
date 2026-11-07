@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -124,25 +125,32 @@ func waitIdle(t *testing.T, view *SetupView) {
 	}
 }
 
-func TestSetupLogin(t *testing.T) {
-	enter := tcell.NewEventKey(tcell.KeyEnter, 0, 0)
-	type call struct{ base, user, pass string }
-	newView := func(checkErr, loginErr error) (*SetupView, *[]call, *bool) {
-		var calls []call
-		loggedIn := false
-		view := newSetupView(SetupDefaults{Server: "http://127.0.0.1:8008", Username: "me"})
-		view.check = func(context.Context, string) error { return checkErr }
-		view.login = func(_ context.Context, base, user, pass string) error {
-			calls = append(calls, call{base, user, pass})
-			return loginErr
-		}
-		view.onLoggedIn = func() { loggedIn = true }
-		return view, &calls, &loggedIn
-	}
+type call struct{ base, user, pass string }
 
-	// Complete setup: only the password; server and username come from this machine.
-	view, calls, loggedIn := newView(nil, nil)
+// newTestSetup is a setup view with a fake backend check and login.
+func newTestSetup(checkErr, loginErr error) (*SetupView, *[]call, *setupMode) {
+	var calls []call
+	loggedIn := setupMode(-1)
+	view := newSetupView(SetupDefaults{Server: "http://127.0.0.1:8008", Username: "me"})
+	view.check = func(context.Context, string) error { return checkErr }
+	view.login = func(_ context.Context, base, user, pass string) error {
+		calls = append(calls, call{base, user, pass})
+		return loginErr
+	}
+	view.onLoggedIn = func(mode setupMode) { loggedIn = mode }
+	return view, &calls, &loggedIn
+}
+
+var enter = tcell.NewEventKey(tcell.KeyEnter, 0, 0)
+
+func TestSetupLogin(t *testing.T) {
+	// Complete setup with a backend already running: only the password; server and username come from this machine.
+	view, calls, loggedIn := newTestSetup(nil, nil)
 	view.OnKeyEvent(key('1'))
+	waitIdle(t, view)
+	if len(view.fields) != 1 {
+		t.Fatalf("running backend: want just the password field, got %d", len(view.fields))
+	}
 	view.OnKeyEvent(enter)
 	if view.errorText() != "Enter your password." || len(*calls) != 0 {
 		t.Errorf("empty password: %q, %d calls", view.errorText(), len(*calls))
@@ -150,12 +158,12 @@ func TestSetupLogin(t *testing.T) {
 	typeText(view, "secret")
 	view.OnKeyEvent(enter)
 	waitIdle(t, view)
-	if len(*calls) != 1 || (*calls)[0] != (call{"http://127.0.0.1:8008", "me", "secret"}) || !*loggedIn {
+	if len(*calls) != 1 || (*calls)[0] != (call{"http://127.0.0.1:8008", "me", "secret"}) || *loggedIn != setupComplete {
 		t.Errorf("complete setup: calls=%+v loggedIn=%v err=%q", *calls, *loggedIn, view.errorText())
 	}
 
 	// Self-hosted: Enter walks the fields, the address is normalised, and a wrong password is explained.
-	view, calls, loggedIn = newView(nil, errors.New("M_FORBIDDEN (HTTP 403): Invalid username or password"))
+	view, calls, loggedIn = newTestSetup(nil, errors.New("M_FORBIDDEN (HTTP 403): Invalid username or password"))
 	view.OnKeyEvent(key('2'))
 	typeText(view, "pi:8008")
 	view.OnKeyEvent(enter)
@@ -163,18 +171,113 @@ func TestSetupLogin(t *testing.T) {
 	typeText(view, "nope")
 	view.OnKeyEvent(enter)
 	waitIdle(t, view)
-	if len(*calls) != 1 || (*calls)[0] != (call{"http://pi:8008", "me", "nope"}) || *loggedIn ||
+	if len(*calls) != 1 || (*calls)[0] != (call{"http://pi:8008", "me", "nope"}) || *loggedIn != -1 ||
 		view.errorText() != "Wrong username or password." {
 		t.Errorf("self-hosted: calls=%+v loggedIn=%v err=%q", *calls, *loggedIn, view.errorText())
 	}
 
-	// No backend: login isn't tried and the message says how to start it.
-	view, calls, loggedIn = newView(fmt.Errorf("%w: refused", errBackendUnreachable), nil)
+	// No backend and none can be started here: said straight away, and login isn't tried.
+	view, calls, loggedIn = newTestSetup(fmt.Errorf("%w: refused", errBackendUnreachable), nil)
 	view.OnKeyEvent(key('1'))
+	waitIdle(t, view)
+	if !strings.Contains(view.errorText(), "Start it with `tuimessenger`") {
+		t.Errorf("no backend, on choosing: %q", view.errorText())
+	}
 	typeText(view, "secret")
 	view.OnKeyEvent(enter)
 	waitIdle(t, view)
-	if len(*calls) != 0 || *loggedIn || !strings.Contains(view.errorText(), "Start it with `tuimessenger`") {
+	if len(*calls) != 0 || *loggedIn != -1 || !strings.Contains(view.errorText(), "Start it with `tuimessenger`") {
 		t.Errorf("no backend: calls=%+v loggedIn=%v err=%q", *calls, *loggedIn, view.errorText())
+	}
+}
+
+// fakeLocal is a backend that "runs" in the TUI process.
+type fakeLocal struct {
+	mu          sync.Mutex
+	running     bool
+	password    string
+	startErr    error
+	startCalled int
+}
+
+func (f *fakeLocal) Start(context.Context) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.startCalled++
+	if f.startErr != nil {
+		return false, f.startErr
+	}
+	f.running = true
+	return f.password != "", nil
+}
+
+func (f *fakeLocal) Running() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.running
+}
+
+func (f *fakeLocal) SetPassword(_ context.Context, password string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.password = password
+	return nil
+}
+
+func TestSetupStartsBackendHere(t *testing.T) {
+	// First run: nothing answering, so the backend starts in the TUI; it has no password, so one is chosen.
+	view, calls, loggedIn := newTestSetup(fmt.Errorf("%w: refused", errBackendUnreachable), nil)
+	local := &fakeLocal{}
+	view.local = local
+	view.OnKeyEvent(key('1'))
+	waitIdle(t, view)
+	if !local.Running() || !view.newPassword || len(view.fields) != 2 {
+		t.Fatalf("want a new-password form: running=%v new=%v fields=%d err=%q", local.Running(), view.newPassword, len(view.fields), view.errorText())
+	}
+	typeText(view, "short")
+	view.OnKeyEvent(enter)
+	typeText(view, "short")
+	view.OnKeyEvent(enter)
+	if !strings.Contains(view.errorText(), "at least 8") {
+		t.Errorf("short password: %q", view.errorText())
+	}
+	view.mu.Lock()
+	view.passwordFieldsLocked()
+	view.mu.Unlock()
+	typeText(view, "long enough")
+	view.OnKeyEvent(enter)
+	typeText(view, "different!!")
+	view.OnKeyEvent(enter)
+	if view.errorText() != "The two passwords don't match." {
+		t.Errorf("mismatch: %q", view.errorText())
+	}
+	view.mu.Lock()
+	view.passwordFieldsLocked()
+	view.mu.Unlock()
+	typeText(view, "long enough")
+	view.OnKeyEvent(enter)
+	typeText(view, "long enough")
+	view.OnKeyEvent(enter)
+	waitIdle(t, view)
+	if local.password != "long enough" || len(*calls) != 1 || (*calls)[0].pass != "long enough" || *loggedIn != setupComplete {
+		t.Errorf("new password: set=%q calls=%+v loggedIn=%v err=%q", local.password, *calls, *loggedIn, view.errorText())
+	}
+
+	// Later runs: the started backend has a password, so it's the normal password form.
+	view, calls, _ = newTestSetup(fmt.Errorf("%w: refused", errBackendUnreachable), nil)
+	view.local = &fakeLocal{password: "long enough"}
+	view.OnKeyEvent(key('1'))
+	waitIdle(t, view)
+	if view.newPassword || len(view.fields) != 1 {
+		t.Errorf("existing password: new=%v fields=%d", view.newPassword, len(view.fields))
+	}
+
+	// Starting fails (e.g. the service is installed): the reason is shown.
+	view, _, _ = newTestSetup(fmt.Errorf("%w: refused", errBackendUnreachable), nil)
+	view.local = &fakeLocal{startErr: errors.New("the tuimessenger service is installed")}
+	view.OnKeyEvent(key('1'))
+	waitIdle(t, view)
+	if got := view.errorText(); !strings.HasPrefix(got, "Couldn't start the backend on this machine: the tuimessenger service is installed") {
+		t.Errorf("start failure: %q", got)
 	}
 }

@@ -39,6 +39,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/rpc/store"
 	"github.com/whyyor/tuimessenger/internal/tui/config"
 	"github.com/whyyor/tuimessenger/internal/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/lib/notification"
 	"github.com/whyyor/tuimessenger/internal/tui/messages"
 )
 
@@ -62,7 +63,11 @@ type App struct {
 	// LoggedIn says whether the engine already has a login; without one the setup screen comes first.
 	LoggedIn bool
 	// Setup is what the setup screen's Complete setup logs in with.
-	Setup   SetupDefaults
+	Setup SetupDefaults
+	// Local runs the backend in this process for Complete setup; nil if this machine can't.
+	Local LocalBackend
+	// OnExit runs right before the program exits, e.g. to stop the backend running inside it.
+	OnExit  func()
 	inSetup atomic.Bool
 
 	MainView *MainView
@@ -159,6 +164,7 @@ func (ui *App) Run() {
 	}()
 
 	go ui.Connect()
+	go ui.setUpNotifiers()
 	exerrors.PanicIfNotNil(ui.app.Start())
 }
 
@@ -205,6 +211,22 @@ func (ui *App) onConnStateChange(state rpc.ConnState, err error) {
 	// waiting for the next sync would repaint after the state is already back
 	// to connected and the indicator would never be visible.
 	ui.Render()
+}
+
+// The modes saved in the config once setup succeeds.
+const (
+	ModeComplete   = "complete"
+	ModeSelfHosted = "self-hosted"
+)
+
+// finishSetup remembers how this machine was set up, then shows the chats.
+func (ui *App) finishSetup(mode setupMode) {
+	ui.Config.Mode = ModeComplete
+	if mode == setupSelfHosted {
+		ui.Config.Mode = ModeSelfHosted
+	}
+	ui.Config.Save()
+	ui.leaveSetup()
 }
 
 // leaveSetup switches from the setup screen to the chats once there's a login; later calls do nothing.
@@ -261,18 +283,37 @@ func (ui *App) eventHandler(ctx context.Context, rawEvt any) {
 	}
 }
 
+// setUpNotifiers builds the macOS notification app (name and icon) when it's missing or has an old icon.
+func (ui *App) setUpNotifiers() {
+	defer debug.Recover()
+	if notification.NotifiersUpToDate() {
+		return
+	}
+	if err := notification.InstallNotifiers(); err != nil {
+		toasts.Show(toastWarning, "Couldn't set up notifications' name and icon: "+err.Error())
+	}
+}
+
+func (ui *App) runOnExit() {
+	if ui.OnExit != nil {
+		ui.OnExit()
+	}
+}
+
 func (ui *App) Stop() {
 	debug.Print("Stopping")
 	ui.cancel()
 	ui.gmx.Backend.Disconnect()
 	debug.Print("Disconnection complete")
 	ui.app.Stop()
+	ui.runOnExit() // after the screen is restored, so a slow backend stop doesn't look like a hang
 	debug.Print("Stopped")
 	os.Exit(0)
 }
 
 func (ui *App) Finish() {
 	ui.app.ForceStop()
+	ui.runOnExit()
 	os.Exit(0)
 }
 
