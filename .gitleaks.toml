@@ -1,0 +1,47 @@
+# gitleaks: the default secret rules plus the shapes personal data took in this project's tests before
+# (real phone numbers, chat-network user IDs, a work Slack ID, home-folder paths). Made-up values are allowed below.
+title = "tuimessenger"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "phone-number"
+description = "International phone number (+ and 10-15 digits)"
+regex = '''\+\d{10,15}\b'''
+
+[[rules]]
+id = "bridge-user-id"
+description = "Real-looking chat-network user ID (WhatsApp/Telegram/Instagram ghost or LID)"
+regex = '''(?i)(?:whatsapp|whatsapp_lid|telegram|instagram|instagramgo|signal)[_-]\d{8,}'''
+
+[[rules]]
+id = "slack-team-id"
+description = "Slack workspace ID"
+regex = '''(?i)\bslack(?:go)?_t[0-9a-z]{8,12}\b'''
+
+[[rules]]
+id = "home-folder"
+description = "A real home folder path"
+regex = '''/(?:Users|home)/[a-z][a-z0-9_.-]{2,}/'''
+
+[[rules]]
+id = "email-address"
+description = "An email address"
+regex = '''\b[a-zA-Z0-9._%+-]+@(?:gmail|googlemail|yahoo|outlook|hotmail|icloud|proton(?:mail)?)\.[a-z.]{2,6}\b'''
+
+[allowlist]
+description = "Made-up values used in tests and docs"
+regexTarget = "match"
+regexes = [
+  '''\+?1555\d{7,}''',             # 555 numbers are reserved for fiction
+  '''[_-]1555\d{7,}''',
+  '''[_-]10{6,}\d*''',             # 1000000…
+  '''[_-]1\b''',
+  '''(?i)slack(?:go)?_t0{10}''',
+  '''/(?:Users|home)/(?:me|pi|runner|user|you)/''',
+]
+paths = [
+  '''go\.sum''',
+  '''internal/tui/lib/emoji/data\.json''',
+]

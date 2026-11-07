@@ -1,0 +1,20 @@
+#!/bin/sh
+# Refuses a commit whose added lines contain personal data: words from the private list in .git/info/sensitive-words
+# (never pushed: real names, numbers, employers…), and gitleaks' rules from .gitleaks.toml when gitleaks is installed.
+# Enable once per clone: git config core.hooksPath .githooks
+list="$(git rev-parse --git-dir)/info/sensitive-words"
+if [ -s "$list" ]; then
+	hits=$(git diff --cached -U0 --no-color | grep '^+' | grep -v '^+++' | grep -i -F -o -f "$list" | sort -u)
+	if [ -n "$hits" ]; then
+		echo "pre-commit: staged changes contain words from your private sensitive list:" >&2
+		echo "$hits" | sed 's/^/  /' >&2
+		exit 1
+	fi
+fi
+if command -v gitleaks >/dev/null 2>&1; then
+	gitleaks git --staged --no-banner --redact --config .gitleaks.toml . >&2 || {
+		echo "pre-commit: gitleaks found something (see above)" >&2
+		exit 1
+	}
+fi
+exit 0

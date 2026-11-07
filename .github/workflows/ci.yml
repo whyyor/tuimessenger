@@ -34,3 +34,15 @@ jobs:
         run: make test
       - name: build
         run: make build && ./tuimessenger version
+
+  privacy:
+    # Secrets and personal data (phone numbers, chat-network IDs, home paths…) in any commit; rules in .gitleaks.toml.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo --config /repo/.gitleaks.toml --no-banner --redact --exit-code 1
