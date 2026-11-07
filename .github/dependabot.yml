@@ -24,8 +24,11 @@ updates:
           - "go.mau.fi/whatsmeow"
           - "go.mau.fi/util"
     ignore:
-      # Replaced by our fork in go.mod; it's rebased by hand.
-      - dependency-name: "go.mau.fi/mautrix-slack"
+      # The terminal library is pinned on purpose (newer versions change rendering); move it only deliberately.
+      - dependency-name: "github.com/gdamore/tcell/v2"
+      - dependency-name: "github.com/gdamore/tcell/v3"
+      # cbind 0.1.7+ is built on tcell v3.
+      - dependency-name: "codeberg.org/tslocum/cbind"
   - package-ecosystem: github-actions
     directory: /
     schedule:

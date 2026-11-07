@@ -46,7 +46,11 @@ func (a *App) download(ctx context.Context, fileID string, params map[string]str
 	if !ok {
 		return mautrix.MNotFound.WithMessage("%s doesn't support opening media later", network)
 	}
-	resp, err := dmn.Download(ctx, networkid.MediaID(mediaID), params)
+	id := networkid.MediaID(mediaID)
+	if network == "slack" {
+		id = slackLegacyFileID(id, a.slackLogins(ctx, br))
+	}
+	resp, err := dmn.Download(ctx, id, params)
 	if err != nil {
 		return fmt.Errorf("%s couldn't download the media: %w", network, err)
 	}

@@ -605,11 +605,14 @@ func (h *HiClient) cacheMedia(ctx context.Context, evt *event.Event, rowID datab
 			h.addMediaCache(ctx, rowID, content.Info.ThumbnailURL, nil, content.Info.ThumbnailInfo, "")
 		}
 
-		for _, image := range content.BeeperGalleryImages {
-			h.cacheMedia(ctx, &event.Event{
-				Type:    event.EventMessage,
-				Content: event.Content{Parsed: image},
-			}, rowID)
+		// MSC4274 galleries (the stable and the unstable field); mautrix 0.32 dropped Beeper's own gallery type.
+		for _, item := range append(content.GalleryItems, content.UnstableGalleryItems...) {
+			if item != nil {
+				h.cacheMedia(ctx, &event.Event{
+					Type:    event.EventMessage,
+					Content: event.Content{Parsed: item},
+				}, rowID)
+			}
 		}
 
 		for _, preview := range content.BeeperLinkPreviews {
