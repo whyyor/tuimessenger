@@ -73,10 +73,19 @@ func TestApplyLocalSeen(t *testing.T) {
 	if len(unreadRooms([]*store.RoomListEntry{got}, nil)) != 0 {
 		t.Error("the hint screen should no longer list it")
 	}
-	// Marked unread always wins.
+	// Marked unread (e.g. on the phone): read here covers it too, in tuimessenger only.
 	entry.MarkedUnread = true
-	if c := unreadCounts(gmx, entry); c.UnreadMessages != 3 {
-		t.Errorf("marked unread keeps its counts: %+v", c)
+	got = applyLocalSeen(gmx, rooms)[0]
+	if got == entry || got.MarkedUnread || !got.UnreadCounts.IsZero() || !entry.MarkedUnread {
+		t.Errorf("marked unread, read here: %+v (shared entry must keep the network's flag)", got)
+	}
+	if len(unreadRooms([]*store.RoomListEntry{got}, nil)) != 0 {
+		t.Error("read here: out of quick access, even if marked unread")
+	}
+	// A newer message than what you read: unread again.
+	entry.PreviewEvent = &database.Event{ID: "$newer", Timestamp: jsontime.UM(time.Now().Add(time.Hour))}
+	if got = applyLocalSeen(gmx, rooms)[0]; got != entry {
+		t.Error("a message after your local read makes the chat unread again")
 	}
 }
 

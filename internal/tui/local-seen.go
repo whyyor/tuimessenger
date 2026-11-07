@@ -59,17 +59,21 @@ func (m seenMarker) coveredBy(preview *database.Event) bool {
 	return m.EventID == preview.ID || m.Timestamp >= preview.Timestamp.UnixMilli()
 }
 
-// unreadCounts is what tuimessenger shows: the server's counts, zeroed for a chat
-// you've read here without sending a receipt (unless marked unread).
-func unreadCounts(gmx *client.Client, entry *store.RoomListEntry) database.UnreadCounts {
-	counts := entry.UnreadCounts
-	if entry.MarkedUnread || counts.IsZero() || gmx == nil {
-		return counts
+// readHere reports whether you've read the chat's newest message in tuimessenger without telling the network
+// (/seen off). Then tuimessenger shows it read, a marked-unread flag included; the network keeps both as they are.
+func readHere(gmx *client.Client, entry *store.RoomListEntry) bool {
+	if gmx == nil || (entry.UnreadCounts.IsZero() && !entry.MarkedUnread) {
+		return false
 	}
-	if seenMarkerOf(gmx.GetRoom(entry.RoomID)).coveredBy(entry.PreviewEvent) {
+	return seenMarkerOf(gmx.GetRoom(entry.RoomID)).coveredBy(entry.PreviewEvent)
+}
+
+// unreadCounts is what tuimessenger shows: the server's counts, zeroed for a chat you've read here (readHere).
+func unreadCounts(gmx *client.Client, entry *store.RoomListEntry) database.UnreadCounts {
+	if readHere(gmx, entry) {
 		return database.UnreadCounts{}
 	}
-	return counts
+	return entry.UnreadCounts
 }
 
 // applyLocalSeen returns rooms with unread counts cleared for chats read in
@@ -78,8 +82,7 @@ func applyLocalSeen(gmx *client.Client, rooms []*store.RoomListEntry) []*store.R
 	out := rooms
 	copied := false
 	for i, entry := range rooms {
-		counts := unreadCounts(gmx, entry)
-		if counts == entry.UnreadCounts {
+		if !readHere(gmx, entry) {
 			continue
 		}
 		if !copied {
@@ -87,7 +90,7 @@ func applyLocalSeen(gmx *client.Client, rooms []*store.RoomListEntry) []*store.R
 			copied = true
 		}
 		adjusted := *entry
-		adjusted.UnreadCounts = counts
+		adjusted.UnreadCounts, adjusted.MarkedUnread = database.UnreadCounts{}, false
 		out[i] = &adjusted
 	}
 	return out
