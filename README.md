@@ -34,6 +34,13 @@ Without `goolm`, the build looks for the libolm C library (`olm/olm.h not found`
 Logs go to `~/Library/Logs/tuimessenger` (`terminal.log`, `client.log`). Notification icons per network come from
 `~/.local/opt/tuimessenger/notifiers/<Network>.app` (copies of terminal-notifier), with `tuimessenger.app` for the rest.
 
+## Contributing: keep personal data out
+
+CI runs gitleaks (`.gitleaks.toml`) on every commit for secrets and personal data: phone numbers, chat-network user
+IDs, home-folder paths. Use made-up values in tests (`+15550100001`, `@whatsapp_15550100001`, "Mariana"). Locally,
+enable the hooks once with `git config core.hooksPath .githooks`; they also check against a private word list in
+`.git/info/sensitive-words` (one per line; never committed or pushed) for names and numbers only you know.
+
 ## Credits
 
 tuimessenger is built on the work of others:

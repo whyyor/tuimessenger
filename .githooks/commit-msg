@@ -1,0 +1,11 @@
+#!/bin/sh
+# Refuses a commit message containing words from the private list in .git/info/sensitive-words (never pushed).
+list="$(git rev-parse --git-dir)/info/sensitive-words"
+[ -s "$list" ] || exit 0
+hits=$(grep -v '^#' "$1" | grep -i -F -o -f "$list" | sort -u)
+if [ -n "$hits" ]; then
+	echo "commit-msg: the message contains words from your private sensitive list:" >&2
+	echo "$hits" | sed 's/^/  /' >&2
+	exit 1
+fi
+exit 0
