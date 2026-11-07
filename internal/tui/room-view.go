@@ -84,6 +84,8 @@ type RoomView struct {
 	selectContent string
 
 	replying *database.Event
+	// replyingName is who the reply goes to, as the chat shows them (the name a bridge sent with the message).
+	replyingName string
 
 	editing      *database.Event
 	editMoveText string
@@ -246,7 +248,7 @@ func (view *RoomView) OnSelect(message *messages.UIMessage) {
 	}
 	switch view.selectReason {
 	case SelectReply:
-		view.replying = message.Event
+		view.startReply(message)
 		if len(view.selectContent) > 0 {
 			go view.SendMessage(event.MsgText, view.selectContent)
 		}
@@ -287,6 +289,19 @@ func (view *RoomView) OnSelect(message *messages.UIMessage) {
 	view.input.Focus()
 }
 
+// startReply makes the next message a reply to message.
+func (view *RoomView) startReply(message *messages.UIMessage) {
+	view.replying, view.replyingName = message.Event, message.GetRawSenderName()
+}
+
+// replyName is the name of the person being replied to, never a raw bridge user ID.
+func (view *RoomView) replyName() string {
+	if view.replyingName != "" {
+		return view.replyingName
+	}
+	return view.Room.GetDisplayname(view.replying.Sender)
+}
+
 func (view *RoomView) GetStatus() string {
 	var buf strings.Builder
 
@@ -294,7 +309,7 @@ func (view *RoomView) GetStatus() string {
 		buf.WriteString("Editing message - ")
 	} else if view.replying != nil {
 		buf.WriteString("Replying to ")
-		buf.WriteString(string(view.replying.Sender))
+		buf.WriteString(view.replyName())
 		buf.WriteString(" - ")
 	} else if view.selecting {
 		buf.WriteString("Selecting message to ")
@@ -442,7 +457,7 @@ func (view *RoomView) shouldHideUserList() bool {
 func (view *RoomView) ClearAllContext() {
 	view.SetEditing(nil)
 	view.StopSelecting()
-	view.replying = nil
+	view.replying, view.replyingName = nil, ""
 	view.input.Focus()
 }
 
