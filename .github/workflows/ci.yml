@@ -39,7 +39,7 @@ jobs:
     # Secrets and personal data (phone numbers, chat-network IDs, home paths…) in any commit; rules in .gitleaks.toml.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: gitleaks
