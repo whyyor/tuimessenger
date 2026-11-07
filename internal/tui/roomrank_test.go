@@ -19,8 +19,8 @@ func TestMatchTier(t *testing.T) {
 		{"airtel", "tel", 2},
 		{"optimum nutrition india", "mum", 2},
 		{"rosalie", "sa", 2}, // ro-sa-lie: "sa" really is a substring
-		{"oscar", "sa", 3}, // s then a, but not adjacent
-		{"mariana", "ni", 3},
+		{"oscar", "sa", 3},   // s then a, but not adjacent
+		{"lena kim", "ni", 3},
 	}
 	for _, c := range cases {
 		if got := matchTier(c.name, c.query); got != c.want {

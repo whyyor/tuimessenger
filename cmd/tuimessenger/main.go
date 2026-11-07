@@ -44,6 +44,8 @@ func main() {
 			os.Exit(runService(os.Args[2:]))
 		case "notifiers":
 			os.Exit(runNotifiers())
+		case "version", "-version", "--version":
+			os.Exit(runVersion())
 		}
 	}
 	networks := flag.String("network", "", "comma-separated networks to run (default: networks in config.yaml, else all that can run): "+strings.Join(bridges.Available(), ", "))
