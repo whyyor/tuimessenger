@@ -62,7 +62,7 @@ func TestSwitcherFindsChatByAlias(t *testing.T) {
 	if got := switcherNames(fs); len(got) != 1 || got[0] != "Mariana" {
 		t.Errorf("sis should find Mariana by alias, got %v", got)
 	}
-	fs.changeHandler("mans")
+	fs.changeHandler("mari")
 	if got := switcherNames(fs); len(got) == 0 || got[0] != "Mariana" {
 		t.Errorf("the real name still works, got %v", got)
 	}
@@ -143,7 +143,7 @@ func TestWriteNameAliasTruncation(t *testing.T) {
 	if got := draw(10, "Mariana", "sis"); got != "Mariana" {
 		t.Errorf("under five cells the alias is dropped: %q", got)
 	}
-	if got := draw(5, "Mariana", "sis"); got != "Mans…" {
+	if got := draw(5, "Mariana", "sis"); got != "Mari…" {
 		t.Errorf("the name still truncates: %q", got)
 	}
 }

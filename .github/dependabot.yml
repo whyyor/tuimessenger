@@ -1,0 +1,32 @@
+# Bridge fixes (WhatsApp, Meta, Telegram, Slack changes) reach users only when these pins move,
+# so Dependabot opens a PR when they do; CI builds and tests it.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      bridges:
+        patterns:
+          - "maunium.net/go/mautrix"
+          - "go.mau.fi/mautrix-*"
+          - "go.mau.fi/whatsmeow"
+          - "go.mau.fi/util"
+      other:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "maunium.net/go/mautrix"
+          - "go.mau.fi/mautrix-*"
+          - "go.mau.fi/whatsmeow"
+          - "go.mau.fi/util"
+    ignore:
+      # Replaced by our fork in go.mod; it's rebased by hand.
+      - dependency-name: "go.mau.fi/mautrix-slack"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
