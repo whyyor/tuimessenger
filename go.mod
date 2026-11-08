@@ -41,6 +41,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	maunium.net/go/mautrix v0.32.0
 	mvdan.cc/xurls/v2 v2.6.0
+	rsc.io/qr v0.2.0
 )
 
 require (
@@ -105,7 +106,6 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-	rsc.io/qr v0.2.0 // indirect
 )
 
 replace github.com/imroc/req/v3 => github.com/beeper/req/v3 v3.0.0-20260925135712-b49593750e56

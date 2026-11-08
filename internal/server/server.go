@@ -79,6 +79,7 @@ func Open(ctx context.Context, opts Options) (*Backend, error) {
 	}
 	a, err := app.New(ctx, app.Options{
 		Log: opts.Log, Config: cfg, DataDir: opts.DataDir, Networks: networks, ServerName: ServerName, Owner: Owner,
+		DefaultNetworks: len(opts.Networks) == 0 && len(cfg.Networks) == 0,
 	})
 	if err != nil {
 		_ = lock.Close()

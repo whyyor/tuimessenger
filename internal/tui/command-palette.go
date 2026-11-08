@@ -110,6 +110,7 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 	}
 	items := []*paletteItem{
 		cmd("Search chats", keyHint(main, "search_rooms"), func() { view.ShowModal(NewFuzzySearchModal(view, 60, 18)) }),
+		cmd("Networks", "log in, log out, Telegram keys", view.OpenNetworks),
 		cmd("Resync with server", keyHint(main, "resync"), func() { go view.parent.Resync() }),
 		cmd("Next chat with activity", keyHint(main, "next_active_room"), func() { view.SwitchRoom(view.roomList.NextWithActivity()) }),
 	}
