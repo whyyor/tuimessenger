@@ -22,8 +22,8 @@ func newInstagram(_ *config.Config) (*Network, error) {
 	ig.ForceRefreshIntervalSeconds = 43200
 	ig.DisableXMAAlways = true
 	ig.DisableViewOnce = true
-	// Fetch every chat in the inbox once, not just the first page (~15-20 chats); older chats otherwise only appear
-	// when someone writes in them. Runs until done at the next connect, with the default 2 s between pages.
-	ig.ThreadBackfill.BatchCount = -1
+	// Only the first inbox page (~15-20 chats) syncs, like Beeper; older chats appear when someone writes in them.
+	// Paging through the whole inbox is more traffic than Meta expects from one device, so it's left off.
+	ig.ThreadBackfill.BatchCount = 0
 	return &Network{Connector: connector, Config: baseConfig("!ig")}, nil
 }

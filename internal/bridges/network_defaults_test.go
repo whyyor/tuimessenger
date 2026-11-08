@@ -31,7 +31,7 @@ func TestNetworkDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	igCfg := ig.Connector.(*instagram.IGConnector).Config
-	if igCfg.ThreadBackfill.BatchCount != -1 || igCfg.ThreadBackfill.BatchDelay <= 0 {
-		t.Errorf("Instagram should fetch every chat, with a delay between pages: %+v", igCfg.ThreadBackfill)
+	if igCfg.ThreadBackfill.BatchCount != 0 {
+		t.Errorf("Instagram should sync only the recent chats, like Beeper: %+v", igCfg.ThreadBackfill)
 	}
 }
