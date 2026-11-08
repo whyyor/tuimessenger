@@ -90,3 +90,24 @@ func TestEnabledNetworks(t *testing.T) {
 		t.Errorf("listed: %s", got)
 	}
 }
+
+func TestSetIntAndString(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	_ = os.WriteFile(path, []byte("# keep me\nslack:\n  include_channels: false\n"), 0o600)
+	if err := SetInt(path, "telegram", "api_id", 12345); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetString(path, "telegram", "api_hash", "0123456789abcdef0123456789abcdef"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil || cfg.Telegram.APIID != 12345 || cfg.Telegram.APIHash != "0123456789abcdef0123456789abcdef" || cfg.Slack.IncludeChannels {
+		t.Errorf("read back: %+v %v", cfg, err)
+	}
+	if data, _ := os.ReadFile(path); !strings.Contains(string(data), "# keep me") {
+		t.Errorf("comments must stay:\n%s", data)
+	}
+	if got := strings.Join(cfg.EnabledNetworks(), ","); !strings.Contains(got, "telegram") {
+		t.Errorf("with keys saved, Telegram runs on the next start: %s", got)
+	}
+}

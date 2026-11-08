@@ -9,22 +9,46 @@ import (
 	"github.com/whyyor/tuimessenger/internal/csapi"
 )
 
-// Networks lists the running networks, with their connection state and changeable settings.
+// Networks lists the networks: the running ones with their accounts, login flows and settings, then the default ones
+// that can't run yet and what they need (Telegram without its app keys).
 func (a *App) Networks(ctx context.Context) []csapi.Network {
 	a.settingsLock.Lock()
 	defer a.settingsLock.Unlock()
 	networks := make([]csapi.Network, 0, len(a.bridges))
 	for _, br := range a.bridges {
-		n := csapi.Network{Name: string(br.ID), Settings: map[string]bool{}}
+		n := csapi.Network{Name: string(br.ID), Settings: map[string]bool{}, Running: true, Flows: br.Network.GetLoginFlows()}
 		for _, login := range br.GetAllCachedUserLogins() {
-			n.State = string(login.BridgeState.GetPrev().StateEvent)
+			state := login.BridgeState.GetPrev()
+			n.State = string(state.StateEvent)
+			n.Logins = append(n.Logins, csapi.NetworkLogin{
+				ID: login.ID, Name: login.RemoteName, State: string(state.StateEvent), Message: state.Message,
+			})
 		}
 		for key, setting := range a.settings[n.Name] {
 			n.Settings[key] = setting.Get()
 		}
 		networks = append(networks, n)
 	}
+	for _, name := range config.DefaultNetworks {
+		if a.Bridge(name) != nil {
+			continue
+		}
+		n := csapi.Network{Name: name, Settings: map[string]bool{}}
+		if name == "telegram" {
+			n.Setup = csapi.SetupTelegramKeys
+		}
+		networks = append(networks, n)
+	}
 	return networks
+}
+
+// SetTelegramKeys saves Telegram's app keys to config.yaml; the Telegram bridge reads them when the backend starts.
+func (a *App) SetTelegramKeys(ctx context.Context, apiID int, apiHash string) error {
+	path := filepath.Join(a.opts.DataDir, "config.yaml")
+	if err := config.SetInt(path, "telegram", "api_id", apiID); err != nil {
+		return fmt.Errorf("failed to save the keys: %w", err)
+	}
+	return config.SetString(path, "telegram", "api_hash", apiHash)
 }
 
 // SetNetworkSetting saves a setting to config.yaml, then puts it into effect. If saving fails, nothing changes.

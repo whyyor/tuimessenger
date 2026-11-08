@@ -13,6 +13,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"maunium.net/go/mautrix"
+	"maunium.net/go/mautrix/bridgev2"
+	"maunium.net/go/mautrix/bridgev2/networkid"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
@@ -38,6 +40,14 @@ type Bridges interface {
 	Networks(ctx context.Context) []Network
 	// SetNetworkSetting saves and applies an on/off setting; ErrUnknownSetting if there's no such setting.
 	SetNetworkSetting(ctx context.Context, network, key string, value bool) error
+	// StartLogin, SubmitLogin and CancelLogin run a network's login one step at a time (login.go).
+	StartLogin(ctx context.Context, network, flowID string) (*LoginStep, error)
+	SubmitLogin(ctx context.Context, loginID, stepID string, stepType bridgev2.LoginStepType, input map[string]string) (*LoginStep, error)
+	CancelLogin(ctx context.Context, loginID string) error
+	// Logout logs a network's account out.
+	Logout(ctx context.Context, network string, loginID networkid.UserLoginID) error
+	// SetTelegramKeys saves Telegram's app keys to config.yaml; Telegram starts with the next start.
+	SetTelegramKeys(ctx context.Context, apiID int, apiHash string) error
 }
 
 type Options struct {
@@ -137,6 +147,11 @@ func (s *Server) routes() {
 	s.route("POST "+reconnectPath, true, s.reconnect)
 	s.route("GET "+networksPath, true, s.networks)
 	s.route("PUT "+networksPath+"/{network}/settings", true, s.setNetworkSettings)
+	s.route("POST "+networksPath+"/{network}/login/{flowID}", true, s.startLogin)
+	s.route("POST "+networksPath+"/{network}/logout/{loginID}", true, s.networkLogout)
+	s.route("PUT "+networksPath+"/telegram/keys", true, s.setTelegramKeys)
+	s.route("POST "+loginPath+"/{loginID}/step/{stepID}/{stepType}", true, s.submitLogin)
+	s.route("POST "+loginPath+"/{loginID}/cancel", true, s.cancelLogin)
 	s.encryptionRoutes()
 
 	// Everything else (search, room directory, ...) isn't supported (yet).
