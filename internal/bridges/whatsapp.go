@@ -1,6 +1,7 @@
 package bridges
 
 import (
+	"runtime"
 	"time"
 
 	whatsapp "go.mau.fi/mautrix-whatsapp/pkg/connector"
@@ -19,8 +20,10 @@ func newWhatsApp(_ *config.Config) (*Network, error) {
 		return nil, err
 	}
 
-	cfg.OSName = "tuimessenger" // name shown in WhatsApp > Linked devices
-	cfg.BrowserName = "chrome"  // icon shown next to that name
+	// WhatsApp > Linked devices shows this like a WhatsApp Web session: this computer's OS, with a Chrome icon.
+	// Only applies when a device is linked (paired); existing links keep the name they were created with.
+	cfg.OSName = linkedDeviceOS(runtime.GOOS)
+	cfg.BrowserName = "chrome"
 	cfg.DisplaynameTemplate = `{{or .FullName .BusinessName .PushName .Phone .RedactedPhone "Unknown user"}}`
 
 	cfg.ExtEvPolls = true
@@ -42,4 +45,16 @@ func newWhatsApp(_ *config.Config) (*Network, error) {
 		return nil, err
 	}
 	return &Network{Connector: connector, Config: baseConfig("!wa"), AfterStart: fixNumberNames}, nil
+}
+
+// linkedDeviceOS is the OS name WhatsApp Web reports for a computer.
+func linkedDeviceOS(goos string) string {
+	switch goos {
+	case "darwin":
+		return "Mac OS"
+	case "windows":
+		return "Windows"
+	default:
+		return "Linux"
+	}
 }
