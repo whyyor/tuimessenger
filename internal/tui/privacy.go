@@ -41,10 +41,29 @@ func receiptTypeFor(room *store.RoomStore) event.ReceiptType {
 	return event.ReceiptTypeReadPrivate
 }
 
-// sendsPublicRead: automatic reads go public only with /seen on and not
-// peeking; otherwise tuimessenger records them locally.
+// readMode is what an automatic read of an open chat does.
+type readMode int
+
+const (
+	readNone   readMode = iota // peek: no trace at all, the chat stays unread here and on the network
+	readLocal                  // /seen off: read in tuimessenger only, nothing reaches the network
+	readPublic                 // /seen on: a read receipt the network sees
+)
+
+func readModeFor(view *RoomView) readMode {
+	switch {
+	case view.peek:
+		return readNone
+	case receiptTypeFor(view.Room) == event.ReceiptTypeRead:
+		return readPublic
+	default:
+		return readLocal
+	}
+}
+
+// sendsPublicRead: automatic reads go public only with /seen on and not peeking.
 func sendsPublicRead(view *RoomView) bool {
-	return !view.peek && receiptTypeFor(view.Room) == event.ReceiptTypeRead
+	return readModeFor(view) == readPublic
 }
 
 // parseToggle reads on/off; anything else (or nothing) flips current.

@@ -59,17 +59,21 @@ func (m seenMarker) coveredBy(preview *database.Event) bool {
 	return m.EventID == preview.ID || m.Timestamp >= preview.Timestamp.UnixMilli()
 }
 
-// unreadCounts is what tuimessenger shows: the server's counts, zeroed for a chat
-// you've read here without sending a receipt (unless marked unread).
-func unreadCounts(gmx *client.Client, entry *store.RoomListEntry) database.UnreadCounts {
-	counts := entry.UnreadCounts
-	if entry.MarkedUnread || counts.IsZero() || gmx == nil {
-		return counts
+// readHere reports whether you've read the chat's newest message in tuimessenger without telling the network
+// (/seen off). Then tuimessenger shows it read, a marked-unread flag included; the network keeps both as they are.
+func readHere(gmx *client.Client, entry *store.RoomListEntry) bool {
+	if gmx == nil || (entry.UnreadCounts.IsZero() && !entry.MarkedUnread) {
+		return false
 	}
-	if seenMarkerOf(gmx.GetRoom(entry.RoomID)).coveredBy(entry.PreviewEvent) {
+	return seenMarkerOf(gmx.GetRoom(entry.RoomID)).coveredBy(entry.PreviewEvent)
+}
+
+// unreadCounts is what tuimessenger shows: the server's counts, zeroed for a chat you've read here (readHere).
+func unreadCounts(gmx *client.Client, entry *store.RoomListEntry) database.UnreadCounts {
+	if readHere(gmx, entry) {
 		return database.UnreadCounts{}
 	}
-	return counts
+	return entry.UnreadCounts
 }
 
 // applyLocalSeen returns rooms with unread counts cleared for chats read in
@@ -78,8 +82,7 @@ func applyLocalSeen(gmx *client.Client, rooms []*store.RoomListEntry) []*store.R
 	out := rooms
 	copied := false
 	for i, entry := range rooms {
-		counts := unreadCounts(gmx, entry)
-		if counts == entry.UnreadCounts {
+		if !readHere(gmx, entry) {
 			continue
 		}
 		if !copied {
@@ -87,37 +90,43 @@ func applyLocalSeen(gmx *client.Client, rooms []*store.RoomListEntry) []*store.R
 			copied = true
 		}
 		adjusted := *entry
-		adjusted.UnreadCounts = counts
+		adjusted.UnreadCounts, adjusted.MarkedUnread = database.UnreadCounts{}, false
 		out[i] = &adjusted
 	}
 	return out
 }
 
-// markSeenLocally records the read in tuimessenger only, and clears a marked-unread
-// flag as opening the chat would.
+// markSeenLocally records the read in tuimessenger only.
 func (view *MainView) markSeenLocally(room *store.RoomStore, req *jsoncmd.MarkReadParams) {
 	defer debug.Recover()
+	if saveLocalSeen(view.matrix, room, req) {
+		view.parent.Render()
+	}
+}
+
+// accountDataSetter is the one command saveLocalSeen needs.
+type accountDataSetter interface {
+	SetAccountData(ctx context.Context, params *jsoncmd.SetAccountDataParams) error
+}
+
+// saveLocalSeen writes the seen marker, which stays in tuimessenger. It must never clear the chat's marked-unread flag:
+// bridges pass that to the network, and WhatsApp treats "no longer unread" as reading the chat.
+func saveLocalSeen(api accountDataSetter, room *store.RoomStore, req *jsoncmd.MarkReadParams) (changed bool) {
 	marker := seenMarker{EventID: req.EventID}
 	if evt := room.GetEventByID(req.EventID); evt != nil {
 		marker.Timestamp = evt.Timestamp.UnixMilli()
 	}
 	if seenMarkerOf(room) == marker {
-		return
+		return false
 	}
 	raw, _ := json.Marshal(&marker)
-	err := view.matrix.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
+	err := api.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
 		RoomID: room.ID, Type: AccountDataSeen.Type, Content: raw,
 	})
 	if err != nil {
 		debug.Print("Failed to save local read for", room.ID, err)
 	}
-	if meta := room.Meta.Current(); meta != nil && meta.MarkedUnread != nil && *meta.MarkedUnread {
-		raw, _ = json.Marshal(&event.MarkedUnreadEventContent{Unread: false})
-		_ = view.matrix.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
-			RoomID: room.ID, Type: event.AccountDataMarkedUnread.Type, Content: raw,
-		})
-	}
-	view.parent.Render()
+	return true
 }
 
 // onRoomListChange runs inside the store's ApplySync, which holds its lock:

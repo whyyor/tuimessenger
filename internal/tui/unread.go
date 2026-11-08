@@ -26,15 +26,25 @@ func (view *MainView) MarkUnread() {
 
 func setMarkedUnread(view *MainView, room *store.RoomStore) {
 	defer debug.Recover()
-	raw, _ := json.Marshal(&event.MarkedUnreadEventContent{Unread: true})
-	err := view.matrix.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
-		RoomID:  room.ID,
-		Type:    event.AccountDataMarkedUnread.Type,
-		Content: raw,
-	})
-	if err != nil {
+	if err := writeMarkedUnread(view.matrix, room); err != nil {
 		debug.Print("Failed to mark", room.ID, "unread:", err)
 		toasts.Show(toastError, "Couldn't mark it unread: "+err.Error())
 	}
 	view.parent.Render()
+}
+
+// writeMarkedUnread forgets the chat's local read first (else it would hide the flag again), then sets the flag.
+func writeMarkedUnread(api accountDataSetter, room *store.RoomStore) error {
+	if seenMarkerOf(room) != (seenMarker{}) {
+		err := api.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
+			RoomID: room.ID, Type: AccountDataSeen.Type, Content: json.RawMessage(`{}`),
+		})
+		if err != nil {
+			return err
+		}
+	}
+	raw, _ := json.Marshal(&event.MarkedUnreadEventContent{Unread: true})
+	return api.SetAccountData(context.TODO(), &jsoncmd.SetAccountDataParams{
+		RoomID: room.ID, Type: event.AccountDataMarkedUnread.Type, Content: raw,
+	})
 }

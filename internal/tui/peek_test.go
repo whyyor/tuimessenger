@@ -37,6 +37,27 @@ func TestPeekNeverSendsPublicRead(t *testing.T) {
 	}
 }
 
+// Opening a chat: /seen on tells the network, /seen off reads it in tuimessenger only, peek leaves no trace.
+func TestReadModes(t *testing.T) {
+	_, room := bubbleView(t)
+	rv := &RoomView{Room: room}
+	if readModeFor(rv) != readLocal {
+		t.Error("/seen off (the default): read here only")
+	}
+	rv.peek = true
+	if readModeFor(rv) != readNone {
+		t.Error("peek with /seen off: no trace, stays in quick access")
+	}
+	seenOn(room)
+	if readModeFor(rv) != readNone {
+		t.Error("peek with /seen on: still no trace")
+	}
+	rv.peek = false
+	if readModeFor(rv) != readPublic {
+		t.Error("/seen on: public read")
+	}
+}
+
 func TestPeekShowsPillAndReadHint(t *testing.T) {
 	view, room := bubbleView(t)
 	rv := &RoomView{Room: room, config: view.config, input: mauview.NewInputArea(),

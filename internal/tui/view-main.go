@@ -284,10 +284,14 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 		return
 	}
 	if roomView != nil && roomView == view.currentRoom && roomView.MessageView().GetScrollOffset() == 0 {
+		mode := readModeFor(roomView)
+		if mode == readNone {
+			return // peeking leaves the chat exactly as unread as it was
+		}
 		ClearNotifications(roomView.Room.ID)
 		req := roomView.Room.GetMarkAsReadParams()
-		if req != nil && !sendsPublicRead(roomView) {
-			// /seen off or peeking: no receipt at all, so a later Ctrl+m can still bridge one.
+		if req != nil && mode == readLocal {
+			// /seen off: no receipt at all, so a later Ctrl+m can still bridge one.
 			go view.markSeenLocally(roomView.Room, req)
 			return
 		}
