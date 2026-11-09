@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
+
+	"maunium.net/go/mautrix/bridgev2"
 
 	"github.com/whyyor/tuimessenger/internal/config"
 	"github.com/whyyor/tuimessenger/internal/csapi"
@@ -16,7 +19,7 @@ func (a *App) Networks(ctx context.Context) []csapi.Network {
 	defer a.settingsLock.Unlock()
 	networks := make([]csapi.Network, 0, len(a.bridges))
 	for _, br := range a.bridges {
-		n := csapi.Network{Name: string(br.ID), Settings: map[string]bool{}, Running: true, Flows: br.Network.GetLoginFlows()}
+		n := csapi.Network{Name: string(br.ID), Settings: map[string]bool{}, Running: true, Flows: offeredFlows(string(br.ID), br.Network.GetLoginFlows())}
 		for _, login := range br.GetAllCachedUserLogins() {
 			state := login.BridgeState.GetPrev()
 			n.State = string(state.StateEvent)
@@ -60,4 +63,19 @@ func (a *App) SetNetworkSetting(ctx context.Context, network, key string, value 
 		return fmt.Errorf("failed to save the setting: %w", err)
 	}
 	return setting.Apply(ctx, br, value)
+}
+
+// hiddenLoginFlows are ways to log in that aren't offered: they didn't work in practice or don't fit a personal app.
+var hiddenLoginFlows = map[string][]string{
+	"instagram": {"android"}, // "Native Android": failed in testing; the web ways work
+	"telegram":  {"bot"},     // logs in as a BotFather bot, not as you
+}
+
+func loginFlowHidden(network, flowID string) bool {
+	return slices.Contains(hiddenLoginFlows[network], flowID)
+}
+
+// offeredFlows is a network's login flows without the hidden ones.
+func offeredFlows(network string, flows []bridgev2.LoginFlow) []bridgev2.LoginFlow {
+	return slices.DeleteFunc(slices.Clone(flows), func(f bridgev2.LoginFlow) bool { return loginFlowHidden(network, f.ID) })
 }

@@ -148,3 +148,18 @@ func TestLoginWaitAndErrors(t *testing.T) {
 		t.Errorf("passkey step: %v", err)
 	}
 }
+
+func TestOfferedFlows(t *testing.T) {
+	ig := []bridgev2.LoginFlow{{ID: "android"}, {ID: "instagram-password"}, {ID: "instagram"}}
+	got := offeredFlows("instagram", ig)
+	if len(got) != 2 || got[0].ID != "instagram-password" || got[1].ID != "instagram" || len(ig) != 3 {
+		t.Errorf("Instagram: %v (the bridge's own list must stay as it was: %d)", got, len(ig))
+	}
+	tg := offeredFlows("telegram", []bridgev2.LoginFlow{{ID: "phone"}, {ID: "qr"}, {ID: "bot"}, {ID: "manual"}})
+	if len(tg) != 3 || tg[2].ID != "manual" {
+		t.Errorf("Telegram keeps manual, drops bot: %v", tg)
+	}
+	if _, err := (&App{}).StartLogin(context.Background(), "instagram", "android"); !errors.Is(err, mautrix.MForbidden) {
+		t.Errorf("a hidden flow can't be started: %v", err)
+	}
+}

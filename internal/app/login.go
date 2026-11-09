@@ -62,6 +62,9 @@ func loginError(err error) error {
 // StartLogin begins logging in to a network with one of its login flows. A network has one account: logging in again
 // replaces the current login.
 func (a *App) StartLogin(ctx context.Context, network, flowID string) (*csapi.LoginStep, error) {
+	if loginFlowHidden(network, flowID) {
+		return nil, mautrix.MForbidden.WithMessage("That way of logging in isn't offered; pick another one")
+	}
 	br := a.Bridge(network)
 	if br == nil {
 		return nil, errNoNetwork
