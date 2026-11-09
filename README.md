@@ -50,6 +50,8 @@ tuimessenger is built on the work of others:
   [whyyor/gomuks](https://github.com/whyyor/gomuks), and was imported with its git history.
 - **The network bridges** are the [mautrix](https://github.com/mautrix) bridges (WhatsApp, Telegram, Meta, Slack)
   and the [mautrix-go](https://github.com/mautrix/go) bridge library.
+- **Notifications on macOS** are shown by [terminal-notifier](https://github.com/julienXX/terminal-notifier) by
+  Eloy Durán and Julien Blanchard (MIT), bundled with tuimessenger's name and icon; see `THIRD_PARTY_NOTICES.md`.
 
 ## License
 
