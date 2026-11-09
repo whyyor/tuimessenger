@@ -638,8 +638,11 @@ func (p *CommandPalette) networkItems() []*paletteItem {
 	return items
 }
 
-// networkName is how a network's name is shown, e.g. "Slack" for "slack".
+// networkName is how a network's name is shown, e.g. "WhatsApp" for "whatsapp".
 func networkName(name string) string {
+	if pretty, ok := networkNames[name]; ok {
+		return pretty
+	}
 	if name == "" {
 		return name
 	}
