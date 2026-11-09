@@ -1,9 +1,10 @@
 package notification
 
 import (
+	"archive/zip"
 	"bytes"
-	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,29 +20,89 @@ const (
 	lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 )
 
-// ErrNoTerminalNotifier means the notifier apps can't be built; notifications then come from Script Editor.
-var ErrNoTerminalNotifier = errors.New("terminal-notifier isn't installed (brew install terminal-notifier)")
+// notifierExe is the program inside the bundled app.
+const notifierExe = "Contents/MacOS/terminal-notifier"
 
-// NotifiersUpToDate reports whether tuimessenger.app exists with the current icon.
+// NotifiersUpToDate reports whether tuimessenger.app exists with the current icon and the bundled notifier program.
 func NotifiersUpToDate() bool {
-	icon, err := os.ReadFile(filepath.Join(notifierDir, appName+".app", "Contents", "Resources", "icon.icns"))
-	return err == nil && bytes.Equal(icon, assets.IconICNS)
+	app := filepath.Join(notifierDir, appName+".app")
+	icon, err := os.ReadFile(filepath.Join(app, "Contents", "Resources", "icon.icns"))
+	if err != nil || !bytes.Equal(icon, assets.IconICNS) {
+		return false
+	}
+	exe, err := os.ReadFile(filepath.Join(app, notifierExe))
+	if err != nil {
+		return false
+	}
+	bundled, err := bundledFile(notifierExe)
+	return err == nil && bytes.Equal(exe, bundled)
 }
 
-// brewNotifierApp finds the terminal-notifier.app that the terminal-notifier command belongs to.
-func brewNotifierApp() (string, error) {
-	bin, err := exec.LookPath("terminal-notifier")
+// bundledFile reads one file of the bundled terminal-notifier.app.
+func bundledFile(name string) ([]byte, error) {
+	zr, err := zip.NewReader(bytes.NewReader(assets.NotifierZip), int64(len(assets.NotifierZip)))
 	if err != nil {
-		return "", ErrNoTerminalNotifier
+		return nil, err
 	}
-	if bin, err = filepath.EvalSymlinks(bin); err != nil {
-		return "", err
+	f, err := zr.Open("terminal-notifier.app/" + name)
+	if err != nil {
+		return nil, err
 	}
-	app := filepath.Join(filepath.Dir(bin), "..", "terminal-notifier.app")
-	if _, err = os.Stat(filepath.Join(app, "Contents", "Info.plist")); err != nil {
-		return "", fmt.Errorf("no terminal-notifier.app next to %s", bin)
+	defer f.Close()
+	return io.ReadAll(f)
+}
+
+// unpackNotifier writes the bundled terminal-notifier.app to dst (the .app folder itself).
+func unpackNotifier(dst string) error {
+	zr, err := zip.NewReader(bytes.NewReader(assets.NotifierZip), int64(len(assets.NotifierZip)))
+	if err != nil {
+		return err
 	}
-	return filepath.Clean(app), nil
+	const prefix = "terminal-notifier.app/"
+	for _, f := range zr.File {
+		rel, ok := strings.CutPrefix(f.Name, prefix)
+		if !ok || rel == "" {
+			continue
+		}
+		path := filepath.Join(dst, filepath.FromSlash(rel))
+		if !strings.HasPrefix(path, filepath.Clean(dst)+string(filepath.Separator)) {
+			return fmt.Errorf("bad path in the bundled notifier: %s", f.Name)
+		}
+		if f.FileInfo().IsDir() {
+			if err = os.MkdirAll(path, 0o755); err != nil {
+				return err
+			}
+			continue
+		}
+		mode := os.FileMode(0o644)
+		if rel == notifierExe {
+			mode = 0o755
+		}
+		if err = writeZipFile(f, path, mode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeZipFile(f *zip.File, path string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	r, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	out, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	if _, err = io.Copy(out, r); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 func runCmd(name string, args ...string) error {
@@ -51,25 +112,22 @@ func runCmd(name string, args ...string) error {
 	return nil
 }
 
-// InstallNotifiers builds tuimessenger.app (terminal-notifier with tuimessenger's name and icon) and registers every
-// notifier app with Launch Services; macOS refuses notifications from apps it doesn't know at their current path.
+// InstallNotifiers unpacks the bundled terminal-notifier as tuimessenger.app (with tuimessenger's name and icon) and
+// registers every notifier app with Launch Services; macOS refuses notifications from apps it doesn't know at their
+// current path. Files tuimessenger writes carry no quarantine flag, so Gatekeeper doesn't ask about it.
 func InstallNotifiers() error {
-	src, err := brewNotifierApp()
-	if err != nil {
-		return err
-	}
-	if err = os.MkdirAll(notifierDir, 0o755); err != nil {
+	if err := os.MkdirAll(notifierDir, 0o755); err != nil {
 		return err
 	}
 	dst := filepath.Join(notifierDir, appName+".app")
 	tmp := dst + ".tmp"
 	_ = os.RemoveAll(tmp)
 	defer os.RemoveAll(tmp)
-	if err = runCmd("ditto", src, tmp); err != nil {
+	err := unpackNotifier(tmp)
+	if err != nil {
 		return err
 	}
 	res := filepath.Join(tmp, "Contents", "Resources")
-	_ = os.Remove(filepath.Join(res, "Terminal.icns"))
 	if err = os.WriteFile(filepath.Join(res, "icon.icns"), assets.IconICNS, 0o644); err != nil {
 		return err
 	}

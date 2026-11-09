@@ -44,5 +44,6 @@ regexes = [
 ]
 paths = [
   '''go\.sum''',
+  '''THIRD_PARTY_NOTICES\.md''',  # license texts name their authors (with email addresses)
   '''internal/tui/lib/emoji/data\.json''',
 ]
