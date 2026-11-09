@@ -6,22 +6,22 @@ require (
 	codeberg.org/tslocum/cbind v0.1.6
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/beeper/dummybridge v0.0.0-20260820153546-583dbf0f40c2
-	github.com/chromedp/cdproto v0.159.0
-	github.com/chromedp/chromedp v0.22.0
+	github.com/chromedp/cdproto v0.159.2
+	github.com/chromedp/chromedp v0.23.0
 	github.com/chzyer/readline v1.5.1
 	github.com/disintegration/imaging v1.6.2
-	github.com/gabriel-vasile/mimetype v1.4.15
+	github.com/gabriel-vasile/mimetype v1.4.16
 	github.com/gdamore/tcell/v2 v2.9.0
 	github.com/lithammer/fuzzysearch v1.1.8
-	github.com/lucasb-eyer/go-colorful v1.4.0
-	github.com/mattn/go-runewidth v0.0.24
-	github.com/mattn/go-sqlite3 v1.14.52
+	github.com/lucasb-eyer/go-colorful v1.4.1
+	github.com/mattn/go-runewidth v0.0.31
+	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/mdp/qrterminal/v3 v3.2.1
 	github.com/rivo/uniseg v0.4.7
 	github.com/rs/zerolog v1.35.1
-	github.com/tidwall/gjson v1.20.0
-	github.com/tidwall/sjson v1.2.5
-	github.com/yuin/goldmark v1.8.6
+	github.com/tidwall/gjson v1.20.1
+	github.com/tidwall/sjson v1.2.7
+	github.com/yuin/goldmark v1.8.7
 	github.com/zyedidia/clipboard v1.0.4
 	go.mau.fi/mautrix-meta v0.2610.0
 	go.mau.fi/mautrix-slack v0.2610.0
@@ -33,7 +33,7 @@ require (
 	go.mau.fi/zeroconfig v0.2.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.47.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/sync v0.24.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/term v0.47.0
