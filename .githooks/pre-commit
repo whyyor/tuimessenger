@@ -11,8 +11,16 @@ if [ -s "$list" ]; then
 		exit 1
 	fi
 fi
+# gitleaks itself, or through nix when it isn't installed (the same rules CI runs).
 if command -v gitleaks >/dev/null 2>&1; then
-	gitleaks git --staged --no-banner --redact --config .gitleaks.toml . >&2 || {
+	set -- gitleaks
+elif command -v nix >/dev/null 2>&1; then
+	set -- nix run nixpkgs#gitleaks --
+else
+	set --
+fi
+if [ $# -gt 0 ]; then
+	"$@" git --staged --no-banner --redact --config .gitleaks.toml . >&2 || {
 		echo "pre-commit: gitleaks found something (see above)" >&2
 		exit 1
 	}
