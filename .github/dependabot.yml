@@ -29,6 +29,8 @@ updates:
       - dependency-name: "github.com/gdamore/tcell/v3"
       # cbind 0.1.7+ is built on tcell v3.
       - dependency-name: "codeberg.org/tslocum/cbind"
+      # Character widths decide where every cell is drawn; it moves with tcell (0.0.31 shifts Devanagari marks).
+      - dependency-name: "github.com/mattn/go-runewidth"
   - package-ecosystem: github-actions
     directory: /
     schedule:
