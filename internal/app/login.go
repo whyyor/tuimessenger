@@ -79,7 +79,8 @@ func (a *App) StartLogin(ctx context.Context, network, flowID string) (*csapi.Lo
 	if logins := user.GetUserLogins(); len(logins) > 0 {
 		s.override = logins[0]
 	}
-	s.ctx = zerolog.Ctx(ctx).With().Str("login_session", s.id).Str("network", network).Logger().WithContext(sctx)
+	// The app's logger: API requests carry none, and zerolog.Ctx would drop these lines.
+	s.ctx = a.opts.Log.With().Str("login_session", s.id).Str("network", network).Logger().WithContext(sctx)
 	a.loginsLock.Lock()
 	if a.logins == nil {
 		a.logins = make(map[string]*loginSession)

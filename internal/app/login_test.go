@@ -56,7 +56,7 @@ var (
 // started registers a login whose first step is first, as StartLogin would.
 func started(t *testing.T, a *App, proc *fakeLogin, first *bridgev2.LoginStep) string {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(a.opts.Log.WithContext(context.Background()))
 	s := &loginSession{id: "L" + first.StepID, network: "whatsapp", proc: proc, ctx: ctx, cancel: cancel}
 	a.loginsLock.Lock()
 	if a.logins == nil {
