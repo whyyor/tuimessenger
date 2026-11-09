@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"syscall"
 	"time"
 
@@ -73,13 +74,20 @@ func Open(ctx context.Context, opts Options) (*Backend, error) {
 		_ = lock.Close()
 		return nil, err
 	}
-	networks := opts.Networks
+	// Telegram without its keys is left out rather than stopping everything; clients then offer the keys form.
+	networks, wantsTelegram := cfg.EnabledNetworks(), cfg.WantsTelegram()
+	if len(opts.Networks) > 0 {
+		networks, wantsTelegram = cfg.Runnable(opts.Networks), slices.Contains(opts.Networks, "telegram")
+	}
+	if wantsTelegram && !cfg.HasTelegramKeys() {
+		opts.Log.Warn().Msg("Telegram needs its app keys (my.telegram.org); add them in the TUI's Networks panel or config.yaml")
+	}
 	if len(networks) == 0 {
-		networks = cfg.EnabledNetworks()
+		return nil, errors.New("no networks can run: choose them with -network or networks: in config.yaml")
 	}
 	a, err := app.New(ctx, app.Options{
 		Log: opts.Log, Config: cfg, DataDir: opts.DataDir, Networks: networks, ServerName: ServerName, Owner: Owner,
-		DefaultNetworks: len(opts.Networks) == 0 && len(cfg.Networks) == 0,
+		OfferTelegramSetup: wantsTelegram && !cfg.HasTelegramKeys(),
 	})
 	if err != nil {
 		_ = lock.Close()

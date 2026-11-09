@@ -111,3 +111,22 @@ func TestSetIntAndString(t *testing.T) {
 		t.Errorf("with keys saved, Telegram runs on the next start: %s", got)
 	}
 }
+
+func TestTelegramWithoutKeysNeverBlocks(t *testing.T) {
+	cfg := defaults()
+	cfg.Networks = []string{"whatsapp", "telegram"}
+	if got := strings.Join(cfg.EnabledNetworks(), ","); got != "whatsapp" || !cfg.WantsTelegram() {
+		t.Errorf("listed without keys: runs %q, wanted %v", got, cfg.WantsTelegram())
+	}
+	cfg.Networks = []string{"slack"}
+	if cfg.WantsTelegram() {
+		t.Error("not listed: not wanted")
+	}
+	cfg.Networks = nil
+	if !cfg.WantsTelegram() || strings.Contains(strings.Join(cfg.EnabledNetworks(), ","), "telegram") {
+		t.Error("default set: wanted, but not run without keys")
+	}
+	if got := strings.Join(cfg.Runnable([]string{"telegram", "dummy"}), ","); got != "dummy" {
+		t.Errorf("-network telegram,dummy without keys: %q", got)
+	}
+}

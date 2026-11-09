@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -32,19 +33,38 @@ type Slack struct {
 // DefaultNetworks are the networks run when config.yaml doesn't list any.
 var DefaultNetworks = []string{"whatsapp", "telegram", "slack", "instagram"}
 
-// EnabledNetworks is the networks to run: the ones listed, or the default ones that can run (Telegram needs its app keys).
+// EnabledNetworks is the networks to run: the ones listed, or the default ones; Telegram only once it has its app keys.
 func (c *Config) EnabledNetworks() []string {
+	return c.Runnable(c.wanted())
+}
+
+// Runnable leaves out networks that can't start yet: Telegram without its app keys.
+func (c *Config) Runnable(networks []string) []string {
+	var out []string
+	for _, name := range networks {
+		if name == "telegram" && !c.HasTelegramKeys() {
+			continue
+		}
+		out = append(out, name)
+	}
+	return out
+}
+
+// HasTelegramKeys reports whether Telegram's app keys (from my.telegram.org) are set.
+func (c *Config) HasTelegramKeys() bool {
+	return c.Telegram.APIID != 0 && c.Telegram.APIHash != ""
+}
+
+func (c *Config) wanted() []string {
 	if len(c.Networks) > 0 {
 		return c.Networks
 	}
-	var networks []string
-	for _, name := range DefaultNetworks {
-		if name == "telegram" && (c.Telegram.APIID == 0 || c.Telegram.APIHash == "") {
-			continue
-		}
-		networks = append(networks, name)
-	}
-	return networks
+	return DefaultNetworks
+}
+
+// WantsTelegram reports whether Telegram is one of the networks to run (listed, or by default).
+func (c *Config) WantsTelegram() bool {
+	return slices.Contains(c.wanted(), "telegram")
 }
 
 // defaults is what a setting is when config.yaml doesn't mention it.

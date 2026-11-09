@@ -9,8 +9,8 @@ import (
 	"github.com/whyyor/tuimessenger/internal/csapi"
 )
 
-// Networks lists the running networks with their accounts, login flows and settings, plus Telegram when it's one of
-// the default networks but can't run yet because its app keys are missing.
+// Networks lists the running networks with their accounts, login flows and settings, plus Telegram when it's wanted
+// but can't run yet because its app keys are missing.
 func (a *App) Networks(ctx context.Context) []csapi.Network {
 	a.settingsLock.Lock()
 	defer a.settingsLock.Unlock()
@@ -29,7 +29,7 @@ func (a *App) Networks(ctx context.Context) []csapi.Network {
 		}
 		networks = append(networks, n)
 	}
-	if a.opts.DefaultNetworks && a.Bridge("telegram") == nil {
+	if a.opts.OfferTelegramSetup && a.Bridge("telegram") == nil {
 		networks = append(networks, csapi.Network{Name: "telegram", Settings: map[string]bool{}, Setup: csapi.SetupTelegramKeys})
 	}
 	return networks

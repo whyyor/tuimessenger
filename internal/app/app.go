@@ -35,9 +35,8 @@ type Options struct {
 	Networks   []string
 	ServerName string
 	Owner      id.UserID
-	// DefaultNetworks: nobody chose the networks (no -network, no networks: in config.yaml), so a default network that
-	// can't start yet (Telegram without keys) is offered for setup.
-	DefaultNetworks bool
+	// OfferTelegramSetup: Telegram is wanted but has no app keys yet, so clients offer the form for them.
+	OfferTelegramSetup bool
 }
 
 type App struct {
