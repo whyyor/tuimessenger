@@ -5,8 +5,8 @@ updates:
   - package-ecosystem: gomod
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      # Monthly while the repo is private (each PR costs CI minutes); weekly again once it's public.
+      interval: monthly
     open-pull-requests-limit: 5
     groups:
       bridges:
