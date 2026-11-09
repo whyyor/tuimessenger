@@ -34,6 +34,12 @@ Without `goolm`, the build looks for the libolm C library (`olm/olm.h not found`
 Logs go to `~/Library/Logs/tuimessenger` (`terminal.log`, `client.log`). Notification icons per network come from
 `~/.local/opt/tuimessenger/notifiers/<Network>.app` (copies of terminal-notifier), with `tuimessenger.app` for the rest.
 
+## Branches
+
+- `dev` is staging: every pull request targets `dev`, and it's what gets tested day to day.
+- `main` only gets releases: `dev` is merged into it and tagged (`v0.1.0`), and downloads are built from the tags.
+- Urgent fixes branch off `main`, go to `main`, and `main` is merged back into `dev`.
+
 ## Contributing: keep personal data out
 
 CI runs gitleaks (`.gitleaks.toml`) on every commit for secrets and personal data: phone numbers, chat-network user
