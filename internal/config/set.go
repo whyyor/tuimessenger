@@ -13,6 +13,20 @@ import (
 // SetBool changes one setting in config.yaml (e.g. section "slack", key "include_channels") and keeps everything
 // else as it was, comments included. A missing file, section or key is created.
 func SetBool(path, section, key string, value bool) error {
+	return setScalar(path, section, key, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: strconv.FormatBool(value)})
+}
+
+// SetInt is SetBool for a number.
+func SetInt(path, section, key string, value int) error {
+	return setScalar(path, section, key, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: strconv.Itoa(value)})
+}
+
+// SetString is SetBool for text.
+func SetString(path, section, key, value string) error {
+	return setScalar(path, section, key, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value})
+}
+
+func setScalar(path, section, key string, val *yaml.Node) error {
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -31,7 +45,6 @@ func SetBool(path, section, key string, value bool) error {
 	if err != nil {
 		return err
 	}
-	val := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: strconv.FormatBool(value)}
 	if i := keyIndex(sec, key); i >= 0 {
 		val.HeadComment, val.LineComment = sec.Content[i+1].HeadComment, sec.Content[i+1].LineComment
 		sec.Content[i+1] = val

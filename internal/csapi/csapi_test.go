@@ -3,6 +3,7 @@ package csapi_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -44,6 +45,10 @@ type fakeBridges struct {
 	fetches       int
 	broken        []string // networks ReconnectUnhealthy reports as reconnecting
 	slackChannels bool
+	loginInput    map[string]string
+	cancelled     []string
+	loggedOut     []string
+	telegramKeys  string
 }
 
 func (f *fakeBridges) Queue(ctx context.Context, evt *event.Event) error {
@@ -69,6 +74,47 @@ func (f *fakeBridges) SetNetworkSetting(ctx context.Context, network, key string
 		return csapi.ErrUnknownSetting
 	}
 	f.slackChannels = value
+	return nil
+}
+
+// The fake login: a password form, then done. It records what reached the "network".
+func (f *fakeBridges) StartLogin(ctx context.Context, network, flowID string) (*csapi.LoginStep, error) {
+	if network != "slack" {
+		return nil, mautrix.MNotFound.WithMessage("No such network is running")
+	}
+	return &csapi.LoginStep{LoginID: "L1", Step: &bridgev2.LoginStep{Type: bridgev2.LoginStepTypeUserInput, StepID: "pw",
+		UserInputParams: &bridgev2.LoginUserInputParams{Fields: []bridgev2.LoginInputDataField{{ID: "password", Name: "Password"}}}}}, nil
+}
+
+func (f *fakeBridges) SubmitLogin(ctx context.Context, loginID, stepID string, stepType bridgev2.LoginStepType, input map[string]string) (*csapi.LoginStep, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.loginInput = input
+	if loginID != "L1" || stepID != "pw" || stepType != bridgev2.LoginStepTypeUserInput {
+		return nil, mautrix.MNotFound.WithMessage("This login has ended; start it again")
+	}
+	return &csapi.LoginStep{LoginID: "L1", Step: &bridgev2.LoginStep{Type: bridgev2.LoginStepTypeComplete, StepID: "done",
+		CompleteParams: &bridgev2.LoginCompleteParams{UserLoginID: "T1-U1"}}}, nil
+}
+
+func (f *fakeBridges) CancelLogin(ctx context.Context, loginID string) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.cancelled = append(f.cancelled, loginID)
+	return nil
+}
+
+func (f *fakeBridges) Logout(ctx context.Context, network string, loginID networkid.UserLoginID) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.loggedOut = append(f.loggedOut, network+"/"+string(loginID))
+	return nil
+}
+
+func (f *fakeBridges) SetTelegramKeys(ctx context.Context, apiID int, apiHash string) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.telegramKeys = fmt.Sprintf("%d:%s", apiID, apiHash)
 	return nil
 }
 

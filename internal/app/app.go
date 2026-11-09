@@ -35,6 +35,8 @@ type Options struct {
 	Networks   []string
 	ServerName string
 	Owner      id.UserID
+	// OfferTelegramSetup: Telegram is wanted but has no app keys yet, so clients offer the form for them.
+	OfferTelegramSetup bool
 }
 
 type App struct {
@@ -59,6 +61,9 @@ type App struct {
 
 	settings     map[string]map[string]*bridges.Setting // network name → setting key → setting
 	settingsLock sync.Mutex                             // one settings change at a time
+
+	logins     map[string]*loginSession // logins in progress, by ID
+	loginsLock sync.Mutex
 }
 
 var _ csapi.Bridges = (*App)(nil)

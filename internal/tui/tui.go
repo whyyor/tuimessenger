@@ -227,6 +227,10 @@ func (ui *App) finishSetup(mode setupMode) {
 	}
 	ui.Config.Save()
 	ui.leaveSetup()
+	// Next step for a new setup: connect the chat networks.
+	if ui.MainView != nil {
+		ui.MainView.OpenNetworks()
+	}
 }
 
 // leaveSetup switches from the setup screen to the chats once there's a login; later calls do nothing.

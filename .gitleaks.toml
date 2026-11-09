@@ -40,6 +40,7 @@ regexes = [
   '''[_-]1\b''',
   '''(?i)slack(?:go)?_t0{10}''',
   '''/(?:Users|home)/(?:me|pi|runner|user|you)/''',
+  '''0123456789abcdef0123456789abcdef''',  # the made-up Telegram api_hash in tests
 ]
 paths = [
   '''go\.sum''',
