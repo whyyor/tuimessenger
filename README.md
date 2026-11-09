@@ -9,7 +9,7 @@ Your chats from WhatsApp, Telegram, Slack and Instagram in one terminal app, wit
 machine.
 </p>
 
-<!-- DEMO-VIDEO: the user-attachments link to tuimessenger-demo.mp4 goes here -->
+https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
 
 ## See it
 
