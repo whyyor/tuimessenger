@@ -5,43 +5,19 @@
 <h1 align="center">tuimessenger</h1>
 
 <p align="center">
-Your chats from WhatsApp, Telegram, Slack and Instagram in one terminal app, with the bridges running on your own
-machine.
+All your networks in one terminal app: WhatsApp, Telegram, Slack and Instagram.
 </p>
 
 https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
 
-I live in the terminal and didn't want four apps (or someone's cloud) for my messages. tuimessenger is one program:
-the network bridges, a small local server and a terminal client. Your chats, sessions and media stay in a folder on
-your machine.
+- **Every network in one app**, with your chats, sessions and media kept on your machine.
+- **Keyboard first:** Ctrl+k jumps to any chat, Ctrl+p has every command; reply, react and open photos without the
+  mouse.
+- **AI help when you want it:** let your coding agent read your chats and draft replies
+  (`tuimessenger integration install claude`, `codex` or `opencode`). Nothing is sent without your OK.
+- **Light:** under 100 MB of RAM with all your networks connected, where desktop messengers often take 1.5–2 GB.
 
-## Why it's different
-
-- **No Matrix homeserver, no hosted service.** The usual way to get these networks into one client is a Matrix server
-  plus four bridges plus a client. tuimessenger compiles the bridges in and talks to them directly.
-- **One binary.** `tuimessenger tui` starts everything; `tuimessenger service install` keeps the bridges running in
-  the background so you don't miss messages while the terminal client is closed.
-- **Built for the keyboard:** jump to any chat with Ctrl+k, a command palette on Ctrl+p, a visual mode to reply,
-  react and open media without the mouse, photos right in the terminal.
-- **Scriptable:** `tuimessenger agent` gives scripts and AI agents your chats as JSON (see [AI agents](#ai-agents)).
-
-## ⚠️ Read this first: your accounts
-
-WhatsApp, Instagram, Telegram and Slack don't officially support third-party apps like this one. tuimessenger logs in
-as a linked device / web session, the way the official desktop and web apps do, but a network **can flag, limit or
-ban accounts it thinks use an unofficial client**. Meta (WhatsApp, Instagram) is the strictest. Many people use the same
-bridges every day without trouble, but there's no guarantee: use it at your own risk, and consider trying it with an
-account you can afford to lose first.
-
-## Status
-
-tuimessenger is young (v0.1). It's my daily driver on macOS.
-
-- **macOS:** used every day.
-- **Linux:** builds and runs (x86_64 and arm64), but has had far less real use. Reports welcome.
-- **Not yet:** Signal (the most likely next network), running the backend on another machine such as a Raspberry Pi
-  (the "Host backend" option in setup is a placeholder), per-network notification icons on fresh installs.
-- **Telegram** needs your own free API keys (Telegram's rule for unofficial apps); the app walks you through it.
+> ⚠️ Bridges carry a low risk of the network flagging or banning your account. Proceed with caution.
 
 ## Install
 
@@ -111,18 +87,6 @@ Everything in these recordings is made-up demo data (`tuimessenger demo serve`, 
 | Shift+Enter | New line |
 | Ctrl+c | Clear the input (Ctrl+z brings it back) |
 
-## AI agents
-
-`tuimessenger agent` gives scripts and AI agents your chats as JSON: `chats`, `messages`, `search` and `send`. Reading
-works with the app closed, straight from the terminal client's data, and never marks anything as read. Sending needs a
-login of the agent's own, which you create with `tuimessenger agent login` and can revoke with `agent logout`.
-Nothing is sent without `-yes`, and the skill tells agents to show you the draft and wait for your OK first.
-
-```sh
-tuimessenger integration install claude opencode codex   # teach your agents how to use it
-tuimessenger --skill                                     # or read the skill yourself
-```
-
 ## Where things are
 
 | | macOS | Linux |
@@ -155,12 +119,6 @@ Without `goolm`, the build looks for the libolm C library (`olm/olm.h not found`
 Releases: a `vX.Y.Z` tag on `main` builds the binaries for macOS and Linux, publishes the GitHub release and updates
 the Homebrew formula (`.github/workflows/release.yml`).
 
-## Branches
-
-- `dev` is staging: every pull request targets `dev`, and it's what gets tested day to day.
-- `main` only gets releases: `dev` is merged into it and tagged (`v0.1.0`), and downloads are built from the tags.
-- Urgent fixes branch off `main`, go to `main`, and `main` is merged back into `dev`.
-
 ## Contributing: keep personal data out
 
 CI runs gitleaks (`.gitleaks.toml`) on every commit for secrets and personal data: phone numbers, chat-network user
@@ -168,11 +126,12 @@ IDs, home-folder paths. Use made-up values in tests (`+15550100001`, `@whatsapp_
 enable the hooks once with `git config core.hooksPath .githooks`; they also check against a private word list in
 `.git/info/sensitive-words` (one per line; never committed or pushed) for names and numbers only you know.
 
-## How this was made
+## What's next
 
-I built tuimessenger with a lot of help from AI coding assistants, the same way I'd use any other tool. The decisions
-are mine: running the bridges locally without a Matrix server, the setup modes, the design, what to leave out. I review
-every change before it's merged, and I use it every day.
+- Signal.
+- Running the backend on another machine, like a Raspberry Pi, with the terminal app connecting to it.
+- Per-network notification icons on fresh installs.
+- More Linux testing: it builds and runs on x86_64 and arm64, but most use so far is on macOS. Reports welcome.
 
 ## Credits
 
