@@ -11,18 +11,6 @@ machine.
 
 https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
 
-## See it
-
-| Jump to any chat with Ctrl+k, send photos with yazi | Reply and react |
-|---|---|
-| ![Ctrl+k to a chat, then /upload picks a photo in yazi and sends it](docs/demo/upload-yazi.gif) | ![Replying to a message and reacting with an emoji](docs/demo/reply-react.gif) |
-
-| Photos open full screen, right in the terminal |
-|---|
-| ![A photo opened full screen inside the terminal](docs/demo/fullscreen-image.gif) |
-
-Everything in these recordings is made-up demo data (`tuimessenger demo serve`, a developer build); the photos are from
-[Unsplash](https://unsplash.com/license) via [Lorem Picsum](https://picsum.photos).
 
 ## Building
 
