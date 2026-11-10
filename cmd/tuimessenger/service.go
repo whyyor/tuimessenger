@@ -119,7 +119,26 @@ func stableExecutable() (string, error) {
 	if strings.Contains(exe, "go-build") || strings.HasPrefix(exe, filepath.Clean(os.TempDir())) {
 		return "", fmt.Errorf("%s is a temporary build; install tuimessenger somewhere permanent and run it from there", exe)
 	}
-	return exe, nil
+	return brewOptPath(exe), nil
+}
+
+// brewOptPath turns Homebrew's versioned <prefix>/Cellar/tuimessenger/<version>/… into <prefix>/opt/tuimessenger/…,
+// which brew upgrade repoints, so the service doesn't run a deleted version.
+func brewOptPath(exe string) string {
+	const cellar = "/Cellar/tuimessenger/"
+	i := strings.Index(exe, cellar)
+	if i < 0 {
+		return exe
+	}
+	_, rest, ok := strings.Cut(exe[i+len(cellar):], "/")
+	if !ok {
+		return exe
+	}
+	opt := filepath.Join(exe[:i], "opt", "tuimessenger", rest)
+	if _, err := os.Stat(opt); err != nil {
+		return exe
+	}
+	return opt
 }
 
 // ensurePasswordOffline opens the stopped backend just long enough to check for (or ask for) the password.
