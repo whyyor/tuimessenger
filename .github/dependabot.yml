@@ -7,8 +7,7 @@ updates:
     # Updates land on dev (staging) like every change, and reach main with the next release.
     target-branch: dev
     schedule:
-      # Monthly while the repo is private (each PR costs CI minutes); weekly again once it's public.
-      interval: monthly
+      interval: weekly
     open-pull-requests-limit: 5
     groups:
       bridges:
@@ -38,4 +37,4 @@ updates:
     # Updates land on dev (staging) like every change, and reach main with the next release.
     target-branch: dev
     schedule:
-      interval: monthly
+      interval: weekly
