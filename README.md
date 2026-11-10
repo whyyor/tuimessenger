@@ -88,7 +88,7 @@ shows how it's doing; `uninstall` removes it. After upgrading, run `service inst
 - Logs: `tuimessenger.log` (backend), `terminal.log` and `client.log` (client), and `crash.log`, which keeps the
   stack trace if the app ever crashes. Please attach it to bug reports.
 - macOS notifications come from `~/.local/opt/tuimessenger/notifiers/tuimessenger.app`, which tuimessenger sets up
-  itself.
+  itself (optional per-network icons: `<Network>.app` next to it).
 
 ## Building
 
@@ -110,6 +110,7 @@ the Homebrew formula (`.github/workflows/release.yml`).
 
 - Signal.
 - Running the backend on another machine, like a Raspberry Pi, with the terminal app connecting to it.
+- Per-network notification icons on fresh installs.
 - More Linux testing: it builds and runs on x86_64 and arm64, but most use so far is on macOS. Reports welcome.
 
 ## Credits
