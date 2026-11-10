@@ -329,6 +329,15 @@ func (rs *RoomStore) ApplyPagination(resp *jsoncmd.PaginationResponse) {
 	rs.notifyTimelineWatchers()
 }
 
+// ApplyFetched makes an event fetched outside the timeline (a reply's target) findable by ID without showing it.
+func (rs *RoomStore) ApplyFetched(evt *database.Event) {
+	rs.lock.Lock()
+	defer rs.lock.Unlock()
+	if _, hasEvt := rs.eventsByID[evt.ID]; !hasEvt {
+		rs.applyEvent(evt, false)
+	}
+}
+
 func (rs *RoomStore) ApplyDecrypted(resp *jsoncmd.EventsDecrypted) {
 	rs.lock.Lock()
 	defer rs.lock.Unlock()

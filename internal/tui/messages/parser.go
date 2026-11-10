@@ -39,26 +39,7 @@ func ParseEvent(matrix *client.Client, prefs *config.UserPreferences, room *stor
 	if msg == nil {
 		return nil
 	}
-	if replyTo := evt.GetReplyTo(); len(replyTo) > 0 {
-		if replyToEvt := room.GetEventByID(replyTo); replyToEvt != nil {
-			if replyToMsg, ok := replyToEvt.RenderMeta.(*UIMessage); ok {
-				if replyToMsg != nil {
-					msg.ReplyTo = replyToMsg.Clone()
-					msg.ReplyTo.IsReplyBubble = true
-				} else {
-					// TODO something
-				}
-			} else if replyToMsg = directParseEvent(matrix, prefs, room, replyToEvt); replyToMsg != nil {
-				msg.ReplyTo = replyToMsg
-				msg.ReplyTo.IsReplyBubble = true
-			} else {
-				// TODO add unrenderable reply header
-			}
-		} else {
-			// TODO request reply event from backend
-			// TODO add unknown reply header
-		}
-	}
+	attachReply(matrix, prefs, room, evt, msg)
 	return msg
 }
 
