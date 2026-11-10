@@ -22,6 +22,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/bridges"
 	"github.com/whyyor/tuimessenger/internal/login"
 	"github.com/whyyor/tuimessenger/internal/server"
+	"github.com/whyyor/tuimessenger/skills"
 )
 
 // ownerMXID is "you", the only user.
@@ -42,6 +43,11 @@ func main() {
 			os.Exit(runTUI(os.Args[2:]))
 		case "agent":
 			os.Exit(runAgent(os.Args[2:]))
+		case "integration":
+			os.Exit(runIntegration(os.Args[2:]))
+		case "--skill", "-skill":
+			fmt.Print(skills.Tuimessenger)
+			os.Exit(0)
 		case "service":
 			os.Exit(runService(os.Args[2:]))
 		case "notifiers":

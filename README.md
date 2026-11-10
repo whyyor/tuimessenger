@@ -36,6 +36,18 @@ make vet
 
 Without `goolm`, the build looks for the libolm C library (`olm/olm.h not found`).
 
+## AI agents
+
+`tuimessenger agent` gives scripts and AI agents your chats as JSON: `chats`, `messages`, `search` and `send`. Reading
+works with the app closed, straight from the terminal client's data, and never marks anything as read. Sending needs a
+login of the agent's own, which you create with `tuimessenger agent login` and can revoke with `agent logout`.
+Nothing is sent without `-yes`, and the skill tells agents to show you the draft and wait for your OK first.
+
+```sh
+tuimessenger integration install claude opencode codex   # teach your agents how to use it
+tuimessenger --skill                                     # or read the skill yourself
+```
+
 ## The terminal client's files
 
 `tuimessenger tui` keeps its files in the data folder's `tui/` subfolder
