@@ -20,3 +20,15 @@ binaries in a form other than Go source modules (Go modules keep their own licen
 > The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 > 
 > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Network notification icons
+
+- What: `assets/notifiers/*.icns`, embedded in macOS builds and installed as `WhatsApp.app`, `Telegram.app`,
+  `Slack.app` and `Instagram.app`, so each network's notifications show its icon.
+- Made by: the WhatsApp, Telegram, Slack and Instagram glyphs of [Font Awesome Free](https://fontawesome.com) (as
+  included in [Nerd Fonts](https://www.nerdfonts.com)), recoloured and placed on tuimessenger's dark tile.
+- License: Font Awesome Free icons are under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+  (© Fonticons, Inc.); these are modified versions.
+- The logos are trademarks of their owners (WhatsApp and Instagram: Meta Platforms, Inc.; Telegram: Telegram FZ-LLC;
+  Slack: Slack Technologies, LLC). They're used only to show which network a notification is from; tuimessenger
+  isn't affiliated with or endorsed by them.

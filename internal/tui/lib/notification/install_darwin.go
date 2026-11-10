@@ -15,27 +15,49 @@ import (
 
 const (
 	appName = "tuimessenger"
-	// appID keeps the identifier the first hand-made notifier had, so macOS keeps its notification permission.
-	appID      = "fr.julienxx.oss.terminal-notifier.tuimessenger"
-	lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+	// appIDPrefix + the app's name is the identifier the first hand-made notifiers had, so macOS keeps their
+	// notification permissions.
+	appIDPrefix = "fr.julienxx.oss.terminal-notifier."
+	lsregister  = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 )
 
 // notifierExe is the program inside the bundled app.
 const notifierExe = "Contents/MacOS/terminal-notifier"
 
-// NotifiersUpToDate reports whether tuimessenger.app exists with the current icon and the bundled notifier program.
-func NotifiersUpToDate() bool {
-	app := filepath.Join(notifierDir, appName+".app")
-	icon, err := os.ReadFile(filepath.Join(app, "Contents", "Resources", "icon.icns"))
-	if err != nil || !bytes.Equal(icon, assets.IconICNS) {
-		return false
+// notifierApp is one notification app: macOS shows a notification under its sender app's name and icon, so each
+// network gets its own (and its own entry in System Settings → Notifications).
+type notifierApp struct {
+	name string
+	icon []byte
+}
+
+// notifierApps are tuimessenger.app (for everything else) and one app per network in sourceBundles.
+func notifierApps() []notifierApp {
+	apps := []notifierApp{{appName, assets.IconICNS}}
+	for _, name := range []string{"WhatsApp", "Telegram", "Slack", "Instagram"} {
+		apps = append(apps, notifierApp{name, assets.NetworkIcon(name)})
 	}
-	exe, err := os.ReadFile(filepath.Join(app, notifierExe))
+	return apps
+}
+
+// NotifiersUpToDate reports whether every notifier app exists with its current icon and the bundled notifier program.
+func NotifiersUpToDate() bool {
+	bundled, err := bundledFile(notifierExe)
 	if err != nil {
 		return false
 	}
-	bundled, err := bundledFile(notifierExe)
-	return err == nil && bytes.Equal(exe, bundled)
+	for _, a := range notifierApps() {
+		app := filepath.Join(notifierDir, a.name+".app")
+		icon, err := os.ReadFile(filepath.Join(app, "Contents", "Resources", "icon.icns"))
+		if err != nil || !bytes.Equal(icon, a.icon) {
+			return false
+		}
+		exe, err := os.ReadFile(filepath.Join(app, notifierExe))
+		if err != nil || !bytes.Equal(exe, bundled) {
+			return false
+		}
+	}
+	return true
 }
 
 // bundledFile reads one file of the bundled terminal-notifier.app.
@@ -112,14 +134,34 @@ func runCmd(name string, args ...string) error {
 	return nil
 }
 
-// InstallNotifiers unpacks the bundled terminal-notifier as tuimessenger.app (with tuimessenger's name and icon) and
-// registers every notifier app with Launch Services; macOS refuses notifications from apps it doesn't know at their
-// current path. Files tuimessenger writes carry no quarantine flag, so Gatekeeper doesn't ask about it.
+// InstallNotifiers unpacks the bundled terminal-notifier once per notifier app (tuimessenger.app and one per network,
+// each with its name and icon) and registers every notifier app with Launch Services; macOS refuses notifications
+// from apps it doesn't know at their current path. Files tuimessenger writes carry no quarantine flag, so Gatekeeper
+// doesn't ask about them.
 func InstallNotifiers() error {
 	if err := os.MkdirAll(notifierDir, 0o755); err != nil {
 		return err
 	}
-	dst := filepath.Join(notifierDir, appName+".app")
+	for _, a := range notifierApps() {
+		if err := installNotifierApp(a); err != nil {
+			return fmt.Errorf("%s.app: %w", a.name, err)
+		}
+	}
+	apps, _ := filepath.Glob(filepath.Join(notifierDir, "*.app"))
+	for _, app := range apps {
+		if err := runCmd(lsregister, "-f", "-R", app); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// installNotifierApp builds one notifier app next to its old copy, then swaps it in.
+func installNotifierApp(a notifierApp) error {
+	if len(a.icon) == 0 {
+		return fmt.Errorf("no icon bundled")
+	}
+	dst := filepath.Join(notifierDir, a.name+".app")
 	tmp := dst + ".tmp"
 	_ = os.RemoveAll(tmp)
 	defer os.RemoveAll(tmp)
@@ -128,11 +170,11 @@ func InstallNotifiers() error {
 		return err
 	}
 	res := filepath.Join(tmp, "Contents", "Resources")
-	if err = os.WriteFile(filepath.Join(res, "icon.icns"), assets.IconICNS, 0o644); err != nil {
+	if err = os.WriteFile(filepath.Join(res, "icon.icns"), a.icon, 0o644); err != nil {
 		return err
 	}
 	plist := filepath.Join(tmp, "Contents", "Info.plist")
-	for key, value := range map[string]string{"CFBundleIconFile": "icon", "CFBundleIdentifier": appID, "CFBundleName": appName} {
+	for key, value := range map[string]string{"CFBundleIconFile": "icon", "CFBundleIdentifier": appIDPrefix + a.name, "CFBundleName": a.name} {
 		if err = runCmd("plutil", "-replace", key, "-string", value, plist); err != nil {
 			return err
 		}
@@ -144,14 +186,5 @@ func InstallNotifiers() error {
 	if err = os.RemoveAll(dst); err != nil {
 		return err
 	}
-	if err = os.Rename(tmp, dst); err != nil {
-		return err
-	}
-	apps, _ := filepath.Glob(filepath.Join(notifierDir, "*.app"))
-	for _, app := range apps {
-		if err = runCmd(lsregister, "-f", "-R", app); err != nil {
-			return err
-		}
-	}
-	return nil
+	return os.Rename(tmp, dst)
 }
