@@ -4,6 +4,8 @@ version: 2
 updates:
   - package-ecosystem: gomod
     directory: /
+    # Updates land on dev (staging) like every change, and reach main with the next release.
+    target-branch: dev
     schedule:
       # Monthly while the repo is private (each PR costs CI minutes); weekly again once it's public.
       interval: monthly
@@ -33,5 +35,7 @@ updates:
       - dependency-name: "github.com/mattn/go-runewidth"
   - package-ecosystem: github-actions
     directory: /
+    # Updates land on dev (staging) like every change, and reach main with the next release.
+    target-branch: dev
     schedule:
       interval: monthly
