@@ -47,6 +47,9 @@ func main() {
 		case "version", "-version", "--version":
 			os.Exit(runVersion())
 		}
+		if run, ok := devCommands[os.Args[1]]; ok {
+			os.Exit(run(os.Args[2:]))
+		}
 	}
 	networks := flag.String("network", "", "comma-separated networks to run (default: networks in config.yaml, else all that can run): "+strings.Join(bridges.Available(), ", "))
 	var f flags
