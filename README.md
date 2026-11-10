@@ -14,7 +14,7 @@ https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
 - **Keyboard first:** Ctrl+k jumps to any chat, Ctrl+p has every command; reply, react and open photos without the
   mouse.
 - **AI help when you want it:** let your coding agent read your chats and draft replies
-  (`tuimessenger integration install claude`, `codex` or `opencode`). Nothing is sent without your OK.
+  (`tuimessenger integration install claude`, `codex` or `opencode`).
 - **Light:** under 100 MB of RAM with all your networks connected, where desktop messengers often take 1.5–2 GB.
 
 > ⚠️ Bridges carry a low risk of the network flagging or banning your account. Proceed with caution.
@@ -118,13 +118,6 @@ Without `goolm`, the build looks for the libolm C library (`olm/olm.h not found`
 
 Releases: a `vX.Y.Z` tag on `main` builds the binaries for macOS and Linux, publishes the GitHub release and updates
 the Homebrew formula (`.github/workflows/release.yml`).
-
-## Contributing: keep personal data out
-
-CI runs gitleaks (`.gitleaks.toml`) on every commit for secrets and personal data: phone numbers, chat-network user
-IDs, home-folder paths. Use made-up values in tests (`+15550100001`, `@whatsapp_15550100001`, "Mariana"). Locally,
-enable the hooks once with `git config core.hooksPath .githooks`; they also check against a private word list in
-`.git/info/sensitive-words` (one per line; never committed or pushed) for names and numbers only you know.
 
 ## What's next
 
