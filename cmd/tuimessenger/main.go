@@ -22,6 +22,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/bridges"
 	"github.com/whyyor/tuimessenger/internal/login"
 	"github.com/whyyor/tuimessenger/internal/server"
+	"github.com/whyyor/tuimessenger/skills"
 )
 
 // ownerMXID is "you", the only user.
@@ -40,12 +41,22 @@ func main() {
 		switch os.Args[1] {
 		case "tui":
 			os.Exit(runTUI(os.Args[2:]))
+		case "agent":
+			os.Exit(runAgent(os.Args[2:]))
+		case "integration":
+			os.Exit(runIntegration(os.Args[2:]))
+		case "--skill", "-skill":
+			fmt.Print(skills.Tuimessenger)
+			os.Exit(0)
 		case "service":
 			os.Exit(runService(os.Args[2:]))
 		case "notifiers":
 			os.Exit(runNotifiers())
 		case "version", "-version", "--version":
 			os.Exit(runVersion())
+		}
+		if run, ok := devCommands[os.Args[1]]; ok {
+			os.Exit(run(os.Args[2:]))
 		}
 	}
 	networks := flag.String("network", "", "comma-separated networks to run (default: networks in config.yaml, else all that can run): "+strings.Join(bridges.Available(), ", "))

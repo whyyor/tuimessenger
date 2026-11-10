@@ -676,6 +676,7 @@ func (e *Event) Scan(row dbutil.Scannable) (*Event, error) {
 var relatesToPath = exgjson.Path("m.relates_to", "event_id")
 var relationTypePath = exgjson.Path("m.relates_to", "rel_type")
 var replyToPath = exgjson.Path("m.relates_to", "m.in_reply_to", "event_id")
+var replyToRoomPath = exgjson.Path("m.relates_to", "m.in_reply_to", "com.beeper.cross_room_id")
 
 func getRelatesToFromEvent(evt *event.Event) (id.EventID, event.RelationType) {
 	if evt.StateKey != nil {
@@ -711,6 +712,19 @@ func (e *Event) GetReplyTo() id.EventID {
 	result := gjson.GetBytes(content, replyToPath)
 	if result.Type == gjson.String {
 		return id.EventID(result.Str)
+	}
+	return ""
+}
+
+// GetReplyToRoom is the room of the replied-to message when it lives elsewhere, e.g. WhatsApp's "reply privately".
+func (e *Event) GetReplyToRoom() id.RoomID {
+	content := e.Content
+	if e.Decrypted != nil {
+		content = e.Decrypted
+	}
+	result := gjson.GetBytes(content, replyToRoomPath)
+	if result.Type == gjson.String {
+		return id.RoomID(result.Str)
 	}
 	return ""
 }

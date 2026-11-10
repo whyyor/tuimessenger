@@ -9,6 +9,21 @@ Your chats from WhatsApp, Telegram, Slack and Instagram in one terminal app, wit
 machine.
 </p>
 
+https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
+
+## See it
+
+| Jump to any chat with Ctrl+k, send photos with yazi | Reply and react |
+|---|---|
+| ![Ctrl+k to a chat, then /upload picks a photo in yazi and sends it](docs/demo/upload-yazi.gif) | ![Replying to a message and reacting with an emoji](docs/demo/reply-react.gif) |
+
+| Photos open full screen, right in the terminal |
+|---|
+| ![A photo opened full screen inside the terminal](docs/demo/fullscreen-image.gif) |
+
+Everything in these recordings is made-up demo data (`tuimessenger demo serve`, a developer build); the photos are from
+[Unsplash](https://unsplash.com/license) via [Lorem Picsum](https://picsum.photos).
+
 ## Building
 
 Always build with the `goolm` and `sqlite_fts5` tags (the Makefile does this):
@@ -20,6 +35,18 @@ make vet
 ```
 
 Without `goolm`, the build looks for the libolm C library (`olm/olm.h not found`).
+
+## AI agents
+
+`tuimessenger agent` gives scripts and AI agents your chats as JSON: `chats`, `messages`, `search` and `send`. Reading
+works with the app closed, straight from the terminal client's data, and never marks anything as read. Sending needs a
+login of the agent's own, which you create with `tuimessenger agent login` and can revoke with `agent logout`.
+Nothing is sent without `-yes`, and the skill tells agents to show you the draft and wait for your OK first.
+
+```sh
+tuimessenger integration install claude opencode codex   # teach your agents how to use it
+tuimessenger --skill                                     # or read the skill yourself
+```
 
 ## The terminal client's files
 

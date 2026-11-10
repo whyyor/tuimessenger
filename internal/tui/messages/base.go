@@ -24,8 +24,10 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"go.mau.fi/mauview"
 	"maunium.net/go/mautrix/event"
+	"maunium.net/go/mautrix/id"
 
 	"github.com/whyyor/tuimessenger/internal/hicli/database"
 	"github.com/whyyor/tuimessenger/internal/rpc/store"
@@ -76,8 +78,13 @@ type UIMessage struct {
 	IsSelected         bool
 	ReplyTo            *UIMessage
 	IsReplyBubble      bool
-	Renderer           MessageRenderer
-	bufferedWidth      int
+	// ReplyRoomName names the chat a quoted message is from when it isn't this one.
+	ReplyRoomName string
+	// missingReply is the quoted event while a placeholder stands in for it; replyRoom is where it lives.
+	missingReply  id.EventID
+	replyRoom     *store.RoomStore
+	Renderer      MessageRenderer
+	bufferedWidth int
 	// IsDateChange marks the day separator, drawn as a centred rule.
 	IsDateChange bool
 	measured     measured
@@ -356,7 +363,11 @@ func (msg *UIMessage) DrawReply(screen mauview.Screen) mauview.Screen {
 	width, height := screen.Size()
 	replyHeight := msg.ReplyTo.Height()
 	widget.WriteLineSimpleColor(screen, "In reply to", 1, 0, tcell.ColorGreen)
-	widget.WriteLineSimpleColor(screen, msg.ReplyTo.GetRawSenderName(), 13, 0, msg.ReplyTo.SenderColor())
+	name := msg.ReplyTo.GetRawSenderName()
+	widget.WriteLineSimpleColor(screen, name, 13, 0, msg.ReplyTo.SenderColor())
+	if msg.ReplyRoomName != "" {
+		widget.WriteLineSimpleColor(screen, "· in "+msg.ReplyRoomName, 14+runewidth.StringWidth(name), 0, tcell.ColorGray)
+	}
 	for y := 0; y < 1+replyHeight; y++ {
 		screen.SetCell(0, y, tcell.StyleDefault, '▊')
 	}

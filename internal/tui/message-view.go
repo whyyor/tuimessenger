@@ -764,7 +764,7 @@ func (view *MessageView) update(width int) {
 			increaseScrollOffset = increaseScrollOffset || startIncreasingScrollOffset
 			continue
 		}
-		if evt.RenderMeta == nil {
+		if cached, _ := evt.RenderMeta.(*messages.UIMessage); evt.RenderMeta == nil || cached.ReplyArrived() {
 			evt.RenderMeta = messages.ParseEvent(view.matrix, &view.config.Preferences, view.parent.Room, evt)
 		}
 		uiMsg := evt.RenderMeta.(*messages.UIMessage)
