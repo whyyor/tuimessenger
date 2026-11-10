@@ -40,6 +40,8 @@ func main() {
 		switch os.Args[1] {
 		case "tui":
 			os.Exit(runTUI(os.Args[2:]))
+		case "agent":
+			os.Exit(runAgent(os.Args[2:]))
 		case "service":
 			os.Exit(runService(os.Args[2:]))
 		case "notifiers":
