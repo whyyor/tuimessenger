@@ -11,6 +11,80 @@ machine.
 
 https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
 
+I live in the terminal and didn't want four apps (or someone's cloud) for my messages. tuimessenger is one program:
+the network bridges, a small local server and a terminal client. Your chats, sessions and media stay in a folder on
+your machine.
+
+## Why it's different
+
+- **No Matrix homeserver, no hosted service.** The usual way to get these networks into one client is a Matrix server
+  plus four bridges plus a client. tuimessenger compiles the bridges in and talks to them directly.
+- **One binary.** `tuimessenger tui` starts everything; `tuimessenger service install` keeps the bridges running in
+  the background so you don't miss messages while the terminal client is closed.
+- **Built for the keyboard:** jump to any chat with Ctrl+k, a command palette on Ctrl+p, a visual mode to reply,
+  react and open media without the mouse, photos right in the terminal.
+- **Scriptable:** `tuimessenger agent` gives scripts and AI agents your chats as JSON (see [AI agents](#ai-agents)).
+
+## ⚠️ Read this first: your accounts
+
+WhatsApp, Instagram, Telegram and Slack don't officially support third-party apps like this one. tuimessenger logs in
+as a linked device / web session, the way the official desktop and web apps do, but a network **can flag, limit or
+ban accounts it thinks use an unofficial client**. Meta (WhatsApp, Instagram) is the strictest. Many people use the same
+bridges every day without trouble, but there's no guarantee: use it at your own risk, and consider trying it with an
+account you can afford to lose first.
+
+## Status
+
+tuimessenger is young (v0.1). It's my daily driver on macOS.
+
+- **macOS:** used every day.
+- **Linux:** builds and runs (x86_64 and arm64), but has had far less real use. Reports welcome.
+- **Not yet:** Signal (the most likely next network), running the backend on another machine such as a Raspberry Pi
+  (the "Host backend" option in setup is a placeholder), per-network notification icons on fresh installs.
+- **Telegram** needs your own free API keys (Telegram's rule for unofficial apps); the app walks you through it.
+
+## Install
+
+**Homebrew** (macOS and Linux):
+
+```sh
+brew install whyyor/tap/tuimessenger
+```
+
+**Download:** grab the archive for your system from [Releases](https://github.com/whyyor/tuimessenger/releases),
+unpack it and put `tuimessenger` somewhere on your `PATH` (e.g. `~/.local/bin`). The binaries aren't signed by Apple,
+so on macOS a browser download is blocked the first time; clear that once with
+`xattr -d com.apple.quarantine ./tuimessenger` (Homebrew installs don't need this).
+
+**Nix:**
+
+```sh
+nix run github:whyyor/tuimessenger -- tui          # try it
+nix profile install github:whyyor/tuimessenger    # install it
+```
+
+**From source:** see [Building](#building).
+
+Linux binaries need glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Raspberry Pi OS and later). A
+[Nerd Font](https://www.nerdfonts.com) in your terminal makes the icons show up; [yazi](https://yazi-rs.github.io)
+is used as the file picker when it's installed.
+
+## Quick start
+
+1. **Start it:** `tuimessenger tui`, choose **Complete setup** (backend and client on this machine) and pick a
+   password. The password protects the local server; other clients on this machine log in with it.
+2. **Connect your networks:** Ctrl+p → **Networks** → pick one and follow the steps: a QR code or pairing code for
+   WhatsApp, phone number and code for Telegram, a browser login for Slack and Instagram. The browser login opens
+   Chrome, Chromium, Brave, Edge or Helium (`TUIMESSENGER_BROWSER` picks another) and closes it when you're done;
+   without one, you paste the cookies instead. For Telegram, first create your keys: log in at
+   [my.telegram.org](https://my.telegram.org) → API development tools → create an app (any name) → paste `api_id` and
+   `api_hash` into the Networks panel.
+3. **Chat:** Ctrl+k jumps to any chat, Enter sends, Ctrl+p shows every command and key.
+
+Optional: `tuimessenger service install` runs the backend in the background (a launchd agent on macOS, a systemd user
+unit on Linux), so your networks stay connected while the terminal client is closed. `tuimessenger service status`
+shows how it's doing; `uninstall` removes it. After upgrading, run `service install` again to restart it.
+
 ## See it
 
 | Jump to any chat with Ctrl+k, send photos with yazi | Reply and react |
@@ -24,17 +98,18 @@ https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
 Everything in these recordings is made-up demo data (`tuimessenger demo serve`, a developer build); the photos are from
 [Unsplash](https://unsplash.com/license) via [Lorem Picsum](https://picsum.photos).
 
-## Building
+## Keys
 
-Always build with the `goolm` and `sqlite_fts5` tags (the Makefile does this):
-
-```sh
-make build   # or: go build -tags goolm,sqlite_fts5 ./cmd/tuimessenger
-make test
-make vet
-```
-
-Without `goolm`, the build looks for the libolm C library (`olm/olm.h not found`).
+| Key | What it does |
+|---|---|
+| Ctrl+p | Command palette: every command, chat and key (`>` commands, `@` chats, `?` keys) |
+| Ctrl+k | Jump to a chat (then Ctrl+p to peek without sending "seen") |
+| ↑ ↓, 1–8 | Browse chats / open an unread chat (home screen) |
+| Ctrl+; or Alt+v | Select messages (visual mode): j/k move, 1–6 quick react, + reactions, Space opens media, i message info |
+| Ctrl+e | Emoji picker |
+| Alt+u | Mark a chat unread |
+| Shift+Enter | New line |
+| Ctrl+c | Clear the input (Ctrl+z brings it back) |
 
 ## AI agents
 
@@ -48,18 +123,37 @@ tuimessenger integration install claude opencode codex   # teach your agents how
 tuimessenger --skill                                     # or read the skill yourself
 ```
 
-## The terminal client's files
+## Where things are
 
-`tuimessenger tui` keeps its files in the data folder's `tui/` subfolder
-(`~/Library/Application Support/tuimessenger/tui` on macOS):
+| | macOS | Linux |
+|---|---|---|
+| Data (chats, sessions, media, `config.yaml`) | `~/Library/Application Support/tuimessenger` | `~/.local/share/tuimessenger` |
+| Logs | `~/Library/Logs/tuimessenger` | `~/.local/state/tuimessenger` |
 
-- `config/terminal.yaml`: preferences (changed from the TUI too).
-- `config/tuimessenger.yaml`: your colours and pinned preferences; it wins over `terminal.yaml`.
-  Keep it in your dotfiles and link it here.
-- `client.db`: the client's copy of your chats.
+- `tui/config/terminal.yaml` in the data folder holds the client's preferences (changed from the TUI too);
+  `tui/config/tuimessenger.yaml` holds your colours and pinned preferences and wins over it. Keep it in your
+  dotfiles and link it here.
+- `tui/client.db` is the client's copy of your chats.
+- Logs: `tuimessenger.log` (backend), `terminal.log` and `client.log` (client), and `crash.log`, which keeps the
+  stack trace if the app ever crashes. Please attach it to bug reports.
+- macOS notifications come from `~/.local/opt/tuimessenger/notifiers/tuimessenger.app`, which tuimessenger sets up
+  itself (optional per-network icons: `<Network>.app` next to it).
 
-Logs go to `~/Library/Logs/tuimessenger` (`terminal.log`, `client.log`). Notification icons per network come from
-`~/.local/opt/tuimessenger/notifiers/<Network>.app` (copies of terminal-notifier), with `tuimessenger.app` for the rest.
+## Building
+
+Go 1.26+ and a C compiler (cgo, for SQLite). Always build with the `goolm` and `sqlite_fts5` tags (the Makefile does
+this):
+
+```sh
+make build   # or: go build -tags goolm,sqlite_fts5 ./cmd/tuimessenger
+make test
+make vet
+```
+
+Without `goolm`, the build looks for the libolm C library (`olm/olm.h not found`).
+
+Releases: a `vX.Y.Z` tag on `main` builds the binaries for macOS and Linux, publishes the GitHub release and updates
+the Homebrew formula (`.github/workflows/release.yml`).
 
 ## Branches
 
@@ -73,6 +167,12 @@ CI runs gitleaks (`.gitleaks.toml`) on every commit for secrets and personal dat
 IDs, home-folder paths. Use made-up values in tests (`+15550100001`, `@whatsapp_15550100001`, "Mariana"). Locally,
 enable the hooks once with `git config core.hooksPath .githooks`; they also check against a private word list in
 `.git/info/sensitive-words` (one per line; never committed or pushed) for names and numbers only you know.
+
+## How this was made
+
+I built tuimessenger with a lot of help from AI coding assistants, the same way I'd use any other tool. The decisions
+are mine: running the bridges locally without a Matrix server, the setup modes, the design, what to leave out. I review
+every change before it's merged, and I use it every day.
 
 ## Credits
 
