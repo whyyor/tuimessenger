@@ -1,0 +1,110 @@
+name: Release
+
+# A vX.Y.Z tag on main builds a binary per OS/arch, publishes a GitHub release with checksums and updates the
+# Homebrew formula in whyyor/homebrew-tap. Pull requests touching the build, and runs by hand (Actions → Release →
+# Run workflow), do everything except publishing, so a release can't be the first time a build is tried.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - scripts/homebrew-formula.sh
+      - Makefile
+      - go.mod
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # cgo (SQLite) needs native runners; cross-compiling it per target isn't worth the trouble.
+        include:
+          - { runner: macos-latest, os: darwin, arch: arm64 }
+          - { runner: macos-15-intel, os: darwin, arch: amd64 }
+          # 22.04, not latest: the binary needs the glibc it was built with or newer, and 22.04's 2.35 also runs on
+          # Debian 12 and Raspberry Pi OS (2.36), which 24.04's 2.39 wouldn't.
+          - { runner: ubuntu-22.04, os: linux, arch: amd64 }
+          - { runner: ubuntu-22.04-arm, os: linux, arch: arm64 }
+    runs-on: ${{ matrix.runner }}
+    env:
+      # Empty for manual runs: the binary then calls itself "dev".
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: build
+        run: make build VERSION="$VERSION"
+      - name: check
+        run: |
+          ./tuimessenger version
+          test "$(go env GOOS)/$(go env GOARCH)" = "${{ matrix.os }}/${{ matrix.arch }}"
+          if [ -n "$VERSION" ]; then ./tuimessenger version | grep -q "^tuimessenger $VERSION "; fi
+          if [ "${{ matrix.os }}" = linux ]; then ldd tuimessenger; fi
+      - name: package
+        run: |
+          name="tuimessenger_${VERSION:-dev}_${{ matrix.os }}_${{ matrix.arch }}"
+          mkdir "$name"
+          cp tuimessenger LICENSE THIRD_PARTY_NOTICES.md README.md "$name/"
+          tar -czf "$name.tar.gz" "$name"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.os }}-${{ matrix.arch }}
+          path: tuimessenger_*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: tag is on main
+        if: github.ref_type == 'tag'
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: checksums
+        working-directory: dist
+        run: sha256sum tuimessenger_*.tar.gz > checksums.txt && cat checksums.txt
+      - name: formula
+        run: scripts/homebrew-formula.sh "$TAG" dist/checksums.txt > tuimessenger.rb && ruby -c tuimessenger.rb
+      - name: GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # v1.2.3-rc1 and the like are pre-releases.
+          pre=""
+          case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME" $pre
+      - name: Homebrew tap
+        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
+        env:
+          # Deploy key with write access to whyyor/homebrew-tap only.
+          TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$TAP_DEPLOY_KEY" > ~/.ssh/tap && chmod 600 ~/.ssh/tap
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone --depth 1 git@github.com:whyyor/homebrew-tap.git tap
+          mkdir -p tap/Formula && cp tuimessenger.rb tap/Formula/tuimessenger.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/tuimessenger.rb
+          if git diff --cached --quiet; then echo "formula unchanged"; exit 0; fi
+          git commit -m "tuimessenger $GITHUB_REF_NAME"
+          git push
