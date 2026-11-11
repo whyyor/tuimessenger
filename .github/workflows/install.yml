@@ -1,0 +1,53 @@
+name: Install script
+
+# install.sh (curl … | sh) against the latest release, on the systems it promises to work on, and its refusal on
+# musl (Alpine). Runs when the script changes, and on main so a release that breaks it shows up.
+on:
+  pull_request:
+    paths: [install.sh, .github/workflows/install.yml]
+  push:
+    branches: [main]
+    paths: [install.sh, .github/workflows/install.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-22.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: install
+        run: sh install.sh < /dev/null
+        env:
+          TUIMESSENGER_INSTALL_DIR: ${{ runner.temp }}/bin
+      - name: run
+        run: |
+          "$RUNNER_TEMP/bin/tuimessenger" version
+          "$RUNNER_TEMP/bin/tuimessenger" version | grep -q "^tuimessenger v"
+
+  debian:
+    # glibc 2.36, like Raspberry Pi OS.
+    runs-on: ubuntu-latest
+    container: debian:12
+    steps:
+      - uses: actions/checkout@v7
+      - run: apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null
+      - run: sh install.sh && ~/.local/bin/tuimessenger version
+
+  alpine:
+    # musl: the script must stop with a clear message, not install a binary that can't start.
+    runs-on: ubuntu-latest
+    container: alpine:3
+    steps:
+      - uses: actions/checkout@v7
+      - run: apk add --no-cache curl >/dev/null
+      - run: |
+          if sh install.sh 2> err.txt; then echo "install.sh should refuse musl"; exit 1; fi
+          cat err.txt
+          grep -q "musl" err.txt
