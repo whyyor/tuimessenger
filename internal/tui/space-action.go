@@ -14,6 +14,7 @@ type spaceAction int
 const (
 	spaceNothing spaceAction = iota
 	spaceViewImage
+	spacePlayGIF // looping and silent, in the terminal
 	spacePlayAudio
 	spaceOpenFile // video (IINA) and anything else: the default macOS app
 	spaceOpenLink
@@ -26,6 +27,8 @@ func spaceActionFor(msg *messages.UIMessage) (spaceAction, string) {
 	}
 	if fm, ok := msg.Renderer.(*messages.FileMessage); ok {
 		switch {
+		case fm.IsGIF && !fm.URL.IsEmpty():
+			return spacePlayGIF, ""
 		case isViewableImage(fm):
 			return spaceViewImage, ""
 		case fm.Type == event.MsgAudio || strings.HasPrefix(fm.MimeType, "audio/"):
@@ -49,6 +52,8 @@ func (view *RoomView) OpenSelected(msg *messages.UIMessage) {
 	switch action {
 	case spaceViewImage:
 		go view.PreviewImage(fm)
+	case spacePlayGIF:
+		go view.PlayGIF(fm)
 	case spacePlayAudio:
 		go view.PlayMedia(fm)
 	case spaceOpenFile:

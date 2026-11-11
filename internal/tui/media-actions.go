@@ -211,6 +211,10 @@ func extForMime(mimeType string, msgType event.MessageType) string {
 // reel arrives as a thumbnail image plus the reel URL) play from the URL.
 func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 	defer debug.Recover()
+	if msg.IsGIF {
+		view.PlayGIF(msg)
+		return
+	}
 	isVideo := msg.Type == event.MsgVideo || strings.HasPrefix(msg.MimeType, "video/")
 	isAudio := msg.Type == event.MsgAudio || strings.HasPrefix(msg.MimeType, "audio/")
 	if playingID, _ := messages.Playing(); isAudio && playingID != "" && playingID == msg.EventID() {
@@ -282,6 +286,27 @@ func (view *RoomView) PlayMedia(msg *messages.FileMessage) {
 	}()
 }
 
+// gifMpvArgs make mpv play a GIF the way chat apps do: over and over, without sound.
+var gifMpvArgs = []string{"--loop-file=inf", "--mute=yes"}
+
+// PlayGIF plays a GIF in the terminal, looping and silent; q returns to the chat.
+func (view *RoomView) PlayGIF(msg *messages.FileMessage) {
+	defer debug.Recover()
+	dir, err := freshTempMediaDir()
+	if err != nil {
+		view.AddServiceMessage("Failed to prepare the media folder: %v", err)
+		view.parent.parent.Render()
+		return
+	}
+	path, err := view.fetchMediaToFile(msg, dir)
+	if err != nil {
+		view.AddServiceMessage("Failed to fetch the GIF: %v", err)
+		view.parent.parent.Render()
+		return
+	}
+	view.playVideoInTerminal(path, true, gifMpvArgs...)
+}
+
 // playLink plays a post's video from its URL. mpv streams it in the terminal
 // (it resolves the URL with yt-dlp itself). Without mpv, yt-dlp downloads it,
 // with ffmpeg merging Instagram's separate video and audio streams, and
@@ -336,7 +361,7 @@ func (view *RoomView) playLink(url string) {
 // mpv's own controls: space pauses, arrows seek, q returns to the chat.
 // tcell and mpv cannot share the tty, which is why the TUI must step aside.
 // target is a local file (deleted afterwards when isFile) or a URL.
-func (view *RoomView) playVideoInTerminal(target string, isFile bool) {
+func (view *RoomView) playVideoInTerminal(target string, isFile bool, mpvArgs ...string) {
 	mpv, err := exec.LookPath("mpv")
 	if err != nil {
 		// No in-terminal player; hand the file to the system instead.
@@ -346,7 +371,8 @@ func (view *RoomView) playVideoInTerminal(target string, isFile bool) {
 	StopPlayback()
 	view.parent.parent.app.Suspend(func() {
 		print("\033[2J\033[0;0H")
-		cmd := exec.Command(mpv, "--vo=kitty", "--really-quiet", target)
+		args := append([]string{"--vo=kitty", "--really-quiet"}, mpvArgs...)
+		cmd := exec.Command(mpv, append(args, target)...)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
