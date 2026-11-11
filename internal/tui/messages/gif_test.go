@@ -117,3 +117,18 @@ func TestFirstFrameOfAVideo(t *testing.T) {
 		t.Errorf("first frame: %v %s %dx%d", err, format, cfg.Width, cfg.Height)
 	}
 }
+
+// Without ffmpeg there's no first frame, and the UI is told so it can say how to get it.
+func TestFirstFrameWithoutFfmpeg(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	var missing []string
+	old := MissingTool
+	MissingTool = func(tool string) { missing = append(missing, tool) }
+	t.Cleanup(func() { MissingTool = old })
+	if _, err := ffmpegFirstFramePNG([]byte("not a video")); err == nil {
+		t.Error("no ffmpeg: no frame")
+	}
+	if len(missing) != 1 || missing[0] != "ffmpeg" {
+		t.Errorf("the UI hears ffmpeg is missing: %v", missing)
+	}
+}

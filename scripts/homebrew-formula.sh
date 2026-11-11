@@ -64,6 +64,9 @@ class Tuimessenger < Formula
 
       If you run the backend as a service, restart it after upgrading:
         tuimessenger service install
+
+      Optional, for GIF and video previews and playing them in the terminal:
+        brew install ffmpeg mpv
     EOS
   end
 

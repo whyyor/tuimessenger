@@ -188,6 +188,7 @@ func (ui *App) Connect() {
 	}
 	ui.gmx.EventHandler = ui.eventHandler
 	messages.RequestRender = ui.Render
+	messages.MissingTool = hintMissingTool
 	ui.MainView.matrix = ui.gmx
 	err := ui.gmx.Connect(ui.ctx, ui.onConnStateChange)
 	if err != nil && !errors.Is(err, context.Canceled) {

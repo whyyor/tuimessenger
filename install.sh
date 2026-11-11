@@ -89,6 +89,25 @@ case ":$PATH:" in
 	echo "  export PATH=\"$dir:\$PATH\""
 	;;
 esac
+missing=""
+for tool in ffmpeg mpv; do
+	command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
+done
+if [ -n "$missing" ]; then
+	if [ "$os" = darwin ] || ! command -v apt-get >/dev/null 2>&1; then
+		install="brew install$missing"
+		if command -v dnf >/dev/null 2>&1; then
+			install="sudo dnf install$missing"
+		elif command -v pacman >/dev/null 2>&1; then
+			install="sudo pacman -S$missing"
+		fi
+	else
+		install="sudo apt install$missing"
+	fi
+	echo
+	echo "Optional, for GIF and video previews and playing them in the terminal:"
+	echo "  $install"
+fi
 echo
 echo "Start with: tuimessenger tui"
 echo "Update: run this again. Uninstall: rm $dir/tuimessenger"
