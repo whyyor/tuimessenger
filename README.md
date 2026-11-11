@@ -21,6 +21,12 @@ https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
 
 ## Install
 
+**Script** (macOS and Linux, no sudo; installs to `~/.local/bin`, run it again to update):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/whyyor/tuimessenger/main/install.sh | sh
+```
+
 **Homebrew** (macOS and Linux):
 
 ```sh
