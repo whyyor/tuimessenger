@@ -29,7 +29,7 @@ class Tuimessenger < Formula
   desc "WhatsApp, Telegram, Slack and Instagram in one terminal app"
   homepage "https://github.com/whyyor/tuimessenger"
   version "$version"
-  license "AGPL-3.0-only"
+  license "AGPL-3.0-or-later"
 
   on_macos do
     on_arm do
