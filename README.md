@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
   (`tuimessenger integration install claude`, `codex` or `opencode`).
 - **Light:** under 100 MB of RAM with all your networks connected, where desktop messengers often take 1.5–2 GB.
 
-> ⚠️ Bridges carry a low risk of the network flagging or banning your account. Proceed with caution.
+> ⚠️ Bridges carry a risk of the network flagging or banning your account. Proceed with caution.
 
 ## Install
 
