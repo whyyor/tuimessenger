@@ -12,6 +12,7 @@ on:
       - scripts/homebrew-formula.sh
       - Makefile
       - go.mod
+      - VERSION
   workflow_dispatch:
 
 permissions:
@@ -35,6 +36,14 @@ jobs:
       VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
     steps:
       - uses: actions/checkout@v7
+      - name: tag matches VERSION
+        if: github.ref_type == 'tag'
+        run: |
+          # v0.1.1 and v0.1.1-rc1 both need VERSION 0.1.1 (the flake reads it; bump it in the release PR).
+          if [ "${VERSION%%-*}" != "v$(cat VERSION)" ]; then
+            echo "tag $VERSION doesn't match VERSION ($(cat VERSION)); bump VERSION in the release PR"
+            exit 1
+          fi
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod

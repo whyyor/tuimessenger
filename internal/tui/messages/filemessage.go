@@ -75,6 +75,14 @@ type FileMessage struct {
 	// IsSticker draws it small, like chat apps do, instead of photo-sized.
 	IsSticker bool
 
+	// IsGIF: WhatsApp and Telegram send GIFs as short silent videos (fi.mau.gif), others as image/gif.
+	IsGIF bool
+	// thumbURL is the preview picture a bridge sent with a video.
+	thumbURL       id.ContentURI
+	thumbEncrypted bool
+	// size is the file's size in bytes, 0 when the bridge didn't say.
+	size int
+
 	// Audio: duration, 16 bar levels (made up when the bridge sent none).
 	Duration  time.Duration
 	levels    []int
@@ -113,6 +121,18 @@ func NewFileMessage(room *store.RoomStore, matrix *client.Client, evt *database.
 		IsEncrypted: isEncrypted,
 		eventID:     evt.ID,
 		matrix:      matrix,
+	}
+	if info := content.Info; info != nil {
+		fm.IsGIF = info.MauGIF || info.MimeType == "image/gif"
+		fm.size = info.Size
+		if info.ThumbnailFile != nil {
+			fm.thumbURL, fm.thumbEncrypted = info.ThumbnailFile.URL.ParseOrIgnore(), true
+		} else {
+			fm.thumbURL = info.ThumbnailURL.ParseOrIgnore()
+		}
+		if content.MsgType == event.MsgVideo && info.Duration > 0 {
+			fm.Duration = time.Duration(info.Duration) * time.Millisecond
+		}
 	}
 	if content.MsgType == event.MsgAudio {
 		fm.setAudio(content, evt.ID)
@@ -174,6 +194,9 @@ func (msg *FileMessage) EventID() id.EventID {
 }
 
 func (msg *FileMessage) NotificationContent() string {
+	if msg.IsGIF {
+		return "Sent a GIF"
+	}
 	switch msg.Type {
 	case event.MsgImage:
 		return "Sent an image"
@@ -200,16 +223,17 @@ func (msg *FileMessage) String() string {
 // message buffer is invalidated and a repaint requested, so the "Download
 // media" placeholder upgrades to an inline rendering.
 func (msg *FileMessage) DownloadPreview(uiMsg *UIMessage) {
-	if msg.Type != event.MsgImage || msg.downloaded || msg.downloading || msg.URL.IsEmpty() {
+	src, encrypted := msg.previewSource()
+	if src.IsEmpty() || msg.downloaded || msg.downloading {
 		return
 	}
 	msg.downloading = true
 	go func() {
 		defer debug.Recover()
 		defer func() { msg.downloading = false }()
-		data, err := msg.matrix.Download(msg.URL, msg.IsEncrypted)
+		data, err := msg.matrix.Download(src, encrypted)
 		if err != nil {
-			debug.Printf("Failed to download image %s: %v", msg.URL, err)
+			debug.Printf("Failed to download preview %s: %v", src, err)
 			return
 		}
 		// Pre-encode a display-sized preview off the render thread; both the
@@ -232,6 +256,26 @@ func (msg *FileMessage) DownloadPreview(uiMsg *UIMessage) {
 		uiMsg.bufferedWidth = -1
 		RequestRender()
 	}()
+}
+
+// videoPreviewMaxBytes caps the videos downloaded just to show their first frame (when the bridge sent no thumbnail).
+const videoPreviewMaxBytes = 16 << 20
+
+// previewSource is what the inline picture is made from: an image itself; a video's thumbnail, else for GIFs and
+// small videos the video, whose first frame ffmpeg takes. Empty means no picture.
+func (msg *FileMessage) previewSource() (src id.ContentURI, encrypted bool) {
+	switch msg.Type {
+	case event.MsgImage:
+		return msg.URL, msg.IsEncrypted
+	case event.MsgVideo:
+		if !msg.thumbURL.IsEmpty() {
+			return msg.thumbURL, msg.thumbEncrypted
+		}
+		if msg.IsGIF || (msg.size > 0 && msg.size <= videoPreviewMaxBytes) {
+			return msg.URL, msg.IsEncrypted
+		}
+	}
+	return id.ContentURI{}, false
 }
 
 // previewSlots limits how many images are decoded at once: a phone photo takes ~50 MB at full size, and opening a
@@ -394,6 +438,9 @@ func (msg *FileMessage) imageLimits() (cols, rows int) {
 // thumbnail, e.g. "▶ instagram.com/reel/AbCdEfGhIjK".
 func (msg *FileMessage) makeLinkLine(prefs config.UserPreferences, width int) tstring.TString {
 	if msg.LinkURL == "" {
+		if badge := msg.MediaBadge(); badge != "" {
+			return tstring.NewStyleTString(badge, tcell.StyleDefault.Foreground(tcell.ColorGray))
+		}
 		return nil
 	}
 	label := "▶ " + shortLink(msg.LinkURL)
@@ -408,6 +455,23 @@ func (msg *FileMessage) makeLinkLine(prefs config.UserPreferences, width int) ts
 		label = runewidth.Truncate(label, width-1, "…")
 	}
 	return tstring.NewStyleTString(label, style)
+}
+
+// MediaBadge is the row under a GIF or video's picture, so it isn't mistaken for a photo: "GIF" or "▶ 0:12".
+func (msg *FileMessage) MediaBadge() string {
+	switch {
+	case msg.IsGIF:
+		return "GIF"
+	case msg.Type != event.MsgVideo:
+		return ""
+	case msg.Duration <= 0:
+		return "▶ Video"
+	}
+	secs := int(msg.Duration.Round(time.Second) / time.Second)
+	if secs >= 3600 {
+		return fmt.Sprintf("▶ %d:%02d:%02d", secs/3600, secs/60%60, secs%60)
+	}
+	return fmt.Sprintf("▶ %d:%02d", secs/60, secs%60)
 }
 
 // shortLink drops the scheme, www., query string and trailing slash.

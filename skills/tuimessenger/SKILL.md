@@ -1,6 +1,6 @@
 ---
 name: tuimessenger
-description: "Read, search and send the user's chats (WhatsApp, Telegram, Slack, Instagram) through tuimessenger. Use when the user asks about their messages, chats, DMs, unread messages, who said what, or asks you to reply to or text someone. Requires the tuimessenger CLI."
+description: "Read, search and send the user's chats (WhatsApp, Telegram, Slack, Instagram) through tuimessenger. Use when the user asks about their messages, chats, DMs, unread messages, who said what, or asks you to reply to, text or send a file to someone. Requires the tuimessenger CLI."
 ---
 
 # tuimessenger
@@ -59,7 +59,20 @@ Sending writes to a real person on the user's behalf. Always:
 4. Report `result.status`: `delivered`, `sent` (the network hasn't confirmed yet) or `failed` (with `result.error`).
    Don't retry a failed send without asking.
 
-Text after `--` is taken literally, for messages starting with `-`. Only plain text messages can be sent.
+Text after `--` is taken literally, for messages starting with `-`.
+
+### Files
+
+Send a file (photo, video, audio or any other file, up to 100 MB) with `-file`; any text becomes its caption. The
+same rules apply: draft without `-yes` first. The draft's `file` shows the `name`, `size` and `kind` (`image`,
+`video`, `audio` or `file`: how the network will show it); show those to the user with the recipient.
+
+```bash
+tuimessenger agent send "Maya" "the build from today" -file ./app-release.apk
+tuimessenger agent send '!roomid:tuimessenger.localhost' "the build from today" -file ./app-release.apk -yes
+```
+
+Only send files the user pointed you to; never pick files on your own.
 
 ## Errors
 

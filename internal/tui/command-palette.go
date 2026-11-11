@@ -278,7 +278,7 @@ func keyItems(cfg *config.Config) []*paletteItem {
 		{"Visual: select a range", "v"},
 		{"Visual: quick react", "1–6"},
 		{"Visual: reaction popup", "+"},
-		{"Visual: view, play or open (image, voice, video, file, link)", "Space"},
+		{"Visual: view, play or open (image, GIF, voice, video, file, link)", "Space"},
 		{"Visual: hide message", "h"},
 		{"Visual: send a failed message again", "R"},
 		{"Visual: copy link", "u"},

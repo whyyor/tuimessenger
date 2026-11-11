@@ -33,8 +33,8 @@ const sendScript = `on run {notifText, notifTitle}
 end run`
 
 // macOS always takes a notification's icon and app name from the sending
-// bundle, so per-network icons come from per-network copies of
-// terminal-notifier built with its `make icon` target and placed here.
+// bundle, so InstallNotifiers puts a copy of terminal-notifier per network
+// (with its icon) and tuimessenger.app here.
 var notifierDir = func() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

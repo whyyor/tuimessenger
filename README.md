@@ -21,6 +21,12 @@ https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
 
 ## Install
 
+**Script** (macOS and Linux, no sudo; installs to `~/.local/bin`, run it again to update):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/whyyor/tuimessenger/main/install.sh | sh
+```
+
 **Homebrew** (macOS and Linux):
 
 ```sh
@@ -87,8 +93,9 @@ shows how it's doing; `uninstall` removes it. After upgrading, run `service inst
 - `tui/client.db` is the client's copy of your chats.
 - Logs: `tuimessenger.log` (backend), `terminal.log` and `client.log` (client), and `crash.log`, which keeps the
   stack trace if the app ever crashes. Please attach it to bug reports.
-- macOS notifications come from `~/.local/opt/tuimessenger/notifiers/tuimessenger.app`, which tuimessenger sets up
-  itself (optional per-network icons: `<Network>.app` next to it).
+- macOS notifications come from small apps tuimessenger sets up in `~/.local/opt/tuimessenger/notifiers`: one per
+  network (WhatsApp, Telegram, Slack, Instagram), so each shows its own icon and can be muted on its own in System
+  Settings → Notifications, and `tuimessenger.app` for the rest.
 
 ## Building
 
@@ -110,7 +117,6 @@ the Homebrew formula (`.github/workflows/release.yml`).
 
 - Signal.
 - Running the backend on another machine, like a Raspberry Pi, with the terminal app connecting to it.
-- Per-network notification icons on fresh installs.
 - More Linux testing: it builds and runs on x86_64 and arm64, but most use so far is on macOS. Reports welcome.
 
 ## Credits
@@ -127,5 +133,6 @@ tuimessenger is built on the work of others:
 
 ## License
 
-tuimessenger is licensed under the GNU Affero General Public License v3 (see `LICENSE`). Imported files keep their
+tuimessenger is licensed under the GNU Affero General Public License, version 3 or (at your option) any later version
+(see `LICENSE`). Imported files keep their
 original license headers: parts of the client are under the Mozilla Public License 2.0 (`internal/hicli/LICENSE`).

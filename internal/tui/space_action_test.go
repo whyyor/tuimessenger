@@ -17,6 +17,12 @@ func fileMsg(msgType event.MessageType, mime string) *messages.UIMessage {
 	}}
 }
 
+func gifMsg(msgType event.MessageType, mime string) *messages.UIMessage {
+	msg := fileMsg(msgType, mime)
+	msg.Renderer.(*messages.FileMessage).IsGIF = true
+	return msg
+}
+
 func TestSpaceActionFor(t *testing.T) {
 	_, room := bubbleView(t)
 	for _, c := range []struct {
@@ -29,6 +35,8 @@ func TestSpaceActionFor(t *testing.T) {
 		{"voice note", fileMsg(event.MsgAudio, "audio/ogg; codecs=opus"), spacePlayAudio, ""},
 		{"audio sent as file", fileMsg(event.MsgFile, "audio/mpeg"), spacePlayAudio, ""},
 		{"video", fileMsg(event.MsgVideo, "video/mp4"), spaceOpenFile, ""},
+		{"WhatsApp GIF (a video)", gifMsg(event.MsgVideo, "video/mp4"), spacePlayGIF, ""},
+		{"Slack GIF (an image)", gifMsg(event.MsgImage, "image/gif"), spacePlayGIF, ""},
 		{"pdf", fileMsg(event.MsgFile, "application/pdf"), spaceOpenFile, ""},
 		{"text with link", textMsg(room, "@a:x", time.Now(), "see https://example.com/x ok"), spaceOpenLink, "https://example.com/x"},
 		{"plain text", textMsg(room, "@a:x", time.Now(), "hello"), spaceNothing, ""},
