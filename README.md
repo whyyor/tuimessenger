@@ -127,5 +127,6 @@ tuimessenger is built on the work of others:
 
 ## License
 
-tuimessenger is licensed under the GNU Affero General Public License v3 (see `LICENSE`). Imported files keep their
+tuimessenger is licensed under the GNU Affero General Public License, version 3 or (at your option) any later version
+(see `LICENSE`). Imported files keep their
 original license headers: parts of the client are under the Mozilla Public License 2.0 (`internal/hicli/LICENSE`).
