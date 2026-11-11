@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 	"github.com/whyyor/tuimessenger/internal/agent"
 	"github.com/whyyor/tuimessenger/internal/login"
+	"github.com/whyyor/tuimessenger/internal/upload"
 )
 
 const agentUsage = `tuimessenger agent: your chats for scripts and AI agents. Output is JSON.
@@ -25,6 +27,7 @@ const agentUsage = `tuimessenger agent: your chats for scripts and AI agents. Ou
   tuimessenger agent messages [-limit N] CHAT        a chat's newest messages, oldest first
   tuimessenger agent search [-chat CHAT] [-limit N] TEXT
   tuimessenger agent send CHAT TEXT -yes [-wait 15s] send a text message (without -yes: only shows what would be sent)
+  tuimessenger agent send CHAT [CAPTION] -file PATH -yes   send a file (photo, video, audio or any file, up to 100 MB)
   tuimessenger agent login                           the agent's own login (asks for the backend password once)
   tuimessenger agent logout                          revoke that login
 
@@ -49,6 +52,7 @@ func runAgent(args []string) int {
 	chatFlag := fs.String("chat", "", "only this chat")
 	yes := fs.Bool("yes", false, "really send")
 	wait := fs.Duration("wait", 15*time.Second, "how long to wait for the network to confirm a send")
+	filePath := fs.String("file", "", "send this file (TEXT becomes its caption)")
 	pos, err := parseAnywhere(fs, args[1:])
 	if err != nil {
 		return agentFail(fmt.Errorf("%w (see tuimessenger agent help)", err))
@@ -106,8 +110,8 @@ func runAgent(args []string) int {
 		}
 		return agentOut(map[string]any{"messages": nonNil(msgs), "synced_at": r.SyncedAt()})
 	case "send":
-		if len(pos) < 2 {
-			return agentFail(errors.New("usage: tuimessenger agent send CHAT TEXT -yes"))
+		if len(pos) < 1 || (len(pos) < 2 && *filePath == "") {
+			return agentFail(errors.New("usage: tuimessenger agent send CHAT TEXT -yes, or CHAT [CAPTION] -file PATH -yes"))
 		}
 		chat, err := r.Resolve(ctx, pos[0])
 		if err != nil {
@@ -115,19 +119,34 @@ func runAgent(args []string) int {
 		}
 		text := strings.Join(pos[1:], " ")
 		chat.LastMessage = nil
+		draft := map[string]any{"chat": chat, "text": text}
+		var file *agentFile
+		if *filePath != "" {
+			if file, err = readAgentFile(*filePath); err != nil {
+				return agentFail(err)
+			}
+			draft["file"] = file
+		}
 		if !*yes {
-			return agentOut(map[string]any{"sent": false, "chat": chat, "text": text,
-				"note": "nothing was sent: show this to the user, and add -yes once they agree"})
+			draft["sent"] = false
+			draft["note"] = "nothing was sent: show this to the user, and add -yes once they agree"
+			return agentOut(draft)
 		}
 		b, err := agent.NewBackend(r, *dataDir)
 		if err != nil {
 			return agentFail(err)
 		}
-		res, err := b.SendText(ctx, chat.ID, text, *wait)
+		var res *agent.SendResult
+		if file != nil {
+			res, err = b.SendFile(ctx, chat.ID, file.Name, file.raw, text, *wait)
+		} else {
+			res, err = b.SendText(ctx, chat.ID, text, *wait)
+		}
 		if err != nil {
 			return agentFail(err)
 		}
-		out := agentOut(map[string]any{"sent": true, "chat": chat, "text": text, "result": res})
+		draft["sent"], draft["result"] = true, res
+		out := agentOut(draft)
 		if res.Status == "failed" {
 			return 1
 		}
@@ -181,6 +200,39 @@ func parseAnywhere(fs *flag.FlagSet, args []string) ([]string, error) {
 		pos, args = append(pos, rest[0]), rest[1:]
 	}
 	return pos, nil
+}
+
+// agentFile is a file to send, as the draft shows it.
+type agentFile struct {
+	Path string `json:"path"`
+	Name string `json:"name"`
+	Kind string `json:"kind"` // image, video, audio or file: how the network will show it
+	Size int    `json:"size"`
+	raw  []byte
+}
+
+func readAgentFile(path string) (*agentFile, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(abs)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if info, err := f.Stat(); err != nil {
+		return nil, err
+	} else if info.IsDir() {
+		return nil, fmt.Errorf("%s is a folder, not a file", path)
+	}
+	raw, err := upload.Read(f)
+	if err != nil {
+		return nil, err
+	}
+	name := filepath.Base(abs)
+	kind := strings.TrimPrefix(string(upload.Content(name, raw).MsgType), "m.")
+	return &agentFile{Path: abs, Name: name, Kind: kind, Size: len(raw), raw: raw}, nil
 }
 
 func agentOut(v any) int {

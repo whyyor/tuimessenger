@@ -14,6 +14,8 @@ import (
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
+
+	"github.com/whyyor/tuimessenger/internal/upload"
 )
 
 // DeviceID is the agent's login in the backend, separate from the TUI's so it can be revoked on its own.
@@ -90,7 +92,30 @@ func (b *Backend) SendText(ctx context.Context, roomID id.RoomID, text string, w
 	if !b.LoggedIn() {
 		return nil, ErrNotLoggedIn
 	}
-	content := &event.MessageEventContent{MsgType: event.MsgText, Body: text}
+	return b.send(ctx, roomID, &event.MessageEventContent{MsgType: event.MsgText, Body: text}, wait)
+}
+
+// SendFile uploads a file read with upload.Read and sends it (photo, video, audio or file, from its bytes) with an
+// optional caption, then waits up to wait for the network to confirm it.
+func (b *Backend) SendFile(ctx context.Context, roomID id.RoomID, name string, raw []byte, caption string, wait time.Duration) (*SendResult, error) {
+	if !b.LoggedIn() {
+		return nil, ErrNotLoggedIn
+	}
+	content := upload.Content(name, raw)
+	resp, err := b.cli.UploadMedia(ctx, mautrix.ReqUploadMedia{ContentBytes: raw, ContentType: content.Info.MimeType, FileName: name})
+	if err != nil {
+		return nil, friendly(err)
+	}
+	content.URL = resp.ContentURI.CUString()
+	if caption != "" {
+		// A body that differs from the file name is the caption (the bridges send it with the file).
+		content.Body = caption
+	}
+	return b.send(ctx, roomID, content, wait)
+}
+
+// send sends a message, then waits up to wait for the network's delivery report.
+func (b *Backend) send(ctx context.Context, roomID id.RoomID, content *event.MessageEventContent, wait time.Duration) (*SendResult, error) {
 	txnID := "agent-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	resp, err := b.cli.SendMessageEvent(ctx, roomID, event.EventMessage, content, mautrix.ReqSendEvent{TransactionID: txnID})
 	if err != nil {
