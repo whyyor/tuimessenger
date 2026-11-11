@@ -32,3 +32,34 @@ binaries in a form other than Go source modules (Go modules keep their own licen
 - The logos are trademarks of their owners (WhatsApp and Instagram: Meta Platforms, Inc.; Telegram: Telegram FZ-LLC;
   Slack: Slack Technologies, LLC). They're used only to show which network a notification is from; tuimessenger
   isn't affiliated with or endorsed by them.
+
+## opencode themes
+
+- What: `internal/tui/themes/opencode/*.json`, opencode's built-in TUI themes, embedded in every build and offered as
+  tuimessenger's themes (`theme:` in tuimessenger.yaml, Ctrl+p → Theme). tuimessenger reads their colour slots and
+  maps them onto its own colours.
+- Source: https://github.com/anomalyco/opencode, `packages/tui/src/theme/assets/`, commit 0bd8cee7c2c77d04cad50dace81520c34c805c3d, downloaded unchanged by
+  `scripts/update-opencode-themes.sh`.
+- License (opencode's `LICENSE`, also at `internal/tui/themes/opencode/LICENSE`):
+
+> MIT License
+>
+> Copyright (c) 2025 opencode
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.

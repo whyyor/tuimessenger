@@ -18,6 +18,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/rpc/client"
 	"github.com/whyyor/tuimessenger/internal/tui/config"
 	"github.com/whyyor/tuimessenger/internal/tui/debug"
+	"github.com/whyyor/tuimessenger/internal/tui/themes"
 	"github.com/whyyor/tuimessenger/internal/tui/widget"
 )
 
@@ -30,6 +31,11 @@ const (
 )
 
 var sectionNames = []string{"Commands", "Chats", "Keys"}
+
+const (
+	paletteTitle = " \uf120 Command palette "
+	paletteHint  = "@ chats  > commands  ? keys"
+)
 
 // paletteChatsUnfiltered caps chats shown without the @ prefix.
 const paletteChatsUnfiltered = 6
@@ -63,6 +69,13 @@ type CommandPalette struct {
 
 	// Last drawn geometry, for mouse hits.
 	x, y, w, h, listY, listH int
+
+	// A picker (e.g. themes) reuses the palette (empty title: the command palette's): its own title and hint, no section headers, a hook when the
+	// selection moves (live preview) and one when it's cancelled (undo the preview).
+	title, hint string
+	flat        bool
+	onMove      func(*paletteItem)
+	onCancel    func()
 }
 
 func NewCommandPalette(view *MainView) *CommandPalette {
@@ -114,6 +127,13 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		cmd("Resync with server", keyHint(main, "resync"), func() { go view.parent.Resync() }),
 		cmd("Next chat with activity", keyHint(main, "next_active_room"), func() { view.SwitchRoom(view.roomList.NextWithActivity()) }),
 	}
+	otherMode := themes.Light
+	if currentThemeMode == themes.Light {
+		otherMode = themes.Dark
+	}
+	items = append(items,
+		cmd("Theme: "+currentTheme, "↑↓ previews", func() { view.ShowModal(NewThemePicker(view)) }),
+		cmd("Theme mode: "+string(currentThemeMode)+" → "+string(otherMode), "", view.toggleThemeMode))
 	sidebar := "Hide sidebar"
 	if view.config.Preferences.HideRoomList {
 		sidebar = "Show sidebar"
@@ -365,7 +385,7 @@ func (p *CommandPalette) refilter() {
 		if len(list) == 0 {
 			continue
 		}
-		if !filtered {
+		if !filtered && !p.flat {
 			p.rows = append(p.rows, paletteRow{header: sectionNames[sec]})
 		}
 		for _, s := range list {
@@ -388,9 +408,21 @@ func (p *CommandPalette) move(dir int) {
 		i = (i + dir + n) % n
 		if p.rows[i].item != nil {
 			p.selected = i
+			if p.onMove != nil {
+				p.onMove(p.rows[i].item)
+			}
 			return
 		}
 	}
+}
+
+// cancel closes the palette without running anything.
+func (p *CommandPalette) cancel() {
+	if p.onCancel != nil {
+		p.onCancel()
+	}
+	p.parent.HideModal()
+	RequestRepaint()
 }
 
 func (p *CommandPalette) run() {
@@ -409,8 +441,7 @@ func (p *CommandPalette) run() {
 func (p *CommandPalette) OnKeyEvent(event mauview.KeyEvent) bool {
 	switch event.Key() {
 	case tcell.KeyEscape:
-		p.parent.HideModal()
-		RequestRepaint()
+		p.cancel()
 	case tcell.KeyEnter:
 		p.run()
 	case tcell.KeyDown, tcell.KeyTab, tcell.KeyCtrlN:
@@ -437,8 +468,7 @@ func (p *CommandPalette) OnKeyEvent(event mauview.KeyEvent) bool {
 		p.query = append(p.query, event.Rune())
 		p.refilter()
 	case tcell.KeyCtrlC:
-		p.parent.HideModal()
-		RequestRepaint()
+		p.cancel()
 	}
 	return true
 }
@@ -455,8 +485,7 @@ func (p *CommandPalette) OnMouseEvent(event mauview.MouseEvent) bool {
 			return true
 		}
 		if x < p.x || x >= p.x+p.w || y < p.y || y >= p.y+p.h {
-			p.parent.HideModal()
-			RequestRepaint()
+			p.cancel()
 			return true
 		}
 		if i := p.scroll + y - p.listY; y >= p.listY && i < len(p.rows) && p.rows[i].item != nil {
@@ -506,7 +535,10 @@ func (p *CommandPalette) Draw(screen mauview.Screen) {
 			panel.SetContent(x, y, ' ', nil, tcell.StyleDefault)
 		}
 	}
-	const title = " \uf120 Command palette "
+	title, hint := p.title, p.hint
+	if title == "" {
+		title, hint = paletteTitle, paletteHint
+	}
 	if tw := runewidth.StringWidth(title); tw <= p.w {
 		widget.WriteLine(screen, mauview.AlignLeft, title, p.x+(p.w-tw)/2, p.y, tw,
 			tcell.StyleDefault.Background(ColorPalettePill).Foreground(ColorOnPalettePill))
@@ -519,8 +551,7 @@ func (p *CommandPalette) Draw(screen mauview.Screen) {
 	textX := p.x + 5
 	widget.WriteLine(panel, mauview.AlignLeft, query, textX, promptY, p.w-6, tcell.StyleDefault)
 	screen.ShowCursor(textX+runewidth.StringWidth(query), promptY)
-	if len(p.query) == 0 {
-		hint := "@ chats  > commands  ? keys"
+	if len(p.query) == 0 && hint != "" {
 		widget.WriteLine(panel, mauview.AlignRight, hint, p.x+1, promptY, p.w-3, dim)
 	}
 

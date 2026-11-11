@@ -37,37 +37,34 @@ import (
 	"github.com/whyyor/tuimessenger/internal/tui/debug"
 )
 
+// UserPreferences are the preferences: in terminal.yaml (Ctrl+p changes them) and settable in tuimessenger.yaml.
+// doc and enum describe them for the schema, the docs and the checks; user:"-" keeps one out of tuimessenger.yaml
+// (unused, or overwritten at startup). enum lists the YAML spellings; "relative" and "finder" mean "".
 type UserPreferences struct {
-	HideUserList bool `yaml:"hide_user_list"`
+	HideUserList bool `yaml:"hide_user_list" user:"-"`
 	// ShowUserList turns on the member list (Ctrl+b); off by default.
-	ShowUserList bool `yaml:"-"`
-	HideRoomList bool `yaml:"hide_room_list"`
-	// FilePicker is what /upload opens: "" (Finder) or "yazi".
-	FilePicker string `yaml:"file_picker"`
-	// SidebarOnStart shows the sidebar at launch (Ctrl+p toggles it).
-	SidebarOnStart bool `yaml:"sidebar_on_start"`
-	// HideAliases keeps chat aliases out of lists; they still match in search.
-	HideAliases          bool `yaml:"hide_aliases"`
-	HideTimestamp        bool `yaml:"hide_timestamp"`
-	BareMessageView      bool `yaml:"bare_message_view"`
-	DisableImages        bool `yaml:"disable_images"`
-	DisableTypingNotifs  bool `yaml:"disable_typing_notifs"`
-	DisableEmojis        bool `yaml:"disable_emojis"`
-	DisableMarkdown      bool `yaml:"disable_markdown"`
-	DisableHTML          bool `yaml:"disable_html"`
-	DisableDownloads     bool `yaml:"disable_downloads"`
-	DisableNotifications bool `yaml:"disable_notifications"`
-	DisableShowURLs      bool `yaml:"disable_show_urls"`
+	ShowUserList         bool   `yaml:"-"`
+	HideRoomList         bool   `yaml:"hide_room_list" user:"-"`
+	FilePicker           string `yaml:"file_picker" enum:"finder,yazi" default:"finder" doc:"What /upload and the attach key open to pick files: the system picker (Finder) or yazi in the terminal."`
+	SidebarOnStart       bool   `yaml:"sidebar_on_start" doc:"Show the chat list sidebar when tuimessenger starts (Ctrl+s toggles it for the session)."`
+	HideAliases          bool   `yaml:"hide_aliases" doc:"Keep your chat aliases out of lists and headers; they still match when searching."`
+	HideTimestamp        bool   `yaml:"hide_timestamp" doc:"Hide message times in the classic layout."`
+	BareMessageView      bool   `yaml:"bare_message_view" doc:"Plain text messages without images or formatting (also Ctrl+l / Alt+l, the pager)."`
+	DisableImages        bool   `yaml:"disable_images" doc:"Don't show photos, stickers, GIFs and video previews inline; media shows as a link."`
+	DisableTypingNotifs  bool   `yaml:"disable_typing_notifs" user:"-"`
+	DisableEmojis        bool   `yaml:"disable_emojis" doc:"Don't turn :shortcodes: into emoji when sending, and no Tab completion for them."`
+	DisableMarkdown      bool   `yaml:"disable_markdown" user:"-"`
+	DisableHTML          bool   `yaml:"disable_html" user:"-"`
+	DisableDownloads     bool   `yaml:"disable_downloads" doc:"Don't download media in the background for previews."`
+	DisableNotifications bool   `yaml:"disable_notifications" doc:"No desktop notifications."`
+	DisableShowURLs      bool   `yaml:"disable_show_urls" doc:"Don't show a link's address after its text when they differ."`
 
-	InlineURLMode string `yaml:"inline_url_mode"`
-	// ImageProtocol selects inline image rendering: "" auto-detects kitty
-	// graphics on supported terminals, "kitty" forces it, "ansi" forces
-	// half-block rendering.
-	ImageProtocol string `yaml:"image_protocol"`
-	// ClassicLayout keeps the timestamp/sender columns instead of bubbles.
-	ClassicLayout bool `yaml:"classic_layout"`
+	InlineURLMode string `yaml:"inline_url_mode" enum:"auto,enable,disable" default:"auto" doc:"Clickable links (OSC 8): auto turns them on in terminals known to support them (Ghostty, kitty, iTerm2, foot, VTE)."`
+	// ImageProtocol: "" auto-detects kitty graphics, "kitty" forces it, "ansi" forces half-blocks.
+	ImageProtocol string `yaml:"image_protocol" enum:"auto,kitty,ansi" default:"auto" doc:"How images are drawn: auto uses the kitty graphics protocol where it works (kitty, Ghostty…), ansi uses coloured half-blocks everywhere."`
+	ClassicLayout bool   `yaml:"classic_layout" doc:"Time and name columns instead of chat bubbles (yours right, theirs left)."`
 	// TimestampStyle for bubbles: "" (relative: now, 5m, 3h, 2d), "absolute", "off".
-	TimestampStyle string `yaml:"timestamp_style"`
+	TimestampStyle string `yaml:"timestamp_style" enum:"relative,absolute,off" default:"relative" doc:"Times on chat bubbles: relative (now, 5m, 3h), absolute (22:16), or off (only on the selected message)."`
 }
 
 var InlineURLsProbablySupported bool
@@ -112,8 +109,12 @@ type RawKeybindings struct {
 type Config struct {
 	NotifySound bool `yaml:"notify_sound"`
 
-	Backspace1RemovesWord bool `yaml:"backspace1_removes_word"`
-	Backspace2RemovesWord bool `yaml:"backspace2_removes_word"`
+	Backspace1RemovesWord bool `yaml:"backspace1_removes_word" default:"true" doc:"Backspace deletes a whole word (in terminals that send it as ^H, e.g. Ctrl+Backspace in some)."`
+	Backspace2RemovesWord bool `yaml:"backspace2_removes_word" doc:"Backspace deletes a whole word (in terminals that send it as DEL, i.e. most)."`
+
+	// Theme and ThemeMode are what the Ctrl+p theme picker chose; tuimessenger.yaml's theme wins.
+	Theme     string `yaml:"theme,omitempty"`
+	ThemeMode string `yaml:"theme_mode,omitempty"`
 
 	AlwaysClearScreen bool `yaml:"always_clear_screen"`
 
@@ -128,7 +129,8 @@ type Config struct {
 	Preferences UserPreferences   `yaml:"preferences"`
 	Keybindings ParsedKeybindings `yaml:"-"`
 
-	nosave bool
+	rawKeybindings RawKeybindings
+	nosave         bool
 }
 
 func GetConfigDirectory() string {
@@ -239,11 +241,21 @@ func (config *Config) LoadKeybindings() {
 		panic(fmt.Errorf("failed to unmarshal default keybindings: %w", err))
 	}
 	_ = config.load("keybindings", config.Dir, "terminal-keybindings.yaml", &inputConfig)
+	config.rawKeybindings = inputConfig
+	config.parseAllKeybindings()
+}
 
-	config.Keybindings.Main = parseKeybindings(inputConfig.Main)
-	config.Keybindings.Room = parseKeybindings(inputConfig.Room)
-	config.Keybindings.Modal = parseKeybindings(inputConfig.Modal)
-	config.Keybindings.Visual = parseKeybindings(inputConfig.Visual)
+// ApplyKeybindings puts tuimessenger.yaml's keybindings (already checked) over the defaults.
+func (config *Config) ApplyKeybindings(yours RawKeybindings) {
+	MergeKeybindings(&config.rawKeybindings, yours)
+	config.parseAllKeybindings()
+}
+
+func (config *Config) parseAllKeybindings() {
+	config.Keybindings.Main = parseKeybindings(config.rawKeybindings.Main)
+	config.Keybindings.Room = parseKeybindings(config.rawKeybindings.Room)
+	config.Keybindings.Modal = parseKeybindings(config.rawKeybindings.Modal)
+	config.Keybindings.Visual = parseKeybindings(config.rawKeybindings.Visual)
 }
 
 func (config *Config) SaveKeybindings() {
