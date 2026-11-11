@@ -70,7 +70,10 @@ func TestInsertAtCursor(t *testing.T) {
 func emojiView(t *testing.T) *RoomView {
 	t.Helper()
 	freshRecent(t, "")
-	return &RoomView{config: &config.Config{}, input: mauview.NewInputArea()}
+	// No config dir, as before: the picker saves recent emoji there in the background, which would race cleanup.
+	cfg := &config.Config{}
+	cfg.LoadKeybindings()
+	return &RoomView{config: cfg, input: mauview.NewInputArea()}
 }
 
 func TestCtrlEInsertsSearchedEmoji(t *testing.T) {

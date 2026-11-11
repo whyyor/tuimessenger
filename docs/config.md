@@ -230,54 +230,100 @@ The defaults are the `tuimessenger` theme's. A colour marked *follows* takes the
 
 ### `keybindings`
 
-The default keys, by table. Keys are written like `Ctrl+k`, `Alt+Enter`, `Shift+Tab`, `F1` or a single character.
+Every action and its default keys, by table. Keys are written like `Ctrl+k`, `Alt+Enter`, `Shift+Tab`, `F1`, `Space` or a single character; a single character only acts when you aren't typing. `Ctrl+m` and `Ctrl+;` are bound as `Ctrl+^` and `Ctrl+_`, which Ghostty sends for them with a keybind.
 
 #### `main`: Everywhere (unless a popup is open)
 
-| Action | Default keys |
-|---|---|
-| `add_newline` | `Alt+Enter`, `Ctrl+Enter`, `Ctrl+j` |
-| `command_palette` | `Ctrl+p` |
-| `force_quit` | `Ctrl+c` |
-| `mark_unread` | `Alt+u` |
-| `next_active_room` | `Alt+a` |
-| `next_room` | `Alt+Down`, `Ctrl+Down` |
-| `prev_room` | `Alt+Up`, `Ctrl+Up` |
-| `resync` | `Alt+r`, `Ctrl+r` |
-| `scroll_down` | `Alt+End`, `Ctrl+End` |
-| `scroll_up` | `Alt+Home`, `Ctrl+Home` |
-| `search_rooms` | `Alt+k`, `Ctrl+k` |
-| `show_bare` | `Alt+l`, `Ctrl+l` |
-| `toggle_members` | `Ctrl+b` |
-| `toggle_sidebar` | `Ctrl+s` |
+| Action | Default keys | What it does |
+|---|---|---|
+| `search_rooms` | `Alt+k`, `Ctrl+k` | Jump to a chat |
+| `command_palette` | `Ctrl+p` | Command palette: every command, chat and key |
+| `help` | `?`, `F1` | Show every key and command |
+| `next_room` | `Alt+Down`, `Ctrl+Down` | Next chat |
+| `prev_room` | `Alt+Up`, `Ctrl+Up` | Previous chat |
+| `next_active_room` | `Alt+a` | Next chat with new messages |
+| `mark_unread` | `Alt+u` | Mark the chat unread and close it |
+| `toggle_sidebar` | `Ctrl+s` | Show or hide the sidebar |
+| `toggle_members` | `Ctrl+b` | Show or hide the members list |
+| `show_bare` | `Alt+l`, `Ctrl+l` | Open the chat in a pager (plain text, for selecting with the mouse) |
+| `scroll_up` | `Alt+Home`, `Ctrl+Home` | Scroll to the oldest loaded message |
+| `scroll_down` | `Alt+End`, `Ctrl+End` | Scroll to the newest message |
+| `add_newline` | `Alt+Enter`, `Ctrl+Enter`, `Ctrl+j` | New line in the message |
+| `resync` | `Alt+r`, `Ctrl+r` | Reconnect to the backend |
+| `force_quit` | `Ctrl+c` | Clear what you typed, or quit when there's nothing |
+| `quit` | *none* | Quit |
 
 #### `room`: In a chat
 
-| Action | Default keys |
-|---|---|
-| `clear` | `Escape` |
-| `scroll_down` | `Ctrl+d`, `Ctrl+n`, `PageDown` |
-| `scroll_up` | `Ctrl+u`, `PageUp` |
-| `search` | `Ctrl+f` |
-| `select` | `Alt+v` |
-| `send` | `Enter` |
+| Action | Default keys | What it does |
+|---|---|---|
+| `send` | `Enter` | Send the message |
+| `select` | `Alt+v`, `Ctrl+_` | Select messages (visual mode) |
+| `search` | `Ctrl+f` | Search this chat |
+| `emoji` | `Ctrl+e` | Emoji picker |
+| `mark_read` | `Ctrl+^` | Mark the chat seen (sends blue ticks) |
+| `clear` | `Escape` | Cancel reply, edit or attachments, then close the chat |
+| `scroll_up` | `Ctrl+u`, `PageUp` | Scroll up half a page (loads older messages at the top) |
+| `scroll_down` | `Ctrl+d`, `Ctrl+n`, `PageDown` | Scroll down half a page |
 
 #### `visual`: Selecting messages (visual mode)
 
-| Action | Default keys |
-|---|---|
-| `clear` | `Escape` |
-| `confirm` | `Enter`, `l` |
-| `select_next` | `Down`, `j` |
-| `select_prev` | `Up`, `k` |
+| Action | Default keys | What it does |
+|---|---|---|
+| `select_prev` | `Up`, `k` | Select the previous message |
+| `select_next` | `Down`, `j` | Select the next message |
+| `confirm` | `Enter`, `l` | Do what visual mode was opened for (reply by default) |
+| `open` | `Space` | View, play or open the message (image, GIF, voice, video, file, link) |
+| `reply` | `r` | Reply to it |
+| `react` | `+` | React with any emoji |
+| `quick_react_1` | `1` | React with 👍 |
+| `quick_react_2` | `2` | React with ❤️ |
+| `quick_react_3` | `3` | React with 😂 |
+| `quick_react_4` | `4` | React with 😮 |
+| `quick_react_5` | `5` | React with 😢 |
+| `quick_react_6` | `6` | React with 🙏 |
+| `copy` | `y` | Copy it (a whole range after range) |
+| `copy_link` | `u` | Copy the first link in it |
+| `edit` | `e` | Edit it (yours) |
+| `delete` | `x` | Delete it (yours) |
+| `retry` | `R` | Send it again (a failed message of yours) |
+| `play` | `p` | Play a voice note or video |
+| `open_external` | `o` | Open the media with the system app |
+| `download` | `d` | Save the media to Downloads |
+| `info` | `i` | When it was sent, delivered and seen |
+| `hide` | `h` | Hide it in tuimessenger (/unclear brings it back) |
+| `range` | `v` | Start or end a range, like vim's visual mode |
+| `clear` | `Escape` | Drop the range, or leave visual mode |
+| `exit` | `Ctrl+_` | Leave visual mode |
 
 #### `modal`: Popups and lists
 
-| Action | Default keys |
-|---|---|
-| `cancel` | `Escape` |
-| `confirm` | `Enter` |
-| `select_next` | `Down`, `Tab` |
-| `select_prev` | `Backtab`, `Up` |
+| Action | Default keys | What it does |
+|---|---|---|
+| `select_next` | `Down`, `Tab` | Next item |
+| `select_prev` | `Backtab`, `Up` | Previous item |
+| `confirm` | `Enter` | Choose it |
+| `cancel` | `Escape` | Close |
+
+#### Fixed keys
+
+These can't be changed.
+
+| Where | Keys | What it does |
+|---|---|---|
+| Typing | Shift+Enter | New line |
+| Typing | Alt+Backspace | Delete a word |
+| Typing | Alt+← / Alt+→ | Move by word |
+| Typing | Tab | Complete an :emoji: shortcode |
+| Typing | Ctrl+z | Undo (brings back cleared text) |
+| Typing | Ctrl+v | Paste; copied files or an image are attached |
+| Typing | Backspace | With nothing typed: remove the last attached file |
+| Typing | / | Commands (listed below) |
+| Home screen | ↑ / ↓ | Browse chats |
+| Home screen | 1–8 | Open an unread chat |
+| Popups | ↑ / ↓, Tab | Move |
+| Popups | Enter | Choose |
+| Popups | Esc | Close |
+| Popups | @ > ? | In Ctrl+p: only chats, commands or keys |
 
 <!-- generated: options end -->

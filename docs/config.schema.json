@@ -192,20 +192,22 @@
         "main": {
           "additionalProperties": {
             "enum": [
-              "add_newline",
+              "search_rooms",
               "command_palette",
-              "force_quit",
-              "mark_unread",
-              "next_active_room",
+              "help",
               "next_room",
               "prev_room",
-              "resync",
-              "scroll_down",
-              "scroll_up",
-              "search_rooms",
-              "show_bare",
-              "toggle_members",
+              "next_active_room",
+              "mark_unread",
               "toggle_sidebar",
+              "toggle_members",
+              "show_bare",
+              "scroll_up",
+              "scroll_down",
+              "add_newline",
+              "resync",
+              "force_quit",
+              "quit",
               "none"
             ],
             "type": "string"
@@ -216,10 +218,10 @@
         "modal": {
           "additionalProperties": {
             "enum": [
-              "cancel",
-              "confirm",
               "select_next",
               "select_prev",
+              "confirm",
+              "cancel",
               "none"
             ],
             "type": "string"
@@ -230,12 +232,14 @@
         "room": {
           "additionalProperties": {
             "enum": [
-              "clear",
-              "scroll_down",
-              "scroll_up",
-              "search",
-              "select",
               "send",
+              "select",
+              "search",
+              "emoji",
+              "mark_read",
+              "clear",
+              "scroll_up",
+              "scroll_down",
               "none"
             ],
             "type": "string"
@@ -246,10 +250,31 @@
         "visual": {
           "additionalProperties": {
             "enum": [
-              "clear",
-              "confirm",
-              "select_next",
               "select_prev",
+              "select_next",
+              "confirm",
+              "open",
+              "reply",
+              "react",
+              "quick_react_1",
+              "quick_react_2",
+              "quick_react_3",
+              "quick_react_4",
+              "quick_react_5",
+              "quick_react_6",
+              "copy",
+              "copy_link",
+              "edit",
+              "delete",
+              "retry",
+              "play",
+              "open_external",
+              "download",
+              "info",
+              "hide",
+              "range",
+              "clear",
+              "exit",
               "none"
             ],
             "type": "string"

@@ -148,24 +148,6 @@ var KeybindingSections = []Option{
 	{Key: "modal", Doc: "Popups and lists."},
 }
 
-// KeybindingActions are the actions a keybindings table can use, from the default bindings.
-func KeybindingActions() map[string][]string {
-	var raw RawKeybindings
-	_ = yaml.Unmarshal([]byte(DefaultKeybindings), &raw)
-	out := map[string][]string{}
-	for section, m := range map[string]map[string]string{"main": raw.Main, "room": raw.Room, "visual": raw.Visual, "modal": raw.Modal} {
-		var actions []string
-		for _, a := range m {
-			if !slices.Contains(actions, a) {
-				actions = append(actions, a)
-			}
-		}
-		slices.Sort(actions)
-		out[section] = actions
-	}
-	return out
-}
-
 // UserFile is tuimessenger.yaml, parsed.
 type UserFile struct {
 	Theme       string

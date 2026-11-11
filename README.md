@@ -91,6 +91,7 @@ Every setting: **[docs/config.md](docs/config.md)**.
 
 | Key | What it does |
 |---|---|
+| ? or F1 | Every key and command, searchable (`?` when the message box is empty) |
 | Ctrl+p | Command palette: every command, chat and key (`>` commands, `@` chats, `?` keys) |
 | Ctrl+k | Jump to a chat (then Ctrl+p to peek without sending "seen") |
 | ↑ ↓, 1–8 | Browse chats / open an unread chat (home screen) |
@@ -99,6 +100,8 @@ Every setting: **[docs/config.md](docs/config.md)**.
 | Alt+u | Mark a chat unread |
 | Shift+Enter | New line |
 | Ctrl+c | Clear the input (Ctrl+z brings it back) |
+
+Every key can be changed in [`tuimessenger.yaml`](docs/config.md#keys).
 
 ## Where things are
 
