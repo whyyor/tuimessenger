@@ -23,8 +23,6 @@ main:
     'Alt+r': resync
     'Ctrl+c': force_quit
     'F1': help
-    # Single characters only act when you aren't typing (nothing in the message box, or visual mode).
-    '?': help
 
 modal:
     'Tab': select_next

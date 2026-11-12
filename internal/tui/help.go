@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	"codeberg.org/tslocum/cbind"
-	"github.com/gdamore/tcell/v2"
-	"go.mau.fi/mauview"
 
 	"github.com/whyyor/tuimessenger/internal/tui/config"
 )
@@ -91,23 +89,10 @@ func fixedKeyItems(group string) []*paletteItem {
 	return items
 }
 
-// ShowHelp opens help: every key and command, searchable. Opened with ? from an empty message box, ? again closes
-// it and types the ? instead, so a message can still start with one.
+// ShowHelp opens help: every key and command, searchable (F1, or Ctrl+p → Keys and commands).
 func (view *MainView) ShowHelp() {
 	p := &CommandPalette{parent: view, grouped: true, title: " \uf059 Keys and commands ", hint: "type to search  esc close",
 		items: helpItems(view.config)}
-	room := view.currentRoom
-	p.keyHook = func(event mauview.KeyEvent) bool {
-		if event.Key() != tcell.KeyRune || event.Rune() != '?' || len(p.query) > 0 {
-			return false
-		}
-		p.cancel()
-		if room != nil && !room.selecting {
-			room.input.SetText(room.input.GetText() + "?")
-			room.input.Focus()
-		}
-		return true
-	}
 	p.refilter()
 	view.ShowModal(p)
 }

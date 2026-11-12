@@ -440,7 +440,7 @@ func Template() string {
 	for _, c := range ColorOptions {
 		fmt.Fprintf(&b, "#   %s: \"%s\" # %s\n", c.Key, c.Default, strings.TrimSuffix(c.Doc, "."))
 	}
-	b.WriteString("\n# Keys: key: action, or key: none to remove a default. Press ? or F1 in tuimessenger for all of them.\n")
+	b.WriteString("\n# Keys: key: action, or key: none to remove a default. F1 (or Ctrl+p → Keys and commands) shows them all.\n")
 	b.WriteString("# keybindings:\n#   main:\n#     'Ctrl+n': next_room\n#   room:\n#     'Alt+v': none\n")
 	return b.String()
 }

@@ -138,7 +138,7 @@ keybindings:
     'Ctrl+s': select
 ```
 
-Press **?** (with an empty message box) or **F1** in tuimessenger to see every key, as they are with your changes.
+Press **F1** (or Ctrl+p → **Keys and commands**) to see every key and command, as they are with your changes; in Ctrl+p, a leading `?` lists only the keys.
 
 ## Keep the backend running
 
@@ -238,7 +238,7 @@ Every action and its default keys, by table. Keys are written like `Ctrl+k`, `Al
 |---|---|---|
 | `search_rooms` | `Alt+k`, `Ctrl+k` | Jump to a chat |
 | `command_palette` | `Ctrl+p` | Command palette: every command, chat and key |
-| `help` | `?`, `F1` | Show every key and command |
+| `help` | `F1` | Show every key and command |
 | `next_room` | `Alt+Down`, `Ctrl+Down` | Next chat |
 | `prev_room` | `Alt+Up`, `Ctrl+Up` | Previous chat |
 | `next_active_room` | `Alt+a` | Next chat with new messages |

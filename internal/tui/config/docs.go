@@ -68,7 +68,7 @@ func Schema() []byte {
 	}
 	top["preferences"] = obj("Preferences; they win over the ones Ctrl+p saves.", prefs)
 	top["colors"] = obj(`Colours ("#rrggbb", a name, or default for the terminal's own); they win over the theme's.`, colors)
-	top["keybindings"] = obj("Keys, over the defaults. Press ? or F1 in tuimessenger to see them all.", keys)
+	top["keybindings"] = obj("Keys, over the defaults. F1 (or Ctrl+p → Keys and commands) shows them all.", keys)
 	schema := map[string]any{
 		"$schema":              "http://json-schema.org/draft-07/schema#",
 		"$id":                  SchemaURL,

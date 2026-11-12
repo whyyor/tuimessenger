@@ -187,7 +187,7 @@
     },
     "keybindings": {
       "additionalProperties": false,
-      "description": "Keys, over the defaults. Press ? or F1 in tuimessenger to see them all.",
+      "description": "Keys, over the defaults. F1 (or Ctrl+p → Keys and commands) shows them all.",
       "properties": {
         "main": {
           "additionalProperties": {

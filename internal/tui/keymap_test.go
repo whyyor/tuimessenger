@@ -54,9 +54,10 @@ func keyConfig(t *testing.T, yours config.RawKeybindings) *config.Config {
 	return cfg
 }
 
-// ? opens help on the home screen, in visual mode and from an empty message box; while you write it's typed.
+// A single character you bind (here ?) acts on the home screen, in visual mode and from an empty message box;
+// while you write it's typed.
 func TestTypedCharOnlyWhenNotTyping(t *testing.T) {
-	cfg := keyConfig(t, config.RawKeybindings{})
+	cfg := keyConfig(t, config.RawKeybindings{Main: map[string]string{"?": "help"}})
 	view := &MainView{config: cfg}
 	question := tcell.NewEventKey(tcell.KeyRune, '?', tcell.ModNone)
 	if view.mainAction(question) != "help" {
@@ -145,7 +146,7 @@ func TestHelpListsYourKeys(t *testing.T) {
 	if got := helpItem(items, config.ActionDoc("room", "mark_read")).detail; got != "Ctrl+m" {
 		t.Errorf("Ctrl+^ shows as what you press: %q", got)
 	}
-	if got := helpItem(items, config.ActionDoc("main", "help")).detail; got != "?  F1" {
+	if got := helpItem(items, config.ActionDoc("main", "help")).detail; got != "F1" {
 		t.Errorf("help's own keys: %q", got)
 	}
 	for section, actions := range config.Actions {
@@ -167,7 +168,7 @@ func TestHelpListsYourKeys(t *testing.T) {
 	}
 }
 
-// Help is searchable by what a key does or by the key, and ? in it types a ? into the empty message box.
+// Help is searchable by what a key does or by the key.
 func TestHelpModal(t *testing.T) {
 	cfg := keyConfig(t, config.RawKeybindings{})
 	room := &RoomView{config: cfg, input: mauview.NewInputArea()}
@@ -182,11 +183,14 @@ func TestHelpModal(t *testing.T) {
 	if p.rows[p.selected].item.title != config.ActionDoc("room", "search") {
 		t.Errorf("searching a key finds its action: %q", p.rows[p.selected].item.title)
 	}
-	p.query = nil
-	p.refilter()
-	p.OnKeyEvent(tcell.NewEventKey(tcell.KeyRune, '?', tcell.ModNone))
-	if view.modal != nil || room.input.GetText() != "?" {
-		t.Errorf("? again closes help and types it: modal %v, text %q", view.modal, room.input.GetText())
+}
+
+// ? is no shortcut by default: it's always typed (help is F1 and Ctrl+p).
+func TestQuestionMarkIsTyped(t *testing.T) {
+	cfg := keyConfig(t, config.RawKeybindings{})
+	view := &MainView{config: cfg}
+	if got := view.mainAction(tcell.NewEventKey(tcell.KeyRune, '?', tcell.ModNone)); got != "" {
+		t.Errorf("? should be typed, not %q", got)
 	}
 }
 
