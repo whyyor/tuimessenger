@@ -68,7 +68,7 @@ func Schema() []byte {
 	}
 	top["preferences"] = obj("Preferences; they win over the ones Ctrl+p saves.", prefs)
 	top["colors"] = obj(`Colours ("#rrggbb", a name, or default for the terminal's own); they win over the theme's.`, colors)
-	top["keybindings"] = obj("Keys, over the defaults. Press ? or F1 in tuimessenger to see them all.", keys)
+	top["keybindings"] = obj("Keys, over the defaults. F1 (or Ctrl+p → Keys and commands) shows them all.", keys)
 	schema := map[string]any{
 		"$schema":              "http://json-schema.org/draft-07/schema#",
 		"$id":                  SchemaURL,
@@ -124,21 +124,30 @@ func OptionsMarkdown() string {
 		names = append(names, "`"+n+"`")
 	}
 	b.WriteString(strings.Join(names, ", ") + "\n")
-	b.WriteString("\n### `keybindings`\n\nThe default keys, by table. Keys are written like `Ctrl+k`, `Alt+Enter`, `Shift+Tab`, `F1` or a single " +
-		"character.\n")
+	b.WriteString("\n### `keybindings`\n\nEvery action and its default keys, by table. Keys are written like `Ctrl+k`, `Alt+Enter`, " +
+		"`Shift+Tab`, `F1`, `Space` or a single character; a single character only acts when you aren't typing. `Ctrl+m` " +
+		"and `Ctrl+;` are bound as `Ctrl+^` and `Ctrl+_`, which Ghostty sends for them with a keybind.\n")
 	var raw RawKeybindings
 	_ = yaml.Unmarshal([]byte(DefaultKeybindings), &raw)
 	tables := map[string]map[string]string{"main": raw.Main, "room": raw.Room, "visual": raw.Visual, "modal": raw.Modal}
 	for _, s := range KeybindingSections {
-		fmt.Fprintf(&b, "\n#### `%s`: %s\n\n| Action | Default keys |\n|---|---|\n", s.Key, strings.TrimSuffix(s.Doc, "."))
+		fmt.Fprintf(&b, "\n#### `%s`: %s\n\n| Action | Default keys | What it does |\n|---|---|---|\n", s.Key, strings.TrimSuffix(s.Doc, "."))
 		byAction := map[string][]string{}
 		for key, action := range tables[s.Key] {
 			byAction[action] = append(byAction[action], "`"+key+"`")
 		}
-		for _, action := range KeybindingActions()[s.Key] {
-			slices.Sort(byAction[action])
-			fmt.Fprintf(&b, "| `%s` | %s |\n", action, strings.Join(byAction[action], ", "))
+		for _, a := range Actions[s.Key] {
+			slices.Sort(byAction[a.Name])
+			keys := strings.Join(byAction[a.Name], ", ")
+			if keys == "" {
+				keys = "*none*"
+			}
+			fmt.Fprintf(&b, "| `%s` | %s | %s |\n", a.Name, keys, cell(a.Doc))
 		}
+	}
+	b.WriteString("\n#### Fixed keys\n\nThese can't be changed.\n\n| Where | Keys | What it does |\n|---|---|---|\n")
+	for _, f := range FixedKeys {
+		fmt.Fprintf(&b, "| %s | %s | %s |\n", f.Group, cell(f.Keys), cell(f.Doc))
 	}
 	return b.String()
 }

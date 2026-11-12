@@ -4,12 +4,10 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 	"unicode"
 
-	"codeberg.org/tslocum/cbind"
 	"github.com/gdamore/tcell/v2"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/mattn/go-runewidth"
@@ -42,6 +40,7 @@ const paletteChatsUnfiltered = 6
 
 type paletteItem struct {
 	section   paletteSection
+	group     string // a grouped palette's header (help)
 	title     string
 	alias     string // searchable; shown unless aliases are hidden
 	showAlias bool
@@ -74,8 +73,12 @@ type CommandPalette struct {
 	// selection moves (live preview) and one when it's cancelled (undo the preview).
 	title, hint string
 	flat        bool
-	onMove      func(*paletteItem)
-	onCancel    func()
+	// grouped lists items under their group's header in order (help); searching lists the best matches.
+	grouped bool
+	// keyHook sees keys first; true means it handled the key.
+	keyHook  func(event mauview.KeyEvent) bool
+	onMove   func(*paletteItem)
+	onCancel func()
 }
 
 func NewCommandPalette(view *MainView) *CommandPalette {
@@ -86,43 +89,24 @@ func NewCommandPalette(view *MainView) *CommandPalette {
 	return p
 }
 
-// keyHint formats the bindings for a main action, Ctrl first: "Ctrl+r".
+// keyHint is the first key bound to an action, Ctrl first, as you press it: "Ctrl+r".
 func keyHint(bindings map[config.Keybind]string, action string) string {
-	var hints []string
-	for kb, act := range bindings {
-		if act != action {
-			continue
-		}
-		enc, err := cbind.Encode(kb.Mod, kb.Key, kb.Ch)
-		if err != nil {
-			continue
-		}
-		if i := strings.LastIndexByte(enc, '+'); i != -1 && len(enc)-i == 2 {
-			enc = enc[:i+1] + strings.ToLower(enc[i+1:])
-		}
-		hints = append(hints, enc)
+	if keys := keysFor(bindings, action); len(keys) > 0 {
+		return keys[0]
 	}
-	sort.Slice(hints, func(i, j int) bool {
-		ci, cj := strings.HasPrefix(hints[i], "Ctrl"), strings.HasPrefix(hints[j], "Ctrl")
-		if ci != cj {
-			return ci
-		}
-		return hints[i] < hints[j]
-	})
-	if len(hints) == 0 {
-		return ""
-	}
-	return hints[0]
+	return ""
 }
 
 func (p *CommandPalette) commandItems() []*paletteItem {
 	view := p.parent
 	main := view.config.Keybindings.Main
+	roomKeys, visual := view.config.Keybindings.Room, view.config.Keybindings.Visual
 	cmd := func(title, detail string, run func()) *paletteItem {
 		return &paletteItem{section: sectionCommands, title: title, detail: detail, run: run}
 	}
 	items := []*paletteItem{
 		cmd("Search chats", keyHint(main, "search_rooms"), func() { view.ShowModal(NewFuzzySearchModal(view, 60, 18)) }),
+		cmd("Keys and commands (help)", keyHint(main, "help"), view.ShowHelp),
 		cmd("Networks", "log in, log out, Telegram keys", view.OpenNetworks),
 		cmd("Resync with server", keyHint(main, "resync"), func() { go view.parent.Resync() }),
 		cmd("Next chat with activity", keyHint(main, "next_active_room"), func() { view.SwitchRoom(view.roomList.NextWithActivity()) }),
@@ -214,10 +198,10 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 			clearTitle, clearCmd = "Show cleared history", "/unclear"
 		}
 		items = append(items,
-			cmd("Search this chat", "Ctrl+f", room.OpenSearch),
-			cmd("Insert emoji", "Ctrl+e", room.OpenEmojiPicker),
+			cmd("Search this chat", keyHint(roomKeys, "search"), room.OpenSearch),
+			cmd("Insert emoji", keyHint(roomKeys, "emoji"), room.OpenEmojiPicker),
 			cmd("Open chat in pager", keyHint(main, "show_bare"), func() { view.ShowBare(room) }),
-			cmd("Mark chat seen (sends blue ticks)", "Ctrl+m", room.MarkReadExplicit),
+			cmd("Mark chat seen (sends blue ticks)", keyHint(roomKeys, "mark_read"), room.MarkReadExplicit),
 			cmd("Mark chat unread", keyHint(main, "mark_unread"), view.MarkUnread),
 			cmd(aliasTitle, "/alias", func() {
 				room.input.SetText("/alias " + chatAlias(room.Room))
@@ -234,14 +218,14 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 				func() { go room.SetHideDeleted(!hideDeleted) }),
 			cmd("Attach files…", "/upload", func() { go room.AttachPicked() }),
 			cmd("Attach copied files or image", "Ctrl+v", func() { go room.AttachClipboard() }),
-			cmd("Reply to a message", "r", func() { room.StartSelecting(SelectReply, "") }),
-			cmd("React to a message", "+", func() { room.StartSelecting(SelectReact, "") }),
-			cmd("Edit a message", "e", func() { room.StartSelecting(SelectEdit, "") }),
-			cmd("Delete a message", "x", func() { room.StartSelecting(SelectRedact, "") }),
-			cmd("Copy a message", "y", func() { room.StartSelecting(SelectCopy, "clipboard") }),
-			cmd("Play a voice note or video", "p", func() { room.StartSelecting(SelectPlay, "") }),
-			cmd("Download media", "d", func() { room.StartSelecting(SelectDownload, "") }),
-			cmd("Open media with the system app", "o", func() { room.StartSelecting(SelectOpen, "") }),
+			cmd("Reply to a message", keyHint(visual, "reply"), func() { room.StartSelecting(SelectReply, "") }),
+			cmd("React to a message", keyHint(visual, "react"), func() { room.StartSelecting(SelectReact, "") }),
+			cmd("Edit a message", keyHint(visual, "edit"), func() { room.StartSelecting(SelectEdit, "") }),
+			cmd("Delete a message", keyHint(visual, "delete"), func() { room.StartSelecting(SelectRedact, "") }),
+			cmd("Copy a message", keyHint(visual, "copy"), func() { room.StartSelecting(SelectCopy, "clipboard") }),
+			cmd("Play a voice note or video", keyHint(visual, "play"), func() { room.StartSelecting(SelectPlay, "") }),
+			cmd("Download media", keyHint(visual, "download"), func() { room.StartSelecting(SelectDownload, "") }),
+			cmd("Open media with the system app", keyHint(visual, "open_external"), func() { room.StartSelecting(SelectOpen, "") }),
 			cmd("Close chat", "Escape", view.CloseCurrentRoom),
 		)
 		if current := chatAlias(room.Room); current != "" {
@@ -285,33 +269,13 @@ func (p *CommandPalette) chatItems() []*paletteItem {
 	return items
 }
 
-// keyItems is the reference list: keys that aren't commands of their own.
+// keyItems are the keys for Ctrl+p's "?" section: the same list as help, as you've configured them.
 func keyItems(cfg *config.Config) []*paletteItem {
-	refs := [][2]string{
-		{"Command palette", "Ctrl+p"},
-		{"Browse chats (home screen)", "↑ ↓"},
-		{"Open unread chat (home screen)", "1–8"},
-		{"Mark chat unread (also while browsing)", "Alt+u"},
-		{"Previous / next chat", keyHint(cfg.Keybindings.Main, "prev_room") + " / " + keyHint(cfg.Keybindings.Main, "next_room")},
-		{"Select messages (visual mode)", "Ctrl+; or Alt+v"},
-		{"Visual: move", "j / k"},
-		{"Visual: select a range", "v"},
-		{"Visual: quick react", "1–6"},
-		{"Visual: reaction popup", "+"},
-		{"Visual: view, play or open (image, GIF, voice, video, file, link)", "Space"},
-		{"Visual: hide message", "h"},
-		{"Visual: send a failed message again", "R"},
-		{"Visual: copy link", "u"},
-		{"Visual: message info (sent, delivered, seen)", "i"},
-		{"Emoji picker (recent, / to search)", "Ctrl+e"},
-		{"Peek a chat (open without sending seen)", "Ctrl+k, then Ctrl+p"},
-		{"New line", "Shift+Enter"},
-		{"Clear input (undo: Ctrl+z)", "Ctrl+c"},
-		{"Scroll up / down", "PageUp / PageDown"},
-	}
-	items := make([]*paletteItem, len(refs))
-	for i, ref := range refs {
-		items[i] = &paletteItem{section: sectionKeys, title: ref[0], detail: ref[1]}
+	var items []*paletteItem
+	for _, item := range helpItems(cfg) {
+		if item.section == sectionKeys {
+			items = append(items, item)
+		}
 	}
 	return items
 }
@@ -353,6 +317,10 @@ func matchScore(title, query string) int {
 }
 
 func (p *CommandPalette) refilter() {
+	if p.grouped {
+		p.refilterGrouped()
+		return
+	}
 	section, text, filtered := splitQuery(string(p.query))
 	type scored struct {
 		item  *paletteItem
@@ -390,6 +358,43 @@ func (p *CommandPalette) refilter() {
 		}
 		for _, s := range list {
 			p.rows = append(p.rows, paletteRow{item: s.item})
+		}
+	}
+	p.selected, p.scroll = -1, 0
+	p.move(1)
+}
+
+// refilterGrouped is refilter for a grouped palette: headers in item order, or the best matches when searching.
+func (p *CommandPalette) refilterGrouped() {
+	text := strings.TrimSpace(string(p.query))
+	p.rows = p.rows[:0]
+	if text == "" {
+		group := ""
+		for _, item := range p.items {
+			if item.group != group {
+				group = item.group
+				p.rows = append(p.rows, paletteRow{header: group})
+			}
+			p.rows = append(p.rows, paletteRow{item: item})
+		}
+	} else {
+		type scored struct {
+			item  *paletteItem
+			score int
+		}
+		var matches []scored
+		for _, item := range p.items {
+			s := matchScore(item.title, text)
+			if ds := matchScore(item.detail, text); ds >= 0 && (s < 0 || ds < s) {
+				s = ds
+			}
+			if s >= 0 {
+				matches = append(matches, scored{item, s})
+			}
+		}
+		slices.SortStableFunc(matches, func(a, b scored) int { return a.score - b.score })
+		for _, m := range matches {
+			p.rows = append(p.rows, paletteRow{item: m.item})
 		}
 	}
 	p.selected, p.scroll = -1, 0
@@ -439,6 +444,9 @@ func (p *CommandPalette) run() {
 }
 
 func (p *CommandPalette) OnKeyEvent(event mauview.KeyEvent) bool {
+	if p.keyHook != nil && p.keyHook(event) {
+		return true
+	}
 	switch event.Key() {
 	case tcell.KeyEscape:
 		p.cancel()

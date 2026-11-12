@@ -390,9 +390,7 @@ func (view *MainView) OpenSyncingModal() *SyncingModal {
 func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 	userAttention.touch()
 	// Before anything else: a key normally marks the open chat read.
-	if view.modal == nil && view.config.Keybindings.Main[config.Keybind{
-		Key: event.Key(), Ch: event.Rune(), Mod: event.Modifiers(),
-	}] == "mark_unread" {
+	if view.modal == nil && view.config.Keybindings.Main[keyOf(event)] == "mark_unread" {
 		view.MarkUnread()
 		return true
 	}
@@ -423,12 +421,9 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		return view.modal.OnKeyEvent(event)
 	}
 
-	kb := config.Keybind{
-		Key: event.Key(),
-		Ch:  event.Rune(),
-		Mod: event.Modifiers(),
-	}
-	switch view.config.Keybindings.Main[kb] {
+	switch view.mainAction(event) {
+	case "help":
+		view.ShowHelp()
 	case "next_room":
 		view.SwitchRoom(view.roomList.Next())
 	case "prev_room":
@@ -479,6 +474,15 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		return view.flex.OnKeyEvent(event)
 	}
 	return true
+}
+
+// mainAction is what a key does everywhere (keybindings' main table); a bound character is typed instead while you're
+// writing.
+func (view *MainView) mainAction(event mauview.KeyEvent) string {
+	if isTypedChar(event) && view.typing() {
+		return ""
+	}
+	return view.config.Keybindings.Main[keyOf(event)]
 }
 
 const WheelScrollOffsetDiff = 3
