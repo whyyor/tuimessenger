@@ -1,189 +1,195 @@
 package tui
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
-	"slices"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
-	"gopkg.in/yaml.v3"
 
 	"github.com/whyyor/tuimessenger/internal/tui/config"
 	"github.com/whyyor/tuimessenger/internal/tui/messages"
 	"github.com/whyyor/tuimessenger/internal/tui/messages/html"
+	"github.com/whyyor/tuimessenger/internal/tui/themes"
 )
 
-// styleFileName is your own settings file next to terminal.yaml: colours and
-// preferences that win over terminal.yaml at startup. tuimessenger only reads it,
-// so it can live in a dotfiles repo (terminal.yaml holds the password).
-const styleFileName = "tuimessenger.yaml"
+// styleFileName is tuimessenger.yaml, your settings file (see config.UserFilePath); an older copy next to
+// terminal.yaml still works, and the one in ~/.config wins over it.
+const styleFileName = config.UserFileName
 
-// styleColor is one themable colour: the variables it sets, and the colour
-// it follows when the file doesn't set it.
-type styleColor struct {
-	key     string
-	targets []*tcell.Color
-	follows string
-}
+// ColorBackground and ColorText replace the terminal's own background and text everywhere the UI uses them; the
+// tuimessenger theme leaves them to the terminal (ColorDefault).
+var ColorBackground, ColorText = tcell.ColorDefault, tcell.ColorDefault
 
-// styleColors lists every colour tuimessenger.yaml can set, in file order.
-func styleColors() []styleColor {
-	return []styleColor{
-		{key: "accent", targets: []*tcell.Color{&ColorComposerBar}},
-		{key: "selection", targets: []*tcell.Color{&messages.SelectionBackground, &ColorHighlight}},
-		{key: "selection_text", targets: []*tcell.Color{&messages.SelectionForeground, &ColorOnHighlight}},
-		{key: "sidebar_selection", targets: []*tcell.Color{&ColorSelectionBackground}},
-		{key: "sidebar_selection_text", targets: []*tcell.Color{&ColorSelectionText}},
-		{key: "panel", targets: []*tcell.Color{&ColorPanel}},
-		{key: "selection_bar", targets: []*tcell.Color{&ColorBarBackground}},
-		{key: "border", targets: []*tcell.Color{&ColorBorder}},
-		{key: "dim_text", targets: []*tcell.Color{&ColorStatusText}},
-		{key: "bar_text", targets: []*tcell.Color{&ColorBarText}},
-		{key: "switcher_pill", targets: []*tcell.Color{&ColorTitlePill}, follows: "sidebar_selection"},
-		{key: "switcher_pill_text", targets: []*tcell.Color{&ColorOnTitlePill}, follows: "sidebar_selection_text"},
-		{key: "palette_pill", targets: []*tcell.Color{&ColorPalettePill}, follows: "toast_success"},
-		{key: "palette_accent", targets: []*tcell.Color{&ColorPaletteAccent}, follows: "palette_pill"},
-		{key: "palette_pill_text", targets: []*tcell.Color{&ColorOnPalettePill}},
-		{key: "toast_success", targets: []*tcell.Color{&ColorMonokaiGreen}},
-		{key: "toast_info", targets: []*tcell.Color{&ColorMonokaiPurple}},
-		{key: "toast_warning", targets: []*tcell.Color{&ColorMonokaiYellow}},
-		{key: "toast_error", targets: []*tcell.Color{&ColorMonokaiRed}},
-		{key: "unread_badge", targets: []*tcell.Color{&ColorUnreadBadge}},
-		{key: "unread_mention", targets: []*tcell.Color{&ColorUnreadHighlight}},
-		{key: "pill_yellow", targets: []*tcell.Color{&ColorPillYellow}},
-		{key: "pill_pink", targets: []*tcell.Color{&ColorPillPink}},
-		{key: "pill_green", targets: []*tcell.Color{&ColorPillGreen}},
-		{key: "pill_blue", targets: []*tcell.Color{&ColorPillBlue}},
-		{key: "pill_violet", targets: []*tcell.Color{&ColorPillViolet}},
-		{key: "pill_text", targets: []*tcell.Color{&ColorOnPill}},
-		{key: "code_background", targets: []*tcell.Color{&html.CodeBackground}},
-		{key: "inline_code", targets: []*tcell.Color{&html.InlineCodeText}},
+// colorTargets are the variables each colour key sets.
+func colorTargets() map[string][]*tcell.Color {
+	return map[string][]*tcell.Color{
+		"background":             {&ColorBackground},
+		"text":                   {&ColorText},
+		"accent":                 {&ColorComposerBar},
+		"selection":              {&messages.SelectionBackground, &ColorHighlight},
+		"selection_text":         {&messages.SelectionForeground, &ColorOnHighlight},
+		"sidebar_selection":      {&ColorSelectionBackground},
+		"sidebar_selection_text": {&ColorSelectionText},
+		"panel":                  {&ColorPanel},
+		"selection_bar":          {&ColorBarBackground},
+		"border":                 {&ColorBorder},
+		"dim_text":               {&ColorStatusText},
+		"bar_text":               {&ColorBarText},
+		"switcher_pill":          {&ColorTitlePill},
+		"switcher_pill_text":     {&ColorOnTitlePill},
+		"palette_pill":           {&ColorPalettePill},
+		"palette_accent":         {&ColorPaletteAccent},
+		"palette_pill_text":      {&ColorOnPalettePill},
+		"toast_success":          {&ColorMonokaiGreen},
+		"toast_info":             {&ColorMonokaiPurple},
+		"toast_warning":          {&ColorMonokaiYellow},
+		"toast_error":            {&ColorMonokaiRed},
+		"unread_badge":           {&ColorUnreadBadge},
+		"unread_mention":         {&ColorUnreadHighlight},
+		"pill_yellow":            {&ColorPillYellow},
+		"pill_pink":              {&ColorPillPink},
+		"pill_green":             {&ColorPillGreen},
+		"pill_blue":              {&ColorPillBlue},
+		"pill_violet":            {&ColorPillViolet},
+		"pill_text":              {&ColorOnPill},
+		"code_background":        {&html.CodeBackground},
+		"inline_code":            {&html.InlineCodeText},
 	}
 }
 
-// pinnedPrefs are the preference keys tuimessenger.yaml sets; Ctrl+p toggles of
-// those only last until restart.
+// builtinColors are the tuimessenger theme's colours: the variables' values before any theme or file changed them.
+var builtinColors = func() map[string]tcell.Color {
+	out := map[string]tcell.Color{}
+	for key, targets := range colorTargets() {
+		out[key] = *targets[0]
+	}
+	return out
+}()
+
+// pinnedPrefs are the preference keys tuimessenger.yaml sets; Ctrl+p toggles of those only last until restart.
+// "theme" is there when the file sets the theme.
 var pinnedPrefs = map[string]bool{}
 
-type styleFile struct {
-	Colors      map[string]string `yaml:"colors"`
-	Preferences yaml.Node         `yaml:"preferences"`
-}
+// userColors are tuimessenger.yaml's colours, kept so a theme change re-applies them on top.
+var userColors = map[string]string{}
 
-// applyStyleFile reads tuimessenger.yaml from the config dir, if there is one, and
-// returns the problems found (shown as a toast once the UI is up).
-func applyStyleFile(cfg *config.Config) []string {
-	data, err := os.ReadFile(filepath.Join(cfg.Dir, styleFileName))
-	if os.IsNotExist(err) {
-		return nil
-	} else if err != nil {
-		return []string{err.Error()}
-	}
-	return applyStyle(data, &cfg.Preferences)
-}
+// currentTheme is the theme on screen, and the mode it uses.
+var currentTheme, currentThemeMode = themes.Default, themes.Dark
 
-func applyStyle(data []byte, prefs *config.UserPreferences) []string {
-	var file styleFile
-	if err := yaml.Unmarshal(data, &file); err != nil {
-		return []string{"can't read it: " + err.Error()}
-	}
-	var problems []string
-	// Colours, then the ones that follow another colour unless set.
+// applyColors sets every colour: the built-in ones, then the theme's, then yours, then the ones that follow another
+// colour unless the theme or you set them. It starts from scratch, so switching themes leaves nothing behind.
+func applyColors(theme themes.Colors, yours map[string]string) {
+	targets := colorTargets()
 	set := map[string]tcell.Color{}
-	known := map[string]bool{}
-	for _, c := range styleColors() {
-		known[c.key] = true
-		raw, ok := file.Colors[c.key]
+	apply := func(values map[string]string) {
+		for key, raw := range values {
+			if color, err := config.ParseColor(raw); err == nil && targets[key] != nil {
+				set[key] = color
+			}
+		}
+	}
+	apply(theme)
+	apply(yours)
+	for key, color := range builtinColors {
+		value, ok := set[key]
 		if !ok {
-			continue
+			value = color
 		}
-		color, err := parseStyleColor(raw)
-		if err != nil {
-			problems = append(problems, fmt.Sprintf("colors.%s: %v", c.key, err))
-			continue
-		}
-		set[c.key] = color
-		for _, target := range c.targets {
-			*target = color
+		for _, target := range targets[key] {
+			*target = value
 		}
 	}
-	for key := range file.Colors {
-		if !known[key] {
-			problems = append(problems, "unknown colour "+key)
-		}
-	}
-	for _, c := range styleColors() {
-		if _, ok := set[c.key]; ok || c.follows == "" {
+	for _, c := range config.ColorOptions {
+		if _, ok := set[c.Key]; ok || c.Follows == "" {
 			continue
 		}
-		if parent, ok := set[c.follows]; ok {
-			set[c.key] = parent
-			for _, target := range c.targets {
+		if parent, ok := set[c.Follows]; ok {
+			set[c.Key] = parent
+			for _, target := range targets[c.Key] {
 				*target = parent
 			}
 		}
 	}
 	rebuildToastColors()
+}
 
-	// Preferences: only the keys present override terminal.yaml.
-	if file.Preferences.Kind == yaml.MappingNode {
-		valid := prefKeys()
-		for i := 0; i+1 < len(file.Preferences.Content); i += 2 {
-			key, value := file.Preferences.Content[i].Value, file.Preferences.Content[i+1]
-			if !slices.Contains(valid, key) {
-				problems = append(problems, "unknown preference "+key)
-				continue
-			}
-			// Readable names for the empty defaults.
-			if (key == "timestamp_style" && value.Value == "relative") || (key == "file_picker" && value.Value == "finder") {
-				value.Value = ""
-			}
-			if err := decodePref(prefs, key, value); err != nil {
-				problems = append(problems, fmt.Sprintf("preferences.%s: %v", key, err))
-				continue
-			}
+// setTheme loads a theme and puts it on screen with your colours on top.
+func setTheme(name string, mode themes.Mode) error {
+	colors, err := themes.Load(name, mode, config.ThemesDir())
+	if err != nil {
+		return err
+	}
+	applyColors(colors, userColors)
+	currentTheme, currentThemeMode = name, mode
+	return nil
+}
+
+// applyStyleFile reads tuimessenger.yaml (the one next to terminal.yaml, then ~/.config's, which wins), writes the
+// commented template when there's neither, and applies theme, colours, preferences and keys. It returns the
+// problems found (shown as a toast once the UI is up).
+func applyStyleFile(cfg *config.Config) []string {
+	legacy := filepath.Join(cfg.Dir, styleFileName)
+	paths := []string{legacy, config.UserFilePath()}
+	found := false
+	var problems []string
+	theme, mode := cfg.Theme, cfg.ThemeMode
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			problems = append(problems, shortPath(path)+": "+err.Error())
+			continue
+		}
+		found = true
+		uf, fileProblems := config.ParseUserFile(data, config.ThemesDir())
+		fileProblems = append(fileProblems, cfg.ApplyPreferences(uf)...)
+		for _, p := range fileProblems {
+			problems = append(problems, shortPath(path)+": "+p)
+		}
+		cfg.ApplyKeybindings(uf.Keybindings)
+		for key := range uf.Preferences {
 			pinnedPrefs[key] = true
 		}
+		for key, value := range uf.Colors {
+			userColors[key] = value
+		}
+		if uf.Set["theme"] {
+			theme = uf.Theme
+			pinnedPrefs["theme"] = true
+		}
+		if uf.Set["theme_mode"] {
+			mode = uf.ThemeMode
+			pinnedPrefs["theme_mode"] = true
+		}
+	}
+	if !found {
+		_ = config.WriteTemplate(config.UserFilePath())
+	}
+	if theme == "" {
+		theme = themes.Default
+	}
+	if err := setTheme(theme, themeMode(mode)); err != nil {
+		problems = append(problems, err.Error())
+		_ = setTheme(themes.Default, themeMode(mode))
 	}
 	return problems
 }
 
-// decodePref sets one yaml-tagged field of the preferences.
-func decodePref(prefs *config.UserPreferences, key string, value *yaml.Node) error {
-	v := reflect.ValueOf(prefs).Elem()
-	for i := 0; i < v.NumField(); i++ {
-		if strings.Split(v.Type().Field(i).Tag.Get("yaml"), ",")[0] == key {
-			return value.Decode(v.Field(i).Addr().Interface())
-		}
+func themeMode(mode string) themes.Mode {
+	if mode == string(themes.Light) {
+		return themes.Light
 	}
-	return fmt.Errorf("not a preference")
+	return themes.Dark
 }
 
-func prefKeys() []string {
-	t := reflect.TypeOf(config.UserPreferences{})
-	var keys []string
-	for i := 0; i < t.NumField(); i++ {
-		if tag := strings.Split(t.Field(i).Tag.Get("yaml"), ",")[0]; tag != "" && tag != "-" {
-			keys = append(keys, tag)
-		}
+// shortPath writes a path under your home folder as ~/….
+func shortPath(path string) string {
+	if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(path, home+string(filepath.Separator)) {
+		return "~" + strings.TrimPrefix(path, home)
 	}
-	return keys
-}
-
-// parseStyleColor accepts "#rrggbb" or a colour name such as "red".
-func parseStyleColor(raw string) (tcell.Color, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "default" {
-		return tcell.ColorDefault, nil
-	}
-	color := tcell.GetColor(raw)
-	if color == tcell.ColorDefault {
-		return color, fmt.Errorf("%q isn't a colour (use \"#rrggbb\" or a name)", raw)
-	}
-	return color, nil
+	return path
 }
 
 func rebuildToastColors() {

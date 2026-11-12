@@ -1,0 +1,440 @@
+{
+  "$id": "https://raw.githubusercontent.com/whyyor/tuimessenger/main/docs/config.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "tuimessenger settings: https://github.com/whyyor/tuimessenger/blob/main/docs/config.md",
+  "properties": {
+    "colors": {
+      "additionalProperties": false,
+      "description": "Colours (\"#rrggbb\", a name, or default for the terminal's own); they win over the theme's.",
+      "properties": {
+        "accent": {
+          "default": "#a8a9eb",
+          "description": "Composer bar and prompts.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "background": {
+          "default": "default",
+          "description": "Background of the whole screen (default: your terminal's own).",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "bar_text": {
+          "default": "#c8c9c5",
+          "description": "Text in bars and popups.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "border": {
+          "default": "#54546d",
+          "description": "Popup borders.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "code_background": {
+          "default": "#1a1a22",
+          "description": "Code blocks and inline code.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "dim_text": {
+          "default": "#8a8a94",
+          "description": "Status line, details and aliases.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "inline_code": {
+          "default": "#f38d70",
+          "description": "Inline code text.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "palette_accent": {
+          "default": "#adda78",
+          "description": "Ctrl+p's ▌ and magnifier.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "palette_pill": {
+          "default": "#adda78",
+          "description": "Ctrl+p's title pill.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "palette_pill_text": {
+          "default": "#000000",
+          "description": "Text on Ctrl+p's pill.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "panel": {
+          "default": "#0e0e13",
+          "description": "Background of Ctrl+k, Ctrl+p and other popups.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "pill_blue": {
+          "default": "#7e9cd8",
+          "description": "Blue pills.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "pill_green": {
+          "default": "#98bb6c",
+          "description": "Green pills.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "pill_pink": {
+          "default": "#d27e99",
+          "description": "The search pill.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "pill_text": {
+          "default": "#1f1f28",
+          "description": "Text on pills.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "pill_violet": {
+          "default": "#a8a9eb",
+          "description": "The peek pill.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "pill_yellow": {
+          "default": "#e6c384",
+          "description": "Pills such as the Ctrl+m hint.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "selection": {
+          "default": "#8d70c2",
+          "description": "Background of the selected message and emoji.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "selection_bar": {
+          "default": "#1f1f28",
+          "description": "The selected row in Ctrl+k and Ctrl+p.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "selection_text": {
+          "default": "#ffffff",
+          "description": "Text on the selection.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "sidebar_selection": {
+          "default": "#f92672",
+          "description": "The selected chat in the sidebar.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "sidebar_selection_text": {
+          "default": "#fff1f3",
+          "description": "Text of the selected chat.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "switcher_pill": {
+          "default": "#f92672",
+          "description": "Ctrl+k's title pill and its ▌.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "switcher_pill_text": {
+          "default": "#fff1f3",
+          "description": "Text on Ctrl+k's pill.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "text": {
+          "default": "default",
+          "description": "Text colour (default: your terminal's own).",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "toast_error": {
+          "default": "#fd6883",
+          "description": "Error toasts.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "toast_info": {
+          "default": "#a8a9eb",
+          "description": "Info toasts.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "toast_success": {
+          "default": "#adda78",
+          "description": "Success toasts.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "toast_warning": {
+          "default": "#f9cc6c",
+          "description": "Warning toasts.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "unread_badge": {
+          "default": "#7fb4ca",
+          "description": "Unread counts.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "unread_mention": {
+          "default": "#e6c384",
+          "description": "Unread counts with a mention of you.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "keybindings": {
+      "additionalProperties": false,
+      "description": "Keys, over the defaults. Press ? or F1 in tuimessenger to see them all.",
+      "properties": {
+        "main": {
+          "additionalProperties": {
+            "enum": [
+              "add_newline",
+              "command_palette",
+              "force_quit",
+              "mark_unread",
+              "next_active_room",
+              "next_room",
+              "prev_room",
+              "resync",
+              "scroll_down",
+              "scroll_up",
+              "search_rooms",
+              "show_bare",
+              "toggle_members",
+              "toggle_sidebar",
+              "none"
+            ],
+            "type": "string"
+          },
+          "description": "Everywhere (unless a popup is open). Key (e.g. \"Ctrl+k\", \"Alt+Enter\", \"F1\") to action; \"none\" removes a default binding.",
+          "type": "object"
+        },
+        "modal": {
+          "additionalProperties": {
+            "enum": [
+              "cancel",
+              "confirm",
+              "select_next",
+              "select_prev",
+              "none"
+            ],
+            "type": "string"
+          },
+          "description": "Popups and lists. Key (e.g. \"Ctrl+k\", \"Alt+Enter\", \"F1\") to action; \"none\" removes a default binding.",
+          "type": "object"
+        },
+        "room": {
+          "additionalProperties": {
+            "enum": [
+              "clear",
+              "scroll_down",
+              "scroll_up",
+              "search",
+              "select",
+              "send",
+              "none"
+            ],
+            "type": "string"
+          },
+          "description": "In a chat. Key (e.g. \"Ctrl+k\", \"Alt+Enter\", \"F1\") to action; \"none\" removes a default binding.",
+          "type": "object"
+        },
+        "visual": {
+          "additionalProperties": {
+            "enum": [
+              "clear",
+              "confirm",
+              "select_next",
+              "select_prev",
+              "none"
+            ],
+            "type": "string"
+          },
+          "description": "Selecting messages (visual mode). Key (e.g. \"Ctrl+k\", \"Alt+Enter\", \"F1\") to action; \"none\" removes a default binding.",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "preferences": {
+      "additionalProperties": false,
+      "description": "Preferences; they win over the ones Ctrl+p saves.",
+      "properties": {
+        "backspace1_removes_word": {
+          "default": true,
+          "description": "Backspace deletes a whole word (in terminals that send it as ^H, e.g. Ctrl+Backspace in some).",
+          "type": "boolean"
+        },
+        "backspace2_removes_word": {
+          "default": false,
+          "description": "Backspace deletes a whole word (in terminals that send it as DEL, i.e. most).",
+          "type": "boolean"
+        },
+        "bare_message_view": {
+          "default": false,
+          "description": "Plain text messages without images or formatting (also Ctrl+l / Alt+l, the pager).",
+          "type": "boolean"
+        },
+        "classic_layout": {
+          "default": false,
+          "description": "Time and name columns instead of chat bubbles (yours right, theirs left).",
+          "type": "boolean"
+        },
+        "disable_downloads": {
+          "default": false,
+          "description": "Don't download media in the background for previews.",
+          "type": "boolean"
+        },
+        "disable_emojis": {
+          "default": false,
+          "description": "Don't turn :shortcodes: into emoji when sending, and no Tab completion for them.",
+          "type": "boolean"
+        },
+        "disable_images": {
+          "default": false,
+          "description": "Don't show photos, stickers, GIFs and video previews inline; media shows as a link.",
+          "type": "boolean"
+        },
+        "disable_notifications": {
+          "default": false,
+          "description": "No desktop notifications.",
+          "type": "boolean"
+        },
+        "disable_show_urls": {
+          "default": false,
+          "description": "Don't show a link's address after its text when they differ.",
+          "type": "boolean"
+        },
+        "file_picker": {
+          "default": "finder",
+          "description": "What /upload and the attach key open to pick files: the system picker (Finder) or yazi in the terminal.",
+          "enum": [
+            "finder",
+            "yazi"
+          ],
+          "type": "string"
+        },
+        "hide_aliases": {
+          "default": false,
+          "description": "Keep your chat aliases out of lists and headers; they still match when searching.",
+          "type": "boolean"
+        },
+        "hide_timestamp": {
+          "default": false,
+          "description": "Hide message times in the classic layout.",
+          "type": "boolean"
+        },
+        "image_protocol": {
+          "default": "auto",
+          "description": "How images are drawn: auto uses the kitty graphics protocol where it works (kitty, Ghostty…), ansi uses coloured half-blocks everywhere.",
+          "enum": [
+            "auto",
+            "kitty",
+            "ansi"
+          ],
+          "type": "string"
+        },
+        "inline_url_mode": {
+          "default": "auto",
+          "description": "Clickable links (OSC 8): auto turns them on in terminals known to support them (Ghostty, kitty, iTerm2, foot, VTE).",
+          "enum": [
+            "auto",
+            "enable",
+            "disable"
+          ],
+          "type": "string"
+        },
+        "sidebar_on_start": {
+          "default": true,
+          "description": "Show the chat list sidebar when tuimessenger starts (Ctrl+s toggles it for the session).",
+          "type": "boolean"
+        },
+        "timestamp_style": {
+          "default": "relative",
+          "description": "Times on chat bubbles: relative (now, 5m, 3h), absolute (22:16), or off (only on the selected message).",
+          "enum": [
+            "relative",
+            "absolute",
+            "off"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "theme": {
+      "anyOf": [
+        {
+          "enum": [
+            "tuimessenger",
+            "aura",
+            "ayu",
+            "carbonfox",
+            "catppuccin",
+            "catppuccin-frappe",
+            "catppuccin-macchiato",
+            "cobalt2",
+            "cursor",
+            "dracula",
+            "everforest",
+            "flexoki",
+            "github",
+            "gruvbox",
+            "kanagawa",
+            "lucent-orng",
+            "material",
+            "matrix",
+            "mercury",
+            "monokai",
+            "nightowl",
+            "nord",
+            "one-dark",
+            "orng",
+            "osaka-jade",
+            "palenight",
+            "rosepine",
+            "solarized",
+            "synthwave84",
+            "tokyonight",
+            "vercel",
+            "vesper",
+            "zenburn"
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "default": "tuimessenger",
+      "description": "Colour theme: tuimessenger, any of opencode's themes, or one of yours (themes/\u003cname\u003e.json next to this file, in opencode's format). Ctrl+p → Theme previews them live.",
+      "type": "string"
+    },
+    "theme_mode": {
+      "default": "dark",
+      "description": "Use a theme's dark or light colours (most opencode themes have both).",
+      "enum": [
+        "dark",
+        "light"
+      ],
+      "type": "string"
+    }
+  },
+  "title": "tuimessenger.yaml",
+  "type": "object"
+}

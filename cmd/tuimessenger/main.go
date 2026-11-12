@@ -50,6 +50,8 @@ func main() {
 			os.Exit(0)
 		case "service":
 			os.Exit(runService(os.Args[2:]))
+		case "config":
+			os.Exit(runConfig(os.Args[2:]))
 		case "notifiers":
 			os.Exit(runNotifiers())
 		case "version", "-version", "--version":
