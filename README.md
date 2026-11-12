@@ -113,7 +113,8 @@ Every key can be changed in [`tuimessenger.yaml`](docs/config.md#keys).
 - Your settings: `~/.config/tuimessenger/tuimessenger.yaml` and your themes in `~/.config/tuimessenger/themes/` (see
   [Configure](#configure)). What you change in the app (Ctrl+p) is saved in `tui/config/terminal.yaml` in the data
   folder; `tuimessenger.yaml` wins over it.
-- `tui/client.db` is the client's copy of your chats.
+- `tui/client.db` is the client's copy of your chats; `tui/config/drafts.json` keeps what you left typed in each
+  chat (✎ in the chat list), so it's still there when you come back, even after a restart.
 - Logs: `tuimessenger.log` (backend), `terminal.log` and `client.log` (client), and `crash.log`, which keeps the
   stack trace if the app ever crashes. Please attach it to bug reports.
 - macOS notifications come from small apps tuimessenger sets up in `~/.local/opt/tuimessenger/notifiers`: one per

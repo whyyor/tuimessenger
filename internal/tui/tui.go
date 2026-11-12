@@ -124,6 +124,7 @@ func New() *App {
 
 func (ui *App) Run() {
 	ui.Config.LoadAll()
+	drafts.use(ui.Config.Dir)
 	// tuimessenger.yaml (yours, in dotfiles) wins over terminal.yaml.
 	if problems := applyStyleFile(ui.Config); len(problems) > 0 {
 		toasts.Show(toastWarning, styleFileName+": "+strings.Join(problems, "; "))
@@ -305,8 +306,17 @@ func (ui *App) runOnExit() {
 	}
 }
 
+// keepDrafts saves the open chat's draft and writes every draft to disk before quitting.
+func (ui *App) keepDrafts() {
+	if ui.MainView != nil && ui.MainView.currentRoom != nil {
+		ui.MainView.currentRoom.keepDraft()
+	}
+	drafts.save()
+}
+
 func (ui *App) Stop() {
 	debug.Print("Stopping")
+	ui.keepDrafts()
 	ui.cancel()
 	ui.gmx.Backend.Disconnect()
 	debug.Print("Disconnection complete")
@@ -317,6 +327,7 @@ func (ui *App) Stop() {
 }
 
 func (ui *App) Finish() {
+	ui.keepDrafts()
 	ui.app.ForceStop()
 	ui.runOnExit()
 	os.Exit(0)

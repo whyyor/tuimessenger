@@ -317,8 +317,9 @@ func (view *MainView) MarkRead(roomView *RoomView) {
 }
 
 func (view *MainView) InputChanged(roomView *RoomView, text string) {
-	// Typing stays hidden unless this chat opted in (/typing on).
-	if !chatPrivacy(roomView.Room).Typing {
+	drafts.set(roomView.Room.ID, roomView.draftOf(text))
+	// Typing stays hidden unless this chat opted in (/typing on); a restored draft isn't typing.
+	if roomView.restoring || !chatPrivacy(roomView.Room).Typing {
 		return
 	}
 	// Commands aren't worth announcing to the other side.
@@ -590,6 +591,7 @@ func (view *MainView) CloseCurrentRoom() {
 	}
 	StopPlayback()
 	view.currentRoom.Blur()
+	view.currentRoom.keepDraft()
 	view.currentRoom.Unload()
 	view.currentRoom = nil
 	view.roomView.SetInnerComponent(nil)
@@ -624,10 +626,12 @@ func (view *MainView) switchRoom(roomID id.RoomID, peek bool) {
 	RequestRepaint()
 	view.flex.SetFocused(view.roomView)
 	if view.currentRoom != nil {
+		view.currentRoom.keepDraft()
 		view.currentRoom.Unload()
 	}
 	currentRoom := NewRoomView(view, roomData)
 	currentRoom.peek = peek
+	currentRoom.restoreDraft()
 	view.currentRoom = currentRoom
 	view.roomView.SetInnerComponent(currentRoom)
 	view.roomView.Focus()
