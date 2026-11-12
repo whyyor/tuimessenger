@@ -142,6 +142,24 @@ keybindings:
 
 Press **F1** (or Ctrl+p → **Keys and commands**) to see every key and command, as they are with your changes; in Ctrl+p, a leading `?` lists only the keys.
 
+### Ctrl+m, Ctrl+; and Shift+Enter
+
+Older terminals send Ctrl+m as Enter, Shift+Enter as Enter, and nothing for Ctrl+;. tuimessenger turns on the
+[Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) while it runs, so these keys work in
+terminals that support it (Ghostty, kitty, WezTerm, foot, iTerm2, Alacritty). In the keybindings they're `Ctrl+^`
+(Ctrl+m), `Ctrl+_` (Ctrl+;) and Shift+Enter is a new line.
+
+In other terminals, use Alt+v to select messages, or have the terminal send `\x1e` for Ctrl+m, `\x1f` for Ctrl+;
+and `\n` for Shift+Enter. In Ghostty, for example:
+
+```
+keybind = ctrl+m=text:\x1e
+keybind = ctrl+semicolon=text:\x1f
+keybind = shift+enter=text:\n
+```
+
+`TUIMESSENGER_KITTY_KEYBOARD=0` leaves the protocol off.
+
 ## Keep the backend running
 
 tuimessenger's backend (the bridges to WhatsApp, Telegram, Slack and Instagram) runs inside the app by default, so it
@@ -234,7 +252,7 @@ The defaults are the `tuimessenger` theme's. A colour marked *follows* takes the
 
 ### `keybindings`
 
-Every action and its default keys, by table. Keys are written like `Ctrl+k`, `Alt+Enter`, `Shift+Tab`, `F1`, `Space` or a single character; a single character only acts when you aren't typing. `Ctrl+m` and `Ctrl+;` are bound as `Ctrl+^` and `Ctrl+_`, which Ghostty sends for them with a keybind.
+Every action and its default keys, by table. Keys are written like `Ctrl+k`, `Alt+Enter`, `Shift+Tab`, `F1`, `Space` or a single character; a single character only acts when you aren't typing. `Ctrl+m` and `Ctrl+;` are bound as `Ctrl+^` and `Ctrl+_` (see [above](#ctrlm-ctrl-and-shiftenter)).
 
 #### `main`: Everywhere (unless a popup is open)
 

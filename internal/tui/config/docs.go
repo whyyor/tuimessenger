@@ -126,7 +126,7 @@ func OptionsMarkdown() string {
 	b.WriteString(strings.Join(names, ", ") + "\n")
 	b.WriteString("\n### `keybindings`\n\nEvery action and its default keys, by table. Keys are written like `Ctrl+k`, `Alt+Enter`, " +
 		"`Shift+Tab`, `F1`, `Space` or a single character; a single character only acts when you aren't typing. `Ctrl+m` " +
-		"and `Ctrl+;` are bound as `Ctrl+^` and `Ctrl+_`, which Ghostty sends for them with a keybind.\n")
+		"and `Ctrl+;` are bound as `Ctrl+^` and `Ctrl+_` (see [above](#ctrlm-ctrl-and-shiftenter)).\n")
 	var raw RawKeybindings
 	_ = yaml.Unmarshal([]byte(DefaultKeybindings), &raw)
 	tables := map[string]map[string]string{"main": raw.Main, "room": raw.Room, "visual": raw.Visual, "modal": raw.Modal}

@@ -60,13 +60,13 @@ visual:
     'i': info
     'h': hide
     'v': range
-    # Ctrl+; (sent as Ctrl+_ by a Ghostty keybind) leaves visual mode at once.
+    # Ctrl+; (which arrives as Ctrl+_) leaves visual mode at once.
     'Ctrl+_': exit
 
 room:
     'Escape': clear
     'Alt+v': select
-    # Ctrl+; and Ctrl+m arrive as Ctrl+_ and Ctrl+^ through Ghostty keybinds (no plain encoding exists for them).
+    # Ctrl+; and Ctrl+m arrive as Ctrl+_ and Ctrl+^ (the Kitty keyboard protocol, translated by termapp).
     'Ctrl+_': select
     'Ctrl+^': mark_read
     'Ctrl+e': emoji

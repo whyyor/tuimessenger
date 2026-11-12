@@ -117,8 +117,8 @@ func ActionDoc(section, name string) string {
 	return ""
 }
 
-// KeyLabel is how a key is shown: Ghostty sends Ctrl+m and Ctrl+; as Ctrl+^ and Ctrl+_ (the keys tuimessenger
-// binds), so they're shown as what you press.
+// KeyLabel is how a key is shown: Ctrl+m and Ctrl+; arrive as Ctrl+^ and Ctrl+_ (the keys tuimessenger binds), so
+// they're shown as what you press.
 func KeyLabel(key string) string {
 	switch key {
 	case "Ctrl+^":
