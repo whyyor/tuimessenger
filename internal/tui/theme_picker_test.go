@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/whyyor/tuimessenger/internal/rpc/client"
@@ -78,5 +79,17 @@ func TestThemeModeToggle(t *testing.T) {
 	view.toggleThemeMode()
 	if currentThemeMode != themes.Dark || hex(ColorComposerBar) != "#89b4fa" {
 		t.Errorf("back to dark: %s", hex(ColorComposerBar))
+	}
+}
+
+// When your colours cover the theme's, the picker says so instead of seeming to do nothing.
+func TestThemePickerWarnsAboutYourColours(t *testing.T) {
+	view := pickerView(t)
+	if p := NewThemePicker(view); !strings.Contains(p.hint, "preview") {
+		t.Errorf("no colours of yours: the usual hint, got %q", p.hint)
+	}
+	userColors = map[string]string{"accent": "#ff0000", "panel": "#000000"}
+	if p := NewThemePicker(view); p.hint != "2 colours in tuimessenger.yaml win over themes" {
+		t.Errorf("warning: %q", p.hint)
 	}
 }
