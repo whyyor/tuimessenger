@@ -297,6 +297,14 @@ func (list *RoomList) Draw(screen mauview.Screen) {
 				badgeStyle = rowStyle.Foreground(ColorUnreadBadge)
 			}
 		}
+		if !isSelected && drafts.has(room.RoomID) {
+			// Something waits in this chat's message box.
+			if badge == "" {
+				badge, badgeStyle = draftIcon, rowStyle.Foreground(ColorStatusText)
+			} else {
+				badge = draftIcon + " " + badge
+			}
+		}
 		if muted[room.RoomID] {
 			// Muted: grey count, then the bell; never red.
 			if badge != "" {

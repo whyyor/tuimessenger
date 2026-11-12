@@ -63,14 +63,35 @@ is used as the file picker when it's installed.
    `api_hash` into the Networks panel.
 3. **Chat:** Ctrl+k jumps to any chat, Enter sends, Ctrl+p shows every command and key.
 
-Optional: `tuimessenger service install` runs the backend in the background (a launchd agent on macOS, a systemd user
-unit on Linux), so your networks stay connected while the terminal client is closed. `tuimessenger service status`
-shows how it's doing; `uninstall` removes it. After upgrading, run `service install` again to restart it.
+## Keep the backend running
+
+By default the backend (the bridges to your networks) runs inside the app and stops when you quit it. If you want
+your networks connected all the time, run it as a background service:
+
+```sh
+tuimessenger service install    # a launchd agent on macOS, a systemd user unit on Linux; starts with your login
+tuimessenger service status     # is it running, and does it answer
+tuimessenger service uninstall  # back to running inside the app
+```
+
+Messages keep arriving while the app is closed, and if a bridge ever crashes only the service restarts: the app stays
+open and reconnects. After upgrading tuimessenger, run `tuimessenger service install` again to restart it.
+
+## Configure
+
+Theme, colours, preferences and keys all live in one file, `~/.config/tuimessenger/tuimessenger.yaml`. tuimessenger
+writes a commented template there the first time it starts, and only ever reads it, so it's at home in your
+dotfiles. All of [opencode](https://opencode.ai)'s themes are built in (Ctrl+p → **Theme** previews them live), and
+your own opencode-format themes work too. `tuimessenger config` checks the file for mistakes, and editors with the
+YAML language server complete and check it as you type.
+
+Every setting: **[docs/config.md](docs/config.md)**.
 
 ## Keys
 
 | Key | What it does |
 |---|---|
+| F1 | Every key and command, searchable (also Ctrl+p → Keys and commands; `?` in Ctrl+p lists only keys) |
 | Ctrl+p | Command palette: every command, chat and key (`>` commands, `@` chats, `?` keys) |
 | Ctrl+k | Jump to a chat (then Ctrl+p to peek without sending "seen") |
 | ↑ ↓, 1–8 | Browse chats / open an unread chat (home screen) |
@@ -80,6 +101,8 @@ shows how it's doing; `uninstall` removes it. After upgrading, run `service inst
 | Shift+Enter | New line |
 | Ctrl+c | Clear the input (Ctrl+z brings it back) |
 
+Every key can be changed in [`tuimessenger.yaml`](docs/config.md#keys).
+
 ## Where things are
 
 | | macOS | Linux |
@@ -87,15 +110,18 @@ shows how it's doing; `uninstall` removes it. After upgrading, run `service inst
 | Data (chats, sessions, media, `config.yaml`) | `~/Library/Application Support/tuimessenger` | `~/.local/share/tuimessenger` |
 | Logs | `~/Library/Logs/tuimessenger` | `~/.local/state/tuimessenger` |
 
-- `tui/config/terminal.yaml` in the data folder holds the client's preferences (changed from the TUI too);
-  `tui/config/tuimessenger.yaml` holds your colours and pinned preferences and wins over it. Keep it in your
-  dotfiles and link it here.
-- `tui/client.db` is the client's copy of your chats.
+- Your settings: `~/.config/tuimessenger/tuimessenger.yaml` and your themes in `~/.config/tuimessenger/themes/` (see
+  [Configure](#configure)). What you change in the app (Ctrl+p) is saved in `tui/config/terminal.yaml` in the data
+  folder; `tuimessenger.yaml` wins over it.
+- `tui/client.db` is the client's copy of your chats; `tui/config/drafts.json` keeps what you left typed in each
+  chat (✎ in the chat list), so it's still there when you come back, even after a restart.
 - Logs: `tuimessenger.log` (backend), `terminal.log` and `client.log` (client), and `crash.log`, which keeps the
   stack trace if the app ever crashes. Please attach it to bug reports.
 - macOS notifications come from small apps tuimessenger sets up in `~/.local/opt/tuimessenger/notifiers`: one per
   network (WhatsApp, Telegram, Slack, Instagram), so each shows its own icon and can be muted on its own in System
-  Settings → Notifications, and `tuimessenger.app` for the rest.
+  Settings → Notifications, and `tuimessenger.app` for the rest. The first notification from each asks for
+  permission; closing that prompt with × counts as "Don't Allow". To turn them back on: System Settings →
+  Notifications → the network's entry (e.g. WhatsApp) → Allow notifications.
 
 ## Building
 

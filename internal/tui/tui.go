@@ -41,6 +41,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/tui/debug"
 	"github.com/whyyor/tuimessenger/internal/tui/lib/notification"
 	"github.com/whyyor/tuimessenger/internal/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/tui/termapp"
 )
 
 type View string
@@ -53,7 +54,7 @@ const (
 
 type App struct {
 	gmx *client.Client
-	app *mauview.Application
+	app *termapp.Application
 
 	// Backend is what the TUI talks to; set it before Run (tuimessenger runs hicli in-process).
 	Backend client.Backend
@@ -113,7 +114,7 @@ func init() {
 func New() *App {
 	ctx, cancel := context.WithCancel(context.Background())
 	ui := &App{
-		app:    mauview.NewApplication(),
+		app:    termapp.NewApplication(),
 		Config: config.NewConfig(),
 		ctx:    ctx,
 		cancel: cancel,
@@ -124,6 +125,7 @@ func New() *App {
 
 func (ui *App) Run() {
 	ui.Config.LoadAll()
+	drafts.use(ui.Config.Dir)
 	// tuimessenger.yaml (yours, in dotfiles) wins over terminal.yaml.
 	if problems := applyStyleFile(ui.Config); len(problems) > 0 {
 		toasts.Show(toastWarning, styleFileName+": "+strings.Join(problems, "; "))
@@ -173,7 +175,7 @@ func (ui *App) Connect() {
 		ui.NeedsRender = true
 		onRoomListChange(ui.gmx, rooms)
 	})
-	ui.gmx.SendNotification = ui.MainView.NotifyMessage
+	ui.gmx.SendNotification = ui.MainView.QueueNotification
 	toasts.render = ui.Render
 	ui.gmx.OnNotice = func(evt *database.Event) bool {
 		text := ""
@@ -188,6 +190,7 @@ func (ui *App) Connect() {
 	}
 	ui.gmx.EventHandler = ui.eventHandler
 	messages.RequestRender = ui.Render
+	messages.MissingTool = hintMissingTool
 	ui.MainView.matrix = ui.gmx
 	err := ui.gmx.Connect(ui.ctx, ui.onConnStateChange)
 	if err != nil && !errors.Is(err, context.Canceled) {
@@ -304,8 +307,17 @@ func (ui *App) runOnExit() {
 	}
 }
 
+// keepDrafts saves the open chat's draft and writes every draft to disk before quitting.
+func (ui *App) keepDrafts() {
+	if ui.MainView != nil && ui.MainView.currentRoom != nil {
+		ui.MainView.currentRoom.keepDraft()
+	}
+	drafts.save()
+}
+
 func (ui *App) Stop() {
 	debug.Print("Stopping")
+	ui.keepDrafts()
 	ui.cancel()
 	ui.gmx.Backend.Disconnect()
 	debug.Print("Disconnection complete")
@@ -316,6 +328,7 @@ func (ui *App) Stop() {
 }
 
 func (ui *App) Finish() {
+	ui.keepDrafts()
 	ui.app.ForceStop()
 	ui.runOnExit()
 	os.Exit(0)

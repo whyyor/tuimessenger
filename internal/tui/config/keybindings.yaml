@@ -22,6 +22,7 @@ main:
     'Alt+l': show_bare
     'Alt+r': resync
     'Ctrl+c': force_quit
+    'F1': help
 
 modal:
     'Tab': select_next
@@ -39,10 +40,36 @@ visual:
     'j': select_next
     'Enter': confirm
     'l': confirm
+    'Space': open
+    'r': reply
+    '+': react
+    '1': quick_react_1
+    '2': quick_react_2
+    '3': quick_react_3
+    '4': quick_react_4
+    '5': quick_react_5
+    '6': quick_react_6
+    'y': copy
+    'u': copy_link
+    'e': edit
+    'x': delete
+    'R': retry
+    'p': play
+    'o': open_external
+    'd': download
+    'i': info
+    'h': hide
+    'v': range
+    # Ctrl+; (which arrives as Ctrl+_) leaves visual mode at once.
+    'Ctrl+_': exit
 
 room:
     'Escape': clear
     'Alt+v': select
+    # Ctrl+; and Ctrl+m arrive as Ctrl+_ and Ctrl+^ (the Kitty keyboard protocol, translated by termapp).
+    'Ctrl+_': select
+    'Ctrl+^': mark_read
+    'Ctrl+e': emoji
     'Ctrl+f': search
     'Ctrl+n': scroll_down
     'Ctrl+u': scroll_up

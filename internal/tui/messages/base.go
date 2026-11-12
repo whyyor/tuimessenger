@@ -105,6 +105,9 @@ const TimeFormat = "15:04"
 // downloads) can trigger a repaint when it finishes. Defaults to a no-op.
 var RequestRender = func() {}
 
+// MissingTool is told when an optional program media needs (ffmpeg) isn't installed; the UI layer injects a hint.
+var MissingTool = func(tool string) {}
+
 func newUIMessage(
 	room *store.RoomStore,
 	evt *database.Event,

@@ -172,6 +172,7 @@ const previewMaxDim = 1024
 func ffmpegFirstFramePNG(data []byte) ([]byte, error) {
 	ffmpeg, err := exec.LookPath("ffmpeg")
 	if err != nil {
+		MissingTool("ffmpeg")
 		return nil, err
 	}
 	in := filepath.Join(os.TempDir(), fmt.Sprintf("tuimessenger-frame-%d", time.Now().UnixNano()))
