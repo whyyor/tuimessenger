@@ -62,7 +62,9 @@ type RoomView struct {
 	// info is the i popup (message info), nil when closed.
 	info *MessageInfo
 	// peek (Ctrl+k → Ctrl+p): this visit sends no seen, like /seen off.
-	peek         bool
+	peek bool
+	// restoring is set while a draft is put back, so it isn't announced as typing.
+	restoring    bool
 	statusScreen *mauview.ProxyScreen
 	inputScreen  *mauview.ProxyScreen
 	ulScreen     *mauview.ProxyScreen

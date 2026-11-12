@@ -90,7 +90,8 @@ shows how it's doing; `uninstall` removes it. After upgrading, run `service inst
 - `tui/config/terminal.yaml` in the data folder holds the client's preferences (changed from the TUI too);
   `tui/config/tuimessenger.yaml` holds your colours and pinned preferences and wins over it. Keep it in your
   dotfiles and link it here.
-- `tui/client.db` is the client's copy of your chats.
+- `tui/client.db` is the client's copy of your chats; `tui/config/drafts.json` keeps what you left typed in each
+  chat (✎ in the chat list), so it's still there when you come back, even after a restart.
 - Logs: `tuimessenger.log` (backend), `terminal.log` and `client.log` (client), and `crash.log`, which keeps the
   stack trace if the app ever crashes. Please attach it to bug reports.
 - macOS notifications come from small apps tuimessenger sets up in `~/.local/opt/tuimessenger/notifiers`: one per
