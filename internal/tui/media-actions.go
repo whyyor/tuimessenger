@@ -317,6 +317,7 @@ func (view *RoomView) playLink(url string) {
 		view.playVideoInTerminal(url, false)
 		return
 	}
+	hintMissingTool("mpv")
 	ytdlp, err := exec.LookPath("yt-dlp")
 	if err != nil {
 		view.AddServiceMessage("Opening %s in the browser (install mpv or yt-dlp to play it here)", url)
@@ -365,6 +366,7 @@ func (view *RoomView) playVideoInTerminal(target string, isFile bool, mpvArgs ..
 	mpv, err := exec.LookPath("mpv")
 	if err != nil {
 		// No in-terminal player; hand the file to the system instead.
+		hintMissingTool("mpv")
 		_ = exec.Command("open", target).Start()
 		return
 	}
