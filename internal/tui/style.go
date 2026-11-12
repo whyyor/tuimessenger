@@ -17,9 +17,15 @@ import (
 // terminal.yaml still works, and the one in ~/.config wins over it.
 const styleFileName = config.UserFileName
 
+// ColorBackground and ColorText replace the terminal's own background and text everywhere the UI uses them; the
+// tuimessenger theme leaves them to the terminal (ColorDefault).
+var ColorBackground, ColorText = tcell.ColorDefault, tcell.ColorDefault
+
 // colorTargets are the variables each colour key sets.
 func colorTargets() map[string][]*tcell.Color {
 	return map[string][]*tcell.Color{
+		"background":             {&ColorBackground},
+		"text":                   {&ColorText},
 		"accent":                 {&ColorComposerBar},
 		"selection":              {&messages.SelectionBackground, &ColorHighlight},
 		"selection_text":         {&messages.SelectionForeground, &ColorOnHighlight},

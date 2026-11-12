@@ -24,8 +24,8 @@ func TestBuiltinThemesResolve(t *testing.T) {
 				t.Errorf("%s (%s): %v", name, mode, err)
 				continue
 			}
-			if len(c) != 26 {
-				t.Errorf("%s (%s): %d colours, want 26", name, mode, len(c))
+			if len(c) != 28 {
+				t.Errorf("%s (%s): %d colours, want 28", name, mode, len(c))
 			}
 			for key, v := range c {
 				if !colorValue.MatchString(v) {

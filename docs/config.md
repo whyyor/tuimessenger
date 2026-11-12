@@ -112,6 +112,7 @@ tuimessenger:
 
 | opencode slot | tuimessenger colours |
 |---|---|
+| `background` / `text` | `background` / `text`: the whole screen |
 | `primary` | `accent` (composer bar), `selection` |
 | `accent` | `sidebar_selection`, Ctrl+k's pill, `pill_pink` |
 | `backgroundPanel` | `panel` (Ctrl+k, Ctrl+p) |
@@ -123,8 +124,9 @@ tuimessenger:
 | `markdownCode` | `inline_code` |
 | `background` (or `selectedListItemText`) | text on selections and pills |
 
-tuimessenger draws on your terminal's own background, so a theme looks best with a terminal background close to the
-theme's `background`. `colors:` in `tuimessenger.yaml` still wins over any theme.
+A theme paints the whole screen with its `background` and `text` (a theme whose background is `none` keeps your
+terminal's). The `tuimessenger` theme uses your terminal's own background and text. `colors:` in `tuimessenger.yaml`
+still wins over any theme.
 
 ## Keys
 
@@ -194,6 +196,8 @@ The defaults are the `tuimessenger` theme's. A colour marked *follows* takes the
 
 | Colour | Default | Description |
 |---|---|---|
+| `background` | `default` | Background of the whole screen (default: your terminal's own). |
+| `text` | `default` | Text colour (default: your terminal's own). |
 | `accent` | `#a8a9eb` | Composer bar and prompts. |
 | `selection` | `#8d70c2` | Background of the selected message and emoji. |
 | `selection_text` | `#ffffff` | Text on the selection. |

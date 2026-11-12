@@ -248,6 +248,8 @@ func mapSlots(s map[string]rgba) Colors {
 	}
 	element := get("backgroundElement", "backgroundPanel")
 	c := Colors{
+		"background":             s["background"].hex(),
+		"text":                   s["text"].hex(),
 		"accent":                 s["primary"].hex(),
 		"selection":              s["primary"].hex(),
 		"selection_text":         onColor(s, s["primary"]).hex(),

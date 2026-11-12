@@ -222,7 +222,9 @@ func TestColorOptionsMatchVariables(t *testing.T) {
 	for _, c := range config.ColorOptions {
 		if targets[c.Key] == nil {
 			t.Errorf("colors.%s sets nothing", c.Key)
-		} else if hex(builtinColors[c.Key]) != c.Default {
+		} else if c.Default == "default" && builtinColors[c.Key] != tcell.ColorDefault {
+			t.Errorf("colors.%s: documented default is the terminal's own, real %s", c.Key, hex(builtinColors[c.Key]))
+		} else if c.Default != "default" && hex(builtinColors[c.Key]) != c.Default {
 			t.Errorf("colors.%s: documented default %s, real %s", c.Key, c.Default, hex(builtinColors[c.Key]))
 		}
 	}
@@ -257,5 +259,34 @@ keybindings:
 	joined := strings.Join(problems, "\n")
 	if len(problems) != 2 || !strings.Contains(joined, `"Hyper+q" isn't a key`) || !strings.Contains(joined, `unknown main action "launch_rocket"`) {
 		t.Errorf("bad keys and actions are reported, not a crash: %q", problems)
+	}
+}
+
+// A theme paints the terminal's own background and text everywhere; colours set on purpose stay.
+func TestThemeBackground(t *testing.T) {
+	keepStyle(t)
+	plain := tcell.StyleDefault
+	if themed(plain) != plain {
+		t.Error("the tuimessenger theme leaves the terminal's background and text alone")
+	}
+	if err := setTheme("catppuccin", themes.Dark); err != nil {
+		t.Fatal(err)
+	}
+	if hex(ColorBackground) != "#1e1e2e" || ColorText == tcell.ColorDefault {
+		t.Fatalf("catppuccin's background and text: %s %v", hex(ColorBackground), ColorText)
+	}
+	fg, bg, _ := themed(plain).Decompose()
+	if bg != ColorBackground || fg != ColorText {
+		t.Errorf("default cells take the theme's: fg %v bg %v", fg, bg)
+	}
+	pill := tcell.StyleDefault.Background(tcell.ColorRed).Foreground(tcell.ColorWhite)
+	if themed(pill) != pill {
+		t.Error("explicit colours stay")
+	}
+	if err := setTheme(themes.Default, themes.Dark); err != nil {
+		t.Fatal(err)
+	}
+	if ColorBackground != tcell.ColorDefault || themed(plain) != plain {
+		t.Error("back to tuimessenger: the terminal's own again")
 	}
 }
