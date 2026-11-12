@@ -173,7 +173,7 @@ func (ui *App) Connect() {
 		ui.NeedsRender = true
 		onRoomListChange(ui.gmx, rooms)
 	})
-	ui.gmx.SendNotification = ui.MainView.NotifyMessage
+	ui.gmx.SendNotification = ui.MainView.QueueNotification
 	toasts.render = ui.Render
 	ui.gmx.OnNotice = func(evt *database.Event) bool {
 		text := ""

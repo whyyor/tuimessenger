@@ -118,7 +118,9 @@ Every key can be changed in [`tuimessenger.yaml`](docs/config.md#keys).
   stack trace if the app ever crashes. Please attach it to bug reports.
 - macOS notifications come from small apps tuimessenger sets up in `~/.local/opt/tuimessenger/notifiers`: one per
   network (WhatsApp, Telegram, Slack, Instagram), so each shows its own icon and can be muted on its own in System
-  Settings → Notifications, and `tuimessenger.app` for the rest.
+  Settings → Notifications, and `tuimessenger.app` for the rest. The first notification from each asks for
+  permission; closing that prompt with × counts as "Don't Allow". To turn them back on: System Settings →
+  Notifications → the network's entry (e.g. WhatsApp) → Allow notifications.
 
 ## Building
 
