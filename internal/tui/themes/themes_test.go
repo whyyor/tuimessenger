@@ -14,8 +14,8 @@ var colorValue = regexp.MustCompile(`^(#[0-9a-f]{6}|default)$`)
 // Every bundled theme resolves in both modes to a colour for every key.
 func TestBuiltinThemesResolve(t *testing.T) {
 	names := Builtin()
-	if names[0] != Default || len(names) != 34 {
-		t.Fatalf("want tuimessenger + 33 opencode themes, got %d: %v", len(names), names)
+	if names[0] != Default || len(names) != 33 || slices.Contains(names, "opencode") {
+		t.Fatalf("want tuimessenger + 32 opencode themes (not opencode's own), got %d: %v", len(names), names)
 	}
 	for _, name := range names[1:] {
 		for _, mode := range []Mode{Dark, Light} {
