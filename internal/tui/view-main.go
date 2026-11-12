@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -66,6 +67,9 @@ type MainView struct {
 	matrix *client.Client
 	config *config.Config
 	parent *App
+
+	notifications *notifyQueue
+	notifyOnce    sync.Once
 }
 
 // roomListWidth is the sidebar's width in columns.
@@ -390,9 +394,7 @@ func (view *MainView) OpenSyncingModal() *SyncingModal {
 func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 	userAttention.touch()
 	// Before anything else: a key normally marks the open chat read.
-	if view.modal == nil && view.config.Keybindings.Main[config.Keybind{
-		Key: event.Key(), Ch: event.Rune(), Mod: event.Modifiers(),
-	}] == "mark_unread" {
+	if view.modal == nil && view.config.Keybindings.Main[keyOf(event)] == "mark_unread" {
 		view.MarkUnread()
 		return true
 	}
@@ -423,12 +425,9 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		return view.modal.OnKeyEvent(event)
 	}
 
-	kb := config.Keybind{
-		Key: event.Key(),
-		Ch:  event.Rune(),
-		Mod: event.Modifiers(),
-	}
-	switch view.config.Keybindings.Main[kb] {
+	switch view.mainAction(event) {
+	case "help":
+		view.ShowHelp()
 	case "next_room":
 		view.SwitchRoom(view.roomList.Next())
 	case "prev_room":
@@ -479,6 +478,15 @@ func (view *MainView) OnKeyEvent(event mauview.KeyEvent) bool {
 		return view.flex.OnKeyEvent(event)
 	}
 	return true
+}
+
+// mainAction is what a key does everywhere (keybindings' main table); a bound character is typed instead while you're
+// writing.
+func (view *MainView) mainAction(event mauview.KeyEvent) string {
+	if isTypedChar(event) && view.typing() {
+		return ""
+	}
+	return view.config.Keybindings.Main[keyOf(event)]
 }
 
 const WheelScrollOffsetDiff = 3
@@ -648,8 +656,14 @@ func (view *MainView) switchRoom(roomID id.RoomID, peek bool) {
 // notifyMemberTimeout caps how long a notification waits for its sender's name.
 const notifyMemberTimeout = 3 * time.Second
 
+// QueueNotification hands a notification to the queue that sends them off the event loop.
+func (view *MainView) QueueNotification(room *store.RoomStore, notif jsoncmd.SyncNotification) {
+	view.notifyOnce.Do(func() { view.notifications = newNotifyQueue(view.NotifyMessage) })
+	view.notifications.add(room, notif)
+}
+
 func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNotification) {
-	if view.config.Preferences.DisableNotifications {
+	if view.config.Preferences.DisableNotifications || !notificationsAllowed(room.BridgeID()) {
 		return
 	}
 	body := notif.Event.GetMautrixContent().AsMessage().Body
@@ -687,7 +701,7 @@ func (view *MainView) NotifyMessage(room *store.RoomStore, notif jsoncmd.SyncNot
 	tag := notificationTag(room.ID, notif.Event.ID)
 	err := notification.SendTagged(room.BridgeID(), tag, notifTitle, body, notif.Highlight, notif.Sound)
 	if err != nil {
-		debug.Print("Failed to send notification:", err)
+		notifyFailed(room.BridgeID(), err)
 	} else {
 		trackNotification(room.ID, room.BridgeID(), tag)
 		debug.Print("Sent notification:", notifTitle, body)

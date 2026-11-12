@@ -236,6 +236,19 @@ func (gs *Store) GetAccountData(evtType event.Type) *database.AccountData {
 	return gs.accountData[event.Type{Type: evtType.Type, Class: event.AccountDataEventType}]
 }
 
+// ForgetRendering drops every loaded message's cached rendering in every room.
+func (gs *Store) ForgetRendering() {
+	gs.lock.RLock()
+	rooms := make([]*RoomStore, 0, len(gs.rooms))
+	for _, room := range gs.rooms {
+		rooms = append(rooms, room)
+	}
+	gs.lock.RUnlock()
+	for _, room := range rooms {
+		room.ForgetRendering()
+	}
+}
+
 func (gs *Store) GetRoom(roomID id.RoomID) *RoomStore {
 	gs.lock.RLock()
 	defer gs.lock.RUnlock()

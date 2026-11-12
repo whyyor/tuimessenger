@@ -329,6 +329,16 @@ func (rs *RoomStore) ApplyPagination(resp *jsoncmd.PaginationResponse) {
 	rs.notifyTimelineWatchers()
 }
 
+// ForgetRendering drops every event's cached rendering, so it's drawn again (e.g. with a new theme's colours).
+// Call it from the goroutine that renders.
+func (rs *RoomStore) ForgetRendering() {
+	rs.lock.RLock()
+	defer rs.lock.RUnlock()
+	for _, evt := range rs.eventsByRowID {
+		evt.RenderMeta = nil
+	}
+}
+
 // ApplyFetched makes an event fetched outside the timeline (a reply's target) findable by ID without showing it.
 func (rs *RoomStore) ApplyFetched(evt *database.Event) {
 	rs.lock.Lock()

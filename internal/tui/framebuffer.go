@@ -108,9 +108,10 @@ func (fb *frameBuffer) flush(real mauview.Screen) {
 	for y := 0; y < fb.h; y++ {
 		for x := 0; x < fb.w; x++ {
 			c := &fb.cells[y*fb.w+x]
+			style := themed(c.style)
 			rm, rc, rs, _ := real.GetContent(x, y)
-			if rm != c.main || rs != c.style || !slices.Equal(rc, c.comb) {
-				real.SetContent(x, y, c.main, c.comb, c.style)
+			if rm != c.main || rs != style || !slices.Equal(rc, c.comb) {
+				real.SetContent(x, y, c.main, c.comb, style)
 			}
 		}
 	}
@@ -119,6 +120,19 @@ func (fb *frameBuffer) flush(real mauview.Screen) {
 	} else {
 		real.HideCursor()
 	}
+}
+
+// themed paints the theme's background and text where a cell uses the terminal's own (ColorDefault), so a theme
+// covers the whole screen; the tuimessenger theme leaves both to the terminal.
+func themed(style tcell.Style) tcell.Style {
+	fg, bg, _ := style.Decompose()
+	if bg == tcell.ColorDefault && ColorBackground != tcell.ColorDefault {
+		style = style.Background(ColorBackground)
+	}
+	if fg == tcell.ColorDefault && ColorText != tcell.ColorDefault {
+		style = style.Foreground(ColorText)
+	}
+	return style
 }
 
 func (fb *frameBuffer) Clear() {
