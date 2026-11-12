@@ -3,6 +3,7 @@ package notification
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -40,38 +41,33 @@ func notifierApps() []notifierApp {
 	return apps
 }
 
-// NotifiersUpToDate reports whether every notifier app exists with its current icon and the bundled notifier program.
-func NotifiersUpToDate() bool {
-	bundled, err := bundledFile(notifierExe)
-	if err != nil {
-		return false
+// stampFile records what an installed notifier app was built from. Comparing the app's files instead can't work:
+// signing rewrites the executable, so it never matches the bundled one.
+const stampFile = "Contents/Resources/tuimessenger.stamp"
+
+// displayName is what macOS shows for a notifier app: "WhatsApp (tuimessenger)", so its permission prompt and its
+// entry in System Settings aren't mistaken for WhatsApp's own app.
+func displayName(app string) string {
+	if app == appName {
+		return appName
 	}
+	return app + " (" + appName + ")"
+}
+
+// stamp identifies a notifier app's build: the bundled notifier, its icon and its name.
+func stamp(a notifierApp) string {
+	return fmt.Sprintf("notifier %x\nicon %x\nname %s\n", sha256.Sum256(assets.NotifierZip), sha256.Sum256(a.icon), displayName(a.name))
+}
+
+// NotifiersUpToDate reports whether every notifier app exists, built from the current notifier, icon and name.
+func NotifiersUpToDate() bool {
 	for _, a := range notifierApps() {
-		app := filepath.Join(notifierDir, a.name+".app")
-		icon, err := os.ReadFile(filepath.Join(app, "Contents", "Resources", "icon.icns"))
-		if err != nil || !bytes.Equal(icon, a.icon) {
-			return false
-		}
-		exe, err := os.ReadFile(filepath.Join(app, notifierExe))
-		if err != nil || !bytes.Equal(exe, bundled) {
+		got, err := os.ReadFile(filepath.Join(notifierDir, a.name+".app", stampFile))
+		if err != nil || string(got) != stamp(a) {
 			return false
 		}
 	}
 	return true
-}
-
-// bundledFile reads one file of the bundled terminal-notifier.app.
-func bundledFile(name string) ([]byte, error) {
-	zr, err := zip.NewReader(bytes.NewReader(assets.NotifierZip), int64(len(assets.NotifierZip)))
-	if err != nil {
-		return nil, err
-	}
-	f, err := zr.Open("terminal-notifier.app/" + name)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return io.ReadAll(f)
 }
 
 // unpackNotifier writes the bundled terminal-notifier.app to dst (the .app folder itself).
@@ -174,12 +170,17 @@ func installNotifierApp(a notifierApp) error {
 		return err
 	}
 	plist := filepath.Join(tmp, "Contents", "Info.plist")
-	for key, value := range map[string]string{"CFBundleIconFile": "icon", "CFBundleIdentifier": appIDPrefix + a.name, "CFBundleName": a.name} {
+	name := displayName(a.name)
+	for key, value := range map[string]string{"CFBundleIconFile": "icon", "CFBundleIdentifier": appIDPrefix + a.name, "CFBundleName": name, "CFBundleDisplayName": name} {
 		if err = runCmd("plutil", "-replace", key, "-string", value, plist); err != nil {
 			return err
 		}
 	}
-	// Editing the bundle broke its signature; an ad-hoc one is enough for a local app.
+	// Editing the bundle broke its signature; an ad-hoc one is enough for a local app. The stamp is written first:
+	// Resources is part of what the signature covers.
+	if err = os.WriteFile(filepath.Join(tmp, stampFile), []byte(stamp(a)), 0o644); err != nil {
+		return err
+	}
 	if err = runCmd("codesign", "--force", "--sign", "-", tmp); err != nil {
 		return err
 	}

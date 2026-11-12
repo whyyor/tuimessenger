@@ -17,10 +17,14 @@
 package notification
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 var terminalNotifierAvailable = func() bool {
@@ -72,6 +76,29 @@ func notifierFor(source string) (path string, custom bool) {
 	return "", false
 }
 
+// sendTimeout bounds one notification. While macOS's "would like to send notifications" prompt is unanswered,
+// terminal-notifier doesn't exit at all (its -timeout only covers replies).
+var sendTimeout = 15 * time.Second
+
+// notAuthorizedExit is terminal-notifier's exit status when the app may not show notifications.
+const notAuthorizedExit = 3
+
+// runNotifier runs terminal-notifier, giving up after sendTimeout; "not authorized" becomes a NotAuthorizedError.
+func runNotifier(bin string, custom bool, args []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
+	defer cancel()
+	err := exec.CommandContext(ctx, bin, args...).Run()
+	var exitErr *exec.ExitError
+	switch {
+	case ctx.Err() != nil:
+		return fmt.Errorf("the notifier didn't finish within %s (is macOS asking for permission?)", sendTimeout)
+	case custom && errors.As(err, &exitErr) && exitErr.ExitCode() == notAuthorizedExit:
+		app := strings.TrimSuffix(filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(bin)))), ".app")
+		return &NotAuthorizedError{App: displayName(app)}
+	}
+	return err
+}
+
 func Send(title, text string, critical, sound bool) error {
 	return SendFrom("", title, text, critical, sound)
 }
@@ -86,8 +113,8 @@ func SendTagged(source, tag, title, text string, critical, sound bool) error {
 	if bin, custom := notifierFor(source); bin != "" {
 		var args []string
 		if custom {
-			// The bundle's own name ("WhatsApp", "tuimessenger") already heads the
-			// banner, so the sender takes the title line.
+			// The bundle's own name ("WhatsApp (tuimessenger)", "tuimessenger") already
+			// heads the banner, so the sender takes the title line.
 			args = []string{"-title", title, "-message", text}
 		} else {
 			args = []string{"-title", "tuimessenger", "-subtitle", title, "-message", text}
@@ -103,7 +130,7 @@ func SendTagged(source, tag, title, text string, critical, sound bool) error {
 		if tag != "" {
 			args = append(args, "-group", tag)
 		}
-		return exec.Command(bin, args...).Run()
+		return runNotifier(bin, custom, args)
 	}
 	cmd := exec.Command("osascript", "-", text, title)
 	if stdin, err := cmd.StdinPipe(); err != nil {
