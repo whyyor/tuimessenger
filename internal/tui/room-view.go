@@ -474,32 +474,14 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		return view.onSearchKey(event)
 	}
 	msgView := view.MessageView()
-	kb := config.Keybind{
-		Key: event.Key(),
-		Ch:  event.Rune(),
-		Mod: event.Modifiers(),
-	}
+	kb := keyOf(event)
 
-	// Ctrl+m marks the room read. It arrives as RS (0x1e) via a Ghostty
-	// keybind, because ctrl+m is byte-identical to Enter in legacy encoding.
-	if event.Key() == tcell.KeyCtrlCarat {
+	// These work in visual mode too: mark seen, the emoji picker, and leaving visual mode at once.
+	switch view.config.Keybindings.Room[kb] {
+	case "mark_read":
 		view.MarkReadExplicit()
 		return true
-	}
-	// Ctrl+; toggles visual mode. The terminal sends US (0x1f) for it via a
-	// Ghostty keybind, since ctrl+semicolon has no legacy encoding and tcell
-	// cannot parse the CSI-u sequence it would otherwise produce.
-	if event.Key() == tcell.KeyCtrlUnderscore {
-		if view.selecting {
-			view.ClearAllContext()
-		} else {
-			view.StartSelecting(SelectReply, "")
-		}
-		return true
-	}
-
-	// Ctrl+e opens the emoji picker for the composer, from visual mode too.
-	if event.Key() == tcell.KeyCtrlE {
+	case "emoji":
 		if view.selecting {
 			view.StopSelecting()
 		}
@@ -507,132 +489,18 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 		view.OpenEmojiPicker()
 		return true
 	}
-
 	if view.selecting {
-		switch view.config.Keybindings.Visual[kb] {
-		case "clear":
-			RequestRepaint()
-			// First Escape drops a v range and stays in visual mode.
-			if msgView.HasAnchor() {
-				msgView.ClearAnchor()
-				return true
-			}
-			view.ClearAllContext()
-		case "select_prev":
-			view.SelectPrevious()
-		case "select_next":
-			view.SelectNext()
-		case "confirm":
-			view.OnSelect(msgView.GetSelected())
-		default:
-			// R sends a failed message of yours again. Shift may or may not be reported for capitals.
-			if event.Key() == tcell.KeyRune && event.Rune() == 'R' && event.Modifiers()&^tcell.ModShift == 0 {
-				if selected := msgView.GetSelected(); selected != nil {
-					go view.RetryMessage(selected)
-				}
-				view.StopSelecting()
-				view.input.Focus()
-				return true
-			}
-			// Verb keys: act on the selected message directly instead of
-			// backing out to type a slash command.
-			if event.Modifiers() == 0 {
-				// y with a v range copies every message in it; checked before
-				// the single-message y below, which would otherwise win.
-				if event.Rune() == 'y' && msgView.HasAnchor() {
-					msgs := msgView.RangeMessages()
-					if len(msgs) == 1 && isSticker(msgs[0]) {
-						// A range of just a sticker: copy it to re-send.
-						view.CopySticker(msgs[0])
-						view.StopSelecting()
-						view.input.Focus()
-						return true
-					}
-					go view.CopyToClipboard(formatRange(msgs), "clipboard")
-					view.AddServiceMessage("Copied %d messages", len(msgs))
-					view.StopSelecting()
-					view.input.Focus()
-					return true
-				}
-				verbs := map[rune]SelectReason{
-					'r': SelectReply,
-					'p': SelectPlay,
-					'o': SelectOpen,
-					'd': SelectDownload,
-					'y': SelectCopy,
-					'e': SelectEdit,
-					'x': SelectRedact,
-				}
-				if reason, ok := verbs[event.Rune()]; ok {
-					view.selectReason = reason
-					view.OnSelect(msgView.GetSelected())
-					return true
-				}
-				// v anchors a range like vim's visual mode; j/k extend it.
-				if event.Rune() == 'v' {
-					msgView.ToggleAnchor()
-					return true
-				}
-				// Space views, plays or opens the selected message (images, voice,
-				// video, files, links); selection stays for the next one.
-				if event.Rune() == ' ' {
-					if selected := msgView.GetSelected(); selected != nil {
-						view.OpenSelected(selected)
-					}
-					return true
-				}
-				// h hides the selected message in tuimessenger until /unclear.
-				if event.Rune() == 'h' {
-					if selected := msgView.GetSelected(); selected != nil {
-						go view.HideMessage(selected.ID)
-					}
-					view.StopSelecting()
-					view.input.Focus()
-					return true
-				}
-				// i shows when it was sent, delivered and seen, and reactions.
-				if event.Rune() == 'i' {
-					view.OpenMessageInfo(msgView.GetSelected())
-					return true
-				}
-				// u copies the first URL in the selected message, which beats
-				// drag-selecting a wrapped link across the sidebar columns.
-				if event.Rune() == 'u' {
-					if selected := msgView.GetSelected(); selected != nil {
-						if url := messages.FirstURL(selected.Renderer.PlainText()); url != "" {
-							go view.CopyToClipboard(url, "clipboard")
-							view.AddServiceMessage("Copied %s", url)
-						} else {
-							view.AddServiceMessage("No URL in that message")
-						}
-					}
-					view.StopSelecting()
-					view.input.Focus()
-					return true
-				}
-				// + opens the reaction popup over the selected message.
-				if event.Rune() == '+' {
-					if selected := msgView.GetSelected(); selected != nil {
-						view.OpenReactPicker(selected.ID)
-					}
-					return true
-				}
-				// WhatsApp's quick-react bar on the digit keys; same emoji again removes it.
-				if r := event.Rune(); r >= '1' && r < '1'+rune(len(quickReactions)) {
-					if selected := msgView.GetSelected(); selected != nil {
-						go view.ToggleReaction(selected.ID, quickReactions[r-'1'])
-					}
-					view.StopSelecting()
-					view.input.Focus()
-					return true
-				}
-			}
-			return false
+		if view.onVisualKey(view.config.Keybindings.Visual[kb]) {
+			return true
 		}
-		return true
+		return false
 	}
 
-	switch view.config.Keybindings.Room[kb] {
+	action := view.config.Keybindings.Room[kb]
+	if isTypedChar(event) && view.input.GetText() != "" {
+		action = "" // a bound character is typed while you're writing
+	}
+	switch action {
 	case "select":
 		// Visual mode with reply as the default action: pick a message with
 		// j/k, Enter replies to it, Escape backs out.

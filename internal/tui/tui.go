@@ -174,7 +174,7 @@ func (ui *App) Connect() {
 		ui.NeedsRender = true
 		onRoomListChange(ui.gmx, rooms)
 	})
-	ui.gmx.SendNotification = ui.MainView.NotifyMessage
+	ui.gmx.SendNotification = ui.MainView.QueueNotification
 	toasts.render = ui.Render
 	ui.gmx.OnNotice = func(evt *database.Event) bool {
 		text := ""
@@ -189,6 +189,7 @@ func (ui *App) Connect() {
 	}
 	ui.gmx.EventHandler = ui.eventHandler
 	messages.RequestRender = ui.Render
+	messages.MissingTool = hintMissingTool
 	ui.MainView.matrix = ui.gmx
 	err := ui.gmx.Connect(ui.ctx, ui.onConnStateChange)
 	if err != nil && !errors.Is(err, context.Canceled) {
