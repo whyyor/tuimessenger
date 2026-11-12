@@ -46,7 +46,7 @@ type UserPreferences struct {
 	ShowUserList         bool   `yaml:"-"`
 	HideRoomList         bool   `yaml:"hide_room_list" user:"-"`
 	FilePicker           string `yaml:"file_picker" enum:"finder,yazi" default:"finder" doc:"What /upload and the attach key open to pick files: the system picker (Finder) or yazi in the terminal."`
-	SidebarOnStart       bool   `yaml:"sidebar_on_start" doc:"Show the chat list sidebar when tuimessenger starts (Ctrl+s toggles it for the session)."`
+	SidebarOnStart       bool   `yaml:"sidebar_on_start" default:"true" doc:"Show the chat list sidebar when tuimessenger starts (Ctrl+s toggles it for the session)."`
 	HideAliases          bool   `yaml:"hide_aliases" doc:"Keep your chat aliases out of lists and headers; they still match when searching."`
 	HideTimestamp        bool   `yaml:"hide_timestamp" doc:"Hide message times in the classic layout."`
 	BareMessageView      bool   `yaml:"bare_message_view" doc:"Plain text messages without images or formatting (also Ctrl+l / Alt+l, the pager)."`
@@ -171,6 +171,7 @@ func NewConfigAt(dir, logDir string) *Config {
 		NotifySound:           true,
 		Backspace1RemovesWord: true,
 		AlwaysClearScreen:     true,
+		Preferences:           UserPreferences{SidebarOnStart: true},
 
 		LogConfig: zeroconfig.Config{
 			Writers: []zeroconfig.WriterConfig{{

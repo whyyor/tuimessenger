@@ -113,7 +113,7 @@ func TestTemplateIsClean(t *testing.T) {
 	if problems != nil || len(uf.Preferences) != len(PreferenceOptions()) || len(uf.Colors) != len(ColorOptions) {
 		t.Errorf("every default is valid: %q\n%s", problems, b.String())
 	}
-	if !strings.Contains(Template(), "#   sidebar_on_start: false") || !strings.Contains(Template(), "# theme: tuimessenger") {
+	if !strings.Contains(Template(), "#   sidebar_on_start: true") || !strings.Contains(Template(), "# theme: tuimessenger") {
 		t.Error("the template lists the settings at their defaults")
 	}
 }
