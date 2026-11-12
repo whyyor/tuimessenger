@@ -172,7 +172,7 @@ Generated from tuimessenger's code, so it's always complete.
 | Preference | Default | Values | Description |
 |---|---|---|---|
 | `file_picker` | `finder` | `finder`, `yazi` | What /upload and the attach key open to pick files: the system picker (Finder) or yazi in the terminal. |
-| `sidebar_on_start` | `false` | `true`, `false` | Show the chat list sidebar when tuimessenger starts (Ctrl+s toggles it for the session). |
+| `sidebar_on_start` | `true` | `true`, `false` | Show the chat list sidebar when tuimessenger starts (Ctrl+s toggles it for the session). |
 | `hide_aliases` | `false` | `true`, `false` | Keep your chat aliases out of lists and headers; they still match when searching. |
 | `hide_timestamp` | `false` | `true`, `false` | Hide message times in the classic layout. |
 | `bare_message_view` | `false` | `true`, `false` | Plain text messages without images or formatting (also Ctrl+l / Alt+l, the pager). |

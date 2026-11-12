@@ -374,7 +374,7 @@
           "type": "string"
         },
         "sidebar_on_start": {
-          "default": false,
+          "default": true,
           "description": "Show the chat list sidebar when tuimessenger starts (Ctrl+s toggles it for the session).",
           "type": "boolean"
         },
