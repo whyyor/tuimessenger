@@ -14,6 +14,12 @@
           "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
           "type": "string"
         },
+        "background": {
+          "default": "default",
+          "description": "Background of the whole screen (default: your terminal's own).",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
         "bar_text": {
           "default": "#c8c9c5",
           "description": "Text in bars and popups.",
@@ -143,6 +149,12 @@
         "switcher_pill_text": {
           "default": "#fff1f3",
           "description": "Text on Ctrl+k's pill.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "text": {
+          "default": "default",
+          "description": "Text colour (default: your terminal's own).",
           "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
           "type": "string"
         },

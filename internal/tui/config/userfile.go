@@ -57,6 +57,8 @@ type Option struct {
 
 // ColorOptions are the colours tuimessenger.yaml can set, with the tuimessenger theme's values.
 var ColorOptions = []Option{
+	{Key: "background", Default: "default", Doc: "Background of the whole screen (default: your terminal's own)."},
+	{Key: "text", Default: "default", Doc: "Text colour (default: your terminal's own)."},
 	{Key: "accent", Default: "#a8a9eb", Doc: "Composer bar and prompts."},
 	{Key: "selection", Default: "#8d70c2", Doc: "Background of the selected message and emoji."},
 	{Key: "selection_text", Default: "#ffffff", Doc: "Text on the selection."},
