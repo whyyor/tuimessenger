@@ -69,6 +69,12 @@ shows how it's doing; `uninstall` removes it. After upgrading, run `service inst
 
 ## Keys
 
+Ctrl+m, Ctrl+; and Shift+Enter need a terminal with the [Kitty keyboard
+protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) (Ghostty, kitty, WezTerm, foot, iTerm2, Alacritty),
+which tuimessenger turns on while it runs. Elsewhere, use Alt+v to select messages, or have your terminal send
+`\x1e` for Ctrl+m, `\x1f` for Ctrl+; and `\n` for Shift+Enter (in Ghostty: `keybind = ctrl+m=text:\x1e`).
+`TUIMESSENGER_KITTY_KEYBOARD=0` leaves the protocol off.
+
 | Key | What it does |
 |---|---|
 | Ctrl+p | Command palette: every command, chat and key (`>` commands, `@` chats, `?` keys) |
