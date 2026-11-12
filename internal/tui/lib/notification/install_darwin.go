@@ -45,13 +45,9 @@ func notifierApps() []notifierApp {
 // signing rewrites the executable, so it never matches the bundled one.
 const stampFile = "Contents/Resources/tuimessenger.stamp"
 
-// displayName is what macOS shows for a notifier app: "WhatsApp (tuimessenger)", so its permission prompt and its
-// entry in System Settings aren't mistaken for WhatsApp's own app.
+// displayName is what macOS shows for a notifier app: the network's name ("WhatsApp"), or "tuimessenger".
 func displayName(app string) string {
-	if app == appName {
-		return appName
-	}
-	return app + " (" + appName + ")"
+	return app
 }
 
 // stamp identifies a notifier app's build: the bundled notifier, its icon and its name.

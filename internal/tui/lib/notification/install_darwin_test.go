@@ -74,7 +74,7 @@ func TestNotifiersUpToDate(t *testing.T) {
 }
 
 func TestDisplayNames(t *testing.T) {
-	if displayName("WhatsApp") != "WhatsApp (tuimessenger)" || displayName(appName) != "tuimessenger" {
+	if displayName("WhatsApp") != "WhatsApp" || displayName(appName) != "tuimessenger" {
 		t.Errorf("names: %q %q", displayName("WhatsApp"), displayName(appName))
 	}
 	if stamp(notifierApps()[1]) == stamp(notifierApps()[2]) {
@@ -99,7 +99,7 @@ func fakeNotifier(t *testing.T, app, script string) string {
 func TestNotAuthorized(t *testing.T) {
 	err := runNotifier(fakeNotifier(t, "WhatsApp", "exit 3"), true, nil)
 	var na *NotAuthorizedError
-	if !errors.As(err, &na) || na.App != "WhatsApp (tuimessenger)" {
+	if !errors.As(err, &na) || na.App != "WhatsApp" {
 		t.Errorf("exit 3 means not allowed: %v", err)
 	}
 	if err = runNotifier(fakeNotifier(t, "WhatsApp", "exit 1"), true, nil); err == nil || errors.As(err, &na) {

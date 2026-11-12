@@ -113,8 +113,8 @@ func SendTagged(source, tag, title, text string, critical, sound bool) error {
 	if bin, custom := notifierFor(source); bin != "" {
 		var args []string
 		if custom {
-			// The bundle's own name ("WhatsApp (tuimessenger)", "tuimessenger") already
-			// heads the banner, so the sender takes the title line.
+			// The bundle's own name ("WhatsApp", "tuimessenger") already heads the
+			// banner, so the sender takes the title line.
 			args = []string{"-title", title, "-message", text}
 		} else {
 			args = []string{"-title", "tuimessenger", "-subtitle", title, "-message", text}

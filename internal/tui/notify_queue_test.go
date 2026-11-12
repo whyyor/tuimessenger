@@ -80,7 +80,7 @@ func TestNotifyNotAuthorized(t *testing.T) {
 		t.Error("other failures are only logged")
 	}
 	for range 3 {
-		notifyFailed("whatsapp", &notification.NotAuthorizedError{App: "WhatsApp (tuimessenger)"})
+		notifyFailed("whatsapp", &notification.NotAuthorizedError{App: "WhatsApp"})
 	}
 	if notificationsAllowed("whatsapp") {
 		t.Error("whatsapp's notifications are off for the session")
@@ -88,7 +88,7 @@ func TestNotifyNotAuthorized(t *testing.T) {
 	if !notificationsAllowed("slack") {
 		t.Error("other networks keep theirs")
 	}
-	if got := current(ts); got != "Notifications are off for WhatsApp (tuimessenger): turn them on in System Settings → Notifications" {
+	if got := current(ts); got != "Notifications are off for WhatsApp: turn them on in System Settings → Notifications" {
 		t.Errorf("hint: %q", got)
 	}
 	ts.mu.Lock()

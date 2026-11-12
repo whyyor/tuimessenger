@@ -95,10 +95,11 @@ shows how it's doing; `uninstall` removes it. After upgrading, run `service inst
   stack trace if the app ever crashes. Please attach it to bug reports.
 - macOS notifications come from small apps tuimessenger sets up in `~/.local/opt/tuimessenger/notifiers`: one per
   network (WhatsApp, Telegram, Slack, Instagram), so each shows its own icon and can be muted on its own in System
-  Settings → Notifications, and `tuimessenger.app` for the rest. They're listed as "WhatsApp (tuimessenger)" and so
-  on. The first notification from each asks for permission; closing that prompt with × counts as "Don't Allow". To
-  turn them back on: System Settings → Notifications → e.g. "WhatsApp (tuimessenger)" → Allow notifications
-  (`tccutil reset` doesn't work for this on macOS 15).
+  Settings → Notifications, and `tuimessenger.app` for the rest. The first notification from each asks for
+  permission; closing that prompt with × counts as "Don't Allow". To turn them back on: System Settings →
+  Notifications → the network's entry (e.g. WhatsApp) → Allow notifications (`tccutil reset` doesn't work for this
+  on macOS 15). If you also have the official app, there are two entries with its name: tuimessenger's has its icon on
+  a dark tile.
 
 ## Building
 
