@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/whyyor/tuimessenger/internal/tui/config"
@@ -12,7 +13,7 @@ import (
 func NewThemePicker(view *MainView) *CommandPalette {
 	original, mode := currentTheme, currentThemeMode
 	custom := themes.Custom(config.ThemesDir())
-	p := &CommandPalette{parent: view, flat: true, title: " \uf53f Theme ", hint: "↑↓ preview  ⏎ keep  esc undo"}
+	p := &CommandPalette{parent: view, flat: true, title: " \uf53f Theme ", hint: themePickerHint(len(userColors))}
 	for _, name := range themes.Available(config.ThemesDir()) {
 		detail := ""
 		switch {
@@ -31,6 +32,18 @@ func NewThemePicker(view *MainView) *CommandPalette {
 		p.selected = i
 	}
 	return p
+}
+
+// themePickerHint is the picker's hint; it warns when your colours cover the theme's, which otherwise looks like
+// nothing changes.
+func themePickerHint(yourColors int) string {
+	switch yourColors {
+	case 0:
+		return "↑↓ preview  ⏎ keep  esc undo"
+	case 1:
+		return "1 colour in " + styleFileName + " wins over themes"
+	}
+	return fmt.Sprintf("%d colours in %s win over themes", yourColors, styleFileName)
 }
 
 // previewTheme puts a theme on screen without saving it.
