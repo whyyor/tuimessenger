@@ -560,8 +560,7 @@ func (view *RoomView) OnKeyEvent(event mauview.KeyEvent) bool {
 			return true
 		}
 	}
-	// A bare LF is Shift+Enter via the Ghostty text:\n keybind (tcell cannot
-	// parse the CSI-u encoding Ghostty would otherwise send). Insert a newline.
+	// A bare LF is Shift+Enter (translated from the Kitty protocol by termapp). Insert a newline.
 	if event.Key() == tcell.KeyLF {
 		return view.input.OnKeyEvent(tcell.NewEventKey(tcell.KeyEnter, '\n', tcell.ModShift))
 	}

@@ -41,6 +41,7 @@ import (
 	"github.com/whyyor/tuimessenger/internal/tui/debug"
 	"github.com/whyyor/tuimessenger/internal/tui/lib/notification"
 	"github.com/whyyor/tuimessenger/internal/tui/messages"
+	"github.com/whyyor/tuimessenger/internal/tui/termapp"
 )
 
 type View string
@@ -53,7 +54,7 @@ const (
 
 type App struct {
 	gmx *client.Client
-	app *mauview.Application
+	app *termapp.Application
 
 	// Backend is what the TUI talks to; set it before Run (tuimessenger runs hicli in-process).
 	Backend client.Backend
@@ -113,7 +114,7 @@ func init() {
 func New() *App {
 	ctx, cancel := context.WithCancel(context.Background())
 	ui := &App{
-		app:    mauview.NewApplication(),
+		app:    termapp.NewApplication(),
 		Config: config.NewConfig(),
 		ctx:    ctx,
 		cancel: cancel,
