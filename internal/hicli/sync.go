@@ -781,18 +781,39 @@ func (h *HiClient) processEvent(
 	decryptionQueue map[id.SessionID]*database.SessionRequest,
 	checkDB bool,
 ) (*database.Event, error) {
-	if checkDB {
+	latestEdit := evt.Unsigned.Relations.GetLatestEdit()
+	evt.Unsigned.Relations = nil // we don't want to save this to the database
+	processLatestEdit := func(dbEvt *database.Event) error {
+		if latestEdit != nil && (latestEdit.RoomID == "" || latestEdit.RoomID == evt.RoomID) {
+			latestEdit.RoomID = evt.RoomID
+			dbEdit, err := h.processEvent(ctx, latestEdit, llSummary, decryptionQueue, true)
+			if err != nil {
+				return fmt.Errorf("failed to process edit %s of event %s: %w", latestEdit.ID, evt.ID, err)
+			} else if dbEdit != nil {
+				dbEvt.LastEditRef = dbEdit
+				dbEvt.LastEditRowID = &dbEdit.RowID
+			}
+		}
+		return nil
+	}
+	var oldLocalContent *database.LocalContent
+	if checkDB || evt.Unsigned.TransactionID != "" {
 		dbEvt, err := h.DB.Event.GetByID(ctx, evt.RoomID, evt.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check if event %s exists: %w", evt.ID, err)
+		} else if dbEvt != nil && checkDB {
+			return dbEvt, processLatestEdit(dbEvt)
 		} else if dbEvt != nil {
-			return dbEvt, nil
+			oldLocalContent = dbEvt.LocalContent
 		}
 	}
 	if err := h.fillPrevContent(ctx, evt); err != nil {
 		return nil, err
 	}
 	dbEvt := database.MautrixToEvent(evt)
+	if oldLocalContent != nil {
+		dbEvt.LocalContent = oldLocalContent
+	}
 	contentWithoutFallback := removeReplyFallback(ctx, evt)
 	if contentWithoutFallback != nil {
 		dbEvt.Content = contentWithoutFallback
@@ -823,6 +844,10 @@ func (h *HiClient) processEvent(
 	_, err := h.DB.Event.Upsert(ctx, dbEvt)
 	if err != nil {
 		return dbEvt, fmt.Errorf("failed to save event %s: %w", evt.ID, err)
+	}
+	err = processLatestEdit(dbEvt)
+	if err != nil {
+		return dbEvt, err
 	}
 	if decryptedMautrixEvt != nil {
 		h.cacheMedia(ctx, decryptedMautrixEvt, dbEvt.RowID)
@@ -907,7 +932,7 @@ func (h *HiClient) processStateAndTimeline(
 	}
 	decryptionQueue := make(map[id.SessionID]*database.SessionRequest)
 	allNewEvents := make([]*database.Event, 0, len(state.Events)+len(sticky.Events)+len(timeline.Events))
-	addedEvents := make(map[database.EventRowID]struct{})
+	addedEvents := make(map[database.EventRowID]int)
 	newNotifications := make([]jsoncmd.SyncNotification, 0)
 	var recalculatePreviewEvent, unreadMessagesWereMaybeRedacted bool
 	var newUnreadCounts database.UnreadCounts
@@ -922,9 +947,12 @@ func (h *HiClient) processStateAndTimeline(
 		} else if dbEvt == nil {
 			return nil, nil
 		}
-		_, alreadyAdded := addedEvents[dbEvt.RowID]
-		if !alreadyAdded {
-			addedEvents[dbEvt.RowID] = struct{}{}
+		existingIdx, alreadyAdded := addedEvents[dbEvt.RowID]
+		if alreadyAdded {
+			// TODO update newNotifications as well?
+			allNewEvents[existingIdx] = dbEvt
+		} else {
+			addedEvents[dbEvt.RowID] = len(allNewEvents)
 			allNewEvents = append(allNewEvents, dbEvt)
 		}
 		return dbEvt, nil
@@ -955,7 +983,7 @@ func (h *HiClient) processStateAndTimeline(
 	megolmSessionDiscarded := false
 	processNewEvent := func(evt *event.Event, isTimeline, isUnread bool) (database.EventRowID, error) {
 		evt.RoomID = room.ID
-		dbEvt, err := h.processEvent(ctx, evt, summary, decryptionQueue, evt.Unsigned.TransactionID != "")
+		dbEvt, err := h.processEvent(ctx, evt, summary, decryptionQueue, false)
 		if err != nil {
 			return -1, err
 		}
@@ -989,7 +1017,7 @@ func (h *HiClient) processStateAndTimeline(
 					megolmSessionDiscarded = h.maybeDiscardOutboundSession(ctx, membership, evt)
 				}
 				if evt.GetStateKey() == h.Account.UserID.String() {
-					go h.maybeUpdateOwnProfile(ctx, evt.Content.VeryRaw)
+					go h.maybeUpdateOwnProfile(evt.Content.VeryRaw)
 				}
 			} else if evt.Type == event.StateElementFunctionalMembers {
 				heroesChanged = true
@@ -1000,8 +1028,8 @@ func (h *HiClient) processStateAndTimeline(
 			}
 			processImportantEvent(ctx, evt, room, updatedRoom, dbEvt.RowID, sdc)
 		}
+		addedEvents[dbEvt.RowID] = len(allNewEvents)
 		allNewEvents = append(allNewEvents, dbEvt)
-		addedEvents[dbEvt.RowID] = struct{}{}
 		if evt.Type == event.EventRedaction && evt.Redacts != "" {
 			err = processRedaction(evt)
 			if err != nil {

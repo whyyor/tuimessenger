@@ -228,8 +228,9 @@ func (h *HiClient) IsLoggedIn() bool {
 	return h.Account != nil
 }
 
-func (h *HiClient) IsLoggedInAndVerified() bool {
-	return h.IsLoggedIn() && h.VerificationState.IsVerified
+func (h *HiClient) ShouldSendInitPayload() bool {
+	acc := h.Account
+	return acc != nil && acc.NextBatch != "" && h.VerificationState.IsVerified
 }
 
 func (h *HiClient) Start(ctx context.Context, userID id.UserID, expectedAccount *database.Account) error {
@@ -326,7 +327,8 @@ func (h *HiClient) checkServerVersions(ctx context.Context, cli *mautrix.Client)
 	return nil
 }
 
-func (h *HiClient) maybeUpdateOwnProfile(ctx context.Context, profile json.RawMessage) {
+func (h *HiClient) maybeUpdateOwnProfile(profile json.RawMessage) {
+	ctx := h.Log.WithContext(context.TODO())
 	h.ownProfileFetchLock.Lock()
 	defer h.ownProfileFetchLock.Unlock()
 	if time.Since(h.lastOwnProfileFetch) < 1*time.Minute {
