@@ -68,11 +68,15 @@ func (gc *Client) handleEvent(ctx context.Context, rawEvt any) {
 		gc.InitComplete.Set()
 	case *jsoncmd.SyncComplete:
 		gc.Store.ApplySync(evt)
-		for _, room := range evt.Rooms {
+		// The map key, not room.Meta: incremental syncs leave Meta out when it didn't change.
+		for roomID, room := range evt.Rooms {
 			if len(room.Notifications) == 0 {
 				continue
 			}
-			roomStore := gc.Store.GetRoom(room.Meta.ID)
+			roomStore := gc.Store.GetRoom(roomID)
+			if roomStore == nil {
+				continue
+			}
 			for _, notif := range room.Notifications {
 				notif.Room = roomStore.Meta.Current()
 				notif.Event = roomStore.GetEventByRowID(notif.RowID)
