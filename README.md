@@ -8,7 +8,7 @@
 All your networks in one terminal app: WhatsApp, Telegram, Slack and Instagram.
 </p>
 
-https://github.com/user-attachments/assets/bb0a1f29-8515-4bcb-99df-c29424b06132
+https://github.com/user-attachments/assets/ae873a26-9749-4212-a7ee-1de875292123
 
 - **Every network in one app**, with your chats, sessions and media kept on your machine.
 - **Keyboard first:** Ctrl+k jumps to any chat, Ctrl+p has every command; reply, react and open photos without the

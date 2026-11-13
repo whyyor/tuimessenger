@@ -68,10 +68,12 @@ func chats() []*chat {
 				{from: 1, text: "I can take 3 people 🚗", ago: 25 * h},
 				{from: you, text: "count me in", ago: 25 * h},
 				{from: 0, text: "view from the top last year", ago: 3 * h, image: "mountains.jpg", reacts: map[int]string{1: "🔥", 2: "❤️"}},
+				{from: 2, text: "change of plan: rain after 2pm, let's meet at 5:30 instead ☔", ago: 50 * m},
 				{from: 1, text: "don't forget water and snacks", ago: 30 * m, reply: 1},
+				{from: 0, text: "can you bring the first aid kit? 🩹", ago: 12 * m},
 			},
 			unreadAt: 4,
-			replies:  []string{"👍", "see you at 6!"},
+			replies:  []string{"legend 🙌", "see you at 5:30!"},
 		},
 		{
 			key: "mom", network: "whatsapp", people: []person{mom},
