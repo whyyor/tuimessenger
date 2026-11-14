@@ -70,6 +70,9 @@ func Run(ctx context.Context, opts Options) error {
 	b := newBackend(log)
 	// The pickle key protects encryption keys; tuimessenger has none, so a fixed value is fine.
 	b.hc = hicli.New(db, nil, log.With().Str("component", "hicli").Logger(), []byte("tuimessenger"), b.onEvent)
+	// Strip reply fallbacks ("> quoted original" in a reply's body) when saving, as hicli always did before the
+	// option existed: the TUI shows the quoted message itself.
+	b.hc.RemoveFallbacks = true
 
 	cfg := config.NewConfigAt(filepath.Join(dir, "config"), opts.LogDir)
 	cfg.Load()
