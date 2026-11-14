@@ -2,11 +2,13 @@ package tuiclient
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"go.mau.fi/util/jsontime"
 	"maunium.net/go/mautrix/event"
+	"maunium.net/go/mautrix/id"
 
 	"github.com/whyyor/tuimessenger/internal/hicli/database"
 )
@@ -54,5 +56,29 @@ func TestPrependOnEmptyTimeline(t *testing.T) {
 	db, rowID := dbWithMessage(t)
 	if _, err := db.Timeline.Prepend(context.Background(), "!r:x", []database.EventRowID{rowID}); err != nil {
 		t.Errorf("prepending to an empty timeline failed: %v", err)
+	}
+}
+
+// A reaction without a key (bridged history has some, e.g. removed WhatsApp reactions) is skipped instead of failing
+// the whole chat's reaction counts.
+func TestReactionWithoutKey(t *testing.T) {
+	db, _ := dbWithMessage(t)
+	ctx := context.Background()
+	for i, key := range []string{`,"key":"👍"`, ``} {
+		_, err := db.Event.Upsert(ctx, &database.Event{RoomID: "!r:x", ID: id.EventID(fmt.Sprintf("$r%d:x", i)),
+			Sender: "@lena:x", Type: "m.reaction", RelatesTo: "$a:x", RelationType: event.RelAnnotation,
+			Unsigned:  []byte(`{}`),
+			Content:   []byte(`{"m.relates_to":{"rel_type":"m.annotation","event_id":"$a:x"` + key + `}}`),
+			Timestamp: jsontime.UM(time.UnixMilli(2000 + int64(i)))})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	loaded := &database.Event{RoomID: "!r:x", ID: "$a:x"}
+	if err := db.Event.FillReactionCounts(ctx, "!r:x", []*database.Event{loaded}); err != nil {
+		t.Fatalf("a reaction without a key broke the counts: %v", err)
+	}
+	if len(loaded.Reactions) != 1 || loaded.Reactions["👍"] != 1 {
+		t.Errorf("only the 👍 counts, got %v", loaded.Reactions)
 	}
 }

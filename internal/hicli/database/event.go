@@ -105,6 +105,7 @@ const (
 		  AND redacted_by IS NULL
 		  AND relates_to IN (%s)
 		  AND event_id NOT LIKE '~%%'
+		  AND content->>'$."m.relates_to".key' IS NOT NULL
 		GROUP BY 1, 2
 	`
 	setLastEditRowIDQuery = `
