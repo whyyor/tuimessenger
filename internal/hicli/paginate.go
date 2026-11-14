@@ -364,11 +364,11 @@ func (h *HiClient) collectRelatedEvents(ctx context.Context, events []*database.
 				addedEventRowIDs.Add(dbEvt.RowID)
 			}
 		}
-		if evt.LastEditRowID != nil && !addedEventRowIDs.Has(*evt.LastEditRowID) {
+		if evt.LastEditRowID != 0 && !addedEventRowIDs.Has(evt.LastEditRowID) {
 			targetEvt := evt.LastEditRef
 			if targetEvt == nil {
 				var err error
-				targetEvt, err = h.DB.Event.GetByRowID(ctx, *evt.LastEditRowID)
+				targetEvt, err = h.DB.Event.GetByRowID(ctx, evt.LastEditRowID)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get last edit event: %w", err)
 				}
@@ -513,10 +513,6 @@ func (h *HiClient) PaginateServer(ctx context.Context, roomID id.RoomID, limit i
 		if err != nil {
 			return fmt.Errorf("failed to fill reaction counts: %w", err)
 		}
-		err = h.DB.Event.FillLastEditRowIDs(ctx, roomID, events)
-		if err != nil {
-			return fmt.Errorf("failed to fill last edit row IDs: %w", err)
-		}
 		err = h.DB.Room.SetPrevBatch(ctx, room.ID, resp.End)
 		if err != nil {
 			return fmt.Errorf("failed to set prev_batch: %w", err)
@@ -648,6 +644,10 @@ func (h *HiClient) PaginateManual(
 	wrappedResp.RelatedEvents, err = h.collectRelatedEvents(ctx, wrappedResp.Events)
 	if err != nil {
 		return nil, err
+	}
+	err = h.DB.Event.FillReactionCounts(ctx, roomID, wrappedResp.Events)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fill reaction counts: %w", err)
 	}
 	return &wrappedResp, nil
 }

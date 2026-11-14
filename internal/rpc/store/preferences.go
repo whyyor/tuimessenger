@@ -62,5 +62,5 @@ var DefaultPreferences = Preferences{
 }
 
 func init() {
-	event.TypeMap[AccountDataPreferences] = reflect.TypeOf(Preferences{})
+	event.TypeMap[AccountDataPreferences] = reflect.TypeFor[Preferences]()
 }

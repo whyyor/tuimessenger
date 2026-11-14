@@ -276,8 +276,8 @@ func (r *Reader) message(ctx context.Context, evt *database.Event) *Message {
 	if content.RelatesTo != nil {
 		msg.ReplyTo = content.RelatesTo.GetReplyTo()
 	}
-	if evt.LastEditRowID != nil && *evt.LastEditRowID != 0 {
-		if edit, err := r.db.Event.GetByRowID(ctx, *evt.LastEditRowID); err == nil && edit != nil {
+	if evt.LastEditRowID != 0 {
+		if edit, err := r.db.Event.GetByRowID(ctx, evt.LastEditRowID); err == nil && edit != nil {
 			editRaw := edit.Content
 			if edit.DecryptedType != "" {
 				editRaw = edit.Decrypted

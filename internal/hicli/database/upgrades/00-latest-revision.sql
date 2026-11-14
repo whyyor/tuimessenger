@@ -1,4 +1,4 @@
--- v0 -> v26 (compatible with v10+): Latest revision
+-- v0 -> v31 (compatible with v10+): Latest revision
 CREATE TABLE account (
 	user_id        TEXT    NOT NULL PRIMARY KEY,
 	device_id      TEXT    NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE room_account_data (
 	CONSTRAINT room_account_data_room_fkey FOREIGN KEY (room_id) REFERENCES room (room_id) ON DELETE CASCADE
 ) STRICT;
 CREATE INDEX room_account_data_room_id_idx ON room_account_data (room_id);
-CREATE INDEX room_account_data_mod_timestamp_idx ON account_data (mod_timestamp);
+CREATE INDEX room_account_data_mod_timestamp_idx ON room_account_data (mod_timestamp);
 
 CREATE TABLE event (
 	rowid             INTEGER PRIMARY KEY,
@@ -120,6 +120,7 @@ CREATE TABLE event (
 	send_error        TEXT,
 
 	reactions         TEXT,
+	own_reactions     TEXT,
 	last_edit_rowid   INTEGER,
 	unread_type       INTEGER NOT NULL DEFAULT 0,
 	sticky_duration   INTEGER,
@@ -129,10 +130,12 @@ CREATE TABLE event (
 	CONSTRAINT event_room_fkey FOREIGN KEY (room_id) REFERENCES room (room_id) ON DELETE CASCADE
 ) STRICT;
 CREATE INDEX event_room_id_idx ON event (room_id);
-CREATE INDEX event_redacted_by_idx ON event (room_id, redacted_by);
-CREATE INDEX event_relates_to_idx ON event (room_id, relates_to);
-CREATE INDEX event_megolm_session_id_idx ON event (room_id, megolm_session_id);
+CREATE INDEX event_room_preview_idx ON event (room_id, timestamp DESC)
+	WHERE redacted_by IS NULL AND (relation_type IS NULL OR relation_type <> 'm.replace');
+CREATE INDEX event_relates_to_idx ON event (room_id, relates_to) WHERE relates_to IS NOT NULL;
+CREATE INDEX event_failed_decryption_idx ON event (room_id, megolm_session_id) WHERE decryption_error IS NOT NULL;
 CREATE INDEX event_mention_idx ON event (timestamp DESC) WHERE unread_type > 0;
+CREATE INDEX event_room_mention_idx ON event (room_id, timestamp DESC) WHERE unread_type > 0;
 CREATE INDEX event_sticky_idx ON event (room_id, timestamp) WHERE sticky_duration IS NOT NULL;
 
 CREATE TRIGGER event_update_redacted_by
@@ -166,19 +169,19 @@ CREATE TRIGGER event_update_last_edit_when_redacted
 		AND NEW.state_key IS NULL
 BEGIN
 	UPDATE event
-	SET last_edit_rowid = COALESCE(
-		(SELECT rowid
-		 FROM event edit
-		 WHERE edit.room_id = event.room_id
-		   AND edit.relates_to = event.event_id
-		   AND edit.relation_type = 'm.replace'
-		   AND edit.type = event.type
-		   AND edit.sender = event.sender
-		   AND edit.redacted_by IS NULL
-		   AND edit.state_key IS NULL
-		 ORDER BY edit.timestamp DESC
-		 LIMIT 1),
-		0)
+	SET last_edit_rowid = (
+		SELECT rowid
+		FROM event edit
+		WHERE edit.room_id = event.room_id
+		  AND edit.relates_to = event.event_id
+		  AND edit.relation_type = 'm.replace'
+		  AND edit.type = event.type
+		  AND edit.sender = event.sender
+		  AND edit.redacted_by IS NULL
+		  AND edit.state_key IS NULL
+		ORDER BY edit.timestamp DESC
+		LIMIT 1
+	)
 	WHERE event_id = NEW.relates_to
 	  AND room_id = NEW.room_id
 	  AND last_edit_rowid = NEW.rowid
@@ -212,7 +215,7 @@ CREATE TRIGGER event_insert_fill_reactions
 		AND NEW.relation_type = 'm.annotation'
 		AND NEW.redacted_by IS NULL
 		AND typeof(NEW.content ->> '$."m.relates_to".key') = 'text'
-		AND NEW.content ->> '$."m.relates_to".key' NOT LIKE '%"%'
+		AND NEW.event_id NOT LIKE '~%'
 BEGIN
 	UPDATE event
 	SET reactions=json_set(
@@ -225,6 +228,47 @@ BEGIN
 	WHERE event_id = NEW.relates_to
 	  AND room_id = NEW.room_id
 	  AND reactions IS NOT NULL;
+
+	UPDATE event
+	SET own_reactions=json_insert(
+		COALESCE(own_reactions, '{}'),
+		'$.' || json_quote(NEW.content ->> '$."m.relates_to".key') || '[#]',
+		NEW.event_id)
+	WHERE event_id = NEW.relates_to
+	  AND room_id = NEW.room_id
+	  AND NEW.sender IN (SELECT user_id FROM account);
+END;
+
+CREATE TRIGGER event_send_complete_fill_reactions
+	AFTER UPDATE
+	ON event
+	WHEN NEW.type = 'm.reaction'
+		AND NEW.relation_type = 'm.annotation'
+		AND OLD.event_id LIKE '~%'
+		AND NEW.event_id LIKE '$%'
+		AND typeof(NEW.content ->> '$."m.relates_to".key') = 'text'
+BEGIN
+	UPDATE event
+	SET reactions=json_set(
+		reactions,
+		'$.' || json_quote(NEW.content ->> '$."m.relates_to".key'),
+		coalesce(
+			reactions ->> ('$.' || json_quote(NEW.content ->> '$."m.relates_to".key')),
+			0
+		) + 1)
+	WHERE event_id = NEW.relates_to
+	  AND room_id = NEW.room_id
+	  AND reactions IS NOT NULL;
+
+	UPDATE event
+	SET own_reactions=json_insert(
+		COALESCE(own_reactions, '{}'),
+		'$.' || json_quote(NEW.content ->> '$."m.relates_to".key') || '[#]',
+		NEW.event_id)
+	WHERE event_id = NEW.relates_to
+	  AND room_id = NEW.room_id
+	  AND NEW.redacted_by IS NULL
+	  AND NEW.sender IN (SELECT user_id FROM account);
 END;
 
 CREATE TRIGGER event_redact_fill_reactions
@@ -235,7 +279,6 @@ CREATE TRIGGER event_redact_fill_reactions
 		AND NEW.redacted_by IS NOT NULL
 		AND OLD.redacted_by IS NULL
 		AND typeof(NEW.content ->> '$."m.relates_to".key') = 'text'
-		AND NEW.content ->> '$."m.relates_to".key' NOT LIKE '%"%'
 BEGIN
 	UPDATE event
 	SET reactions=json_set(
@@ -248,6 +291,20 @@ BEGIN
 	WHERE event_id = NEW.relates_to
 	  AND room_id = NEW.room_id
 	  AND reactions IS NOT NULL;
+
+	UPDATE event
+	SET own_reactions = json_set(
+		own_reactions,
+		'$.' || json_quote(NEW.content ->> '$."m.relates_to".key'),
+		(
+			SELECT json_group_array(value)
+			FROM json_each(own_reactions, '$.' || json_quote(NEW.content ->> '$."m.relates_to".key'))
+			WHERE value <> NEW.event_id
+		))
+	WHERE event_id = NEW.relates_to
+	  AND room_id = NEW.room_id
+	  AND NEW.sender IN (SELECT user_id FROM account)
+	  AND own_reactions IS NOT NULL;
 END;
 
 CREATE VIRTUAL TABLE event_search USING fts5 (
@@ -353,6 +410,8 @@ CREATE TABLE current_state (
 	CONSTRAINT current_state_event_fkey FOREIGN KEY (event_rowid) REFERENCES event (rowid),
 	CONSTRAINT current_state_rowid_unique UNIQUE (event_rowid)
 ) STRICT, WITHOUT ROWID;
+CREATE INDEX current_state_shared_rooms_idx ON current_state (state_key)
+	WHERE event_type='m.room.member' AND membership='join';
 
 CREATE TABLE receipt (
 	room_id      TEXT    NOT NULL,
@@ -366,6 +425,7 @@ CREATE TABLE receipt (
 	CONSTRAINT receipt_room_fkey FOREIGN KEY (room_id) REFERENCES room (room_id) ON DELETE CASCADE
 	-- note: there's no foreign key on event ID because receipts could point at events that are too far in history.
 ) STRICT;
+CREATE INDEX receipt_event_idx ON receipt (room_id, event_id);
 
 CREATE TABLE space_edge (
 	space_id           TEXT    NOT NULL,

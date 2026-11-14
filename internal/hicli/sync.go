@@ -522,33 +522,32 @@ func removeReplyFallback(ctx context.Context, evt *event.Event) []byte {
 	return nil
 }
 
-func (h *HiClient) decryptEvent(ctx context.Context, evt *event.Event) (*event.Event, []byte, bool, string, error) {
+func (h *HiClient) decryptEvent(ctx context.Context, evt *event.Event) (*event.Event, []byte, string, error) {
 	err := evt.Content.ParseRaw(evt.Type)
 	if err != nil && !errors.Is(err, event.ErrContentAlreadyParsed) {
-		return nil, nil, false, "", fmt.Errorf("failed to parse content: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to parse content: %w", err)
 	}
 	decrypted, err := h.Crypto.DecryptMegolmEvent(ctx, evt)
 	if err != nil {
-		return nil, nil, false, "", err
+		return nil, nil, "", err
 	}
-	withoutFallback := removeReplyFallback(ctx, decrypted)
-	if withoutFallback != nil {
-		return decrypted, withoutFallback, true, decrypted.Type.Type, nil
+	if h.RemoveFallbacks {
+		withoutFallback := removeReplyFallback(ctx, decrypted)
+		if withoutFallback != nil {
+			return decrypted, withoutFallback, decrypted.Type.Type, nil
+		}
 	}
-	return decrypted, decrypted.Content.VeryRaw, false, decrypted.Type.Type, nil
+	return decrypted, decrypted.Content.VeryRaw, decrypted.Type.Type, nil
 }
 
 func (h *HiClient) decryptEventInto(ctx context.Context, evt *event.Event, dbEvt *database.Event) (*event.Event, error) {
-	decryptedEvt, rawContent, fallbackRemoved, decryptedType, err := h.decryptEvent(ctx, evt)
+	decryptedEvt, rawContent, decryptedType, err := h.decryptEvent(ctx, evt)
 	if err != nil {
 		dbEvt.DecryptionError = err.Error()
 		return nil, err
 	}
 	dbEvt.DecryptionError = ""
 	dbEvt.Decrypted = rawContent
-	if fallbackRemoved {
-		dbEvt.MarkReplyFallbackRemoved()
-	}
 	dbEvt.DecryptedType = decryptedType
 	return decryptedEvt, nil
 }
@@ -653,11 +652,63 @@ func (h *HiClient) cacheMedia(ctx context.Context, evt *event.Event, rowID datab
 	}
 }
 
+func (h *HiClient) generatePreviewText(content *event.MessageEventContent) string {
+	text := content.Body
+	if len(text) > 400 {
+		text = text[:350] + " […]"
+	}
+	if strings.Contains(content.FormattedBody, "data-mx-spoiler") {
+		text = "<message contains spoilers>"
+	}
+	if content.MsgType.IsText() && text == "" {
+		text = "<empty message>"
+	}
+	if content.MsgType.IsMedia() && (text == "" || content.FileName == "" || content.FileName == content.Body) {
+		switch content.MsgType {
+		case event.MsgImage:
+			text = "Sent an image"
+		case event.MsgAudio:
+			if content.MSC3245Voice != nil {
+				text = "Sent a voice message"
+			} else {
+				text = "Sent an audio file"
+			}
+		case event.MsgVideo:
+			text = "Sent a video"
+		case event.MsgFile:
+			text = "Sent a file"
+			if content.GetFileName() != "" && len(content.GetFileName()) < 100 {
+				text += ": " + content.GetFileName()
+			}
+		}
+	}
+	return text
+}
+
+func (h *HiClient) calculatePollStartLocalContent(ctx context.Context, dbEvt *database.Event, evt *event.Event) (*database.LocalContent, []id.ContentURI) {
+	content, ok := evt.Content.Parsed.(*event.PollStartEventContent)
+	if !ok {
+		return dbEvt.LocalContent, nil
+	}
+	question := "Poll: " + content.PollStart.Question.GetText()
+	if len(question) > 400 {
+		question = question[:350] + " […]"
+	}
+	return &database.LocalContent{
+		PreviewText: question,
+		HTMLVersion: CurrentHTMLSanitizerVersion,
+		PushRuleID:  dbEvt.LocalContent.GetPushRuleID(),
+	}, nil
+}
+
 func (h *HiClient) calculateLocalContent(ctx context.Context, dbEvt *database.Event, evt *event.Event) (*database.LocalContent, []id.ContentURI) {
-	if evt.Type != event.EventMessage {
+	if evt.Type != event.EventMessage && evt.Type != event.EventSticker && evt.Type != event.EventUnstablePollStart {
 		return dbEvt.LocalContent, nil
 	}
 	_ = evt.Content.ParseRaw(evt.Type)
+	if evt.Type == event.EventUnstablePollStart {
+		return h.calculatePollStartLocalContent(ctx, dbEvt, evt)
+	}
 	content, ok := evt.Content.Parsed.(*event.MessageEventContent)
 	if !ok {
 		return dbEvt.LocalContent, nil
@@ -666,10 +717,13 @@ func (h *HiClient) calculateLocalContent(ctx context.Context, dbEvt *database.Ev
 		content = content.NewContent
 	}
 	if content != nil {
+		origBody := content.Body
+		content.RemoveReplyFallback()
+		content.RemovePerMessageProfileFallback()
 		var sanitizedHTML, editSource string
 		var wasPlaintext, hasMath, bigEmoji bool
 		var inlineImages []id.ContentURI
-		if content.Format == event.FormatHTML && content.FormattedBody != "" {
+		if content.Format == event.FormatHTML && content.FormattedBody != "" && evt.Type != event.EventSticker {
 			var err error
 			sanitizedHTML, inlineImages, err = sanitizeAndLinkifyHTML(content.FormattedBody, evt.Sender == h.Account.UserID)
 			if err != nil {
@@ -704,43 +758,53 @@ func (h *HiClient) calculateLocalContent(ctx context.Context, dbEvt *database.Ev
 			}
 			if hasSpecialCharacters {
 				sanitizedHTML = linkifyPlaintext(content.Body)
-			} else if len(content.Body) < 100 && emojirunes.IsOnlyEmojis(content.Body) {
+			} else if len(content.Body) < 100 && emojirunes.IsOnlyEmojis(content.Body) && content.MsgType != event.MsgEmote && evt.Type != event.EventSticker {
 				bigEmoji = true
 			}
-			if content.MsgType == event.MsgEmote {
-				editSource = "/me " + content.Body
-			} else if content.MsgType == event.MsgNotice {
-				editSource = "/notice " + content.Body
+			if evt.Sender == h.Account.UserID {
+				if content.MsgType == event.MsgEmote {
+					editSource = "/me " + content.Body
+				} else if content.MsgType == event.MsgNotice {
+					editSource = "/notice " + content.Body
+				} else if content.Body != origBody {
+					// A reply or per-message profile fallback was removed,
+					// so the original body can't be used as a fallback.
+					editSource = content.Body
+				}
 			}
 			wasPlaintext = true
 		}
 		return &database.LocalContent{
-			SanitizedHTML:        sanitizedHTML,
-			HTMLVersion:          CurrentHTMLSanitizerVersion,
-			WasPlaintext:         wasPlaintext,
-			BigEmoji:             bigEmoji,
-			HasMath:              hasMath,
-			EditSource:           editSource,
-			ReplyFallbackRemoved: dbEvt.LocalContent.GetReplyFallbackRemoved(),
-			PushRuleID:           dbEvt.LocalContent.GetPushRuleID(),
+			SanitizedHTML: sanitizedHTML,
+			PreviewText:   h.generatePreviewText(content),
+			HTMLVersion:   CurrentHTMLSanitizerVersion,
+			WasPlaintext:  wasPlaintext,
+			BigEmoji:      bigEmoji,
+			HasMath:       hasMath,
+			EditSource:    editSource,
+			PushRuleID:    dbEvt.LocalContent.GetPushRuleID(),
 		}, inlineImages
 	}
 	return dbEvt.LocalContent, nil
 }
 
-const CurrentHTMLSanitizerVersion = 15
+const CurrentHTMLSanitizerVersion = 16
 
 func (h *HiClient) ReprocessExistingEvent(ctx context.Context, evt *database.Event) {
-	if (evt.Type != event.EventMessage.Type && evt.DecryptedType != event.EventMessage.Type) ||
-		evt.LocalContent == nil || evt.LocalContent.HTMLVersion >= CurrentHTMLSanitizerVersion {
+	evtType := evt.GetType()
+	if (evtType != event.EventMessage && evtType != event.EventSticker && evtType != event.EventUnstablePollStart) ||
+		(evt.LocalContent != nil && evt.LocalContent.HTMLVersion >= CurrentHTMLSanitizerVersion) {
 		return
 	}
+	origVal := evt.LocalContent
 	evt.LocalContent, _ = h.calculateLocalContent(ctx, evt, evt.AsRawMautrix())
-	err := h.DB.Event.UpdateLocalContent(ctx, evt)
-	if err != nil {
-		zerolog.Ctx(ctx).Err(err).
-			Stringer("event_id", evt.ID).
-			Msg("Failed to update local content")
+	if origVal != evt.LocalContent {
+		err := h.DB.Event.UpdateLocalContent(ctx, evt)
+		if err != nil {
+			zerolog.Ctx(ctx).Err(err).
+				Stringer("event_id", evt.ID).
+				Msg("Failed to update local content")
+		}
 	}
 }
 
@@ -791,7 +855,11 @@ func (h *HiClient) processEvent(
 				return fmt.Errorf("failed to process edit %s of event %s: %w", latestEdit.ID, evt.ID, err)
 			} else if dbEdit != nil {
 				dbEvt.LastEditRef = dbEdit
-				dbEvt.LastEditRowID = &dbEdit.RowID
+				dbEvt.LastEditRowID = dbEdit.RowID
+				err = h.DB.Event.UpdateLastEdit(ctx, dbEvt, dbEdit)
+				if err != nil {
+					return fmt.Errorf("failed to update last edit for event %s: %w", dbEvt.ID, err)
+				}
 			}
 		}
 		return nil
@@ -814,10 +882,11 @@ func (h *HiClient) processEvent(
 	if oldLocalContent != nil {
 		dbEvt.LocalContent = oldLocalContent
 	}
-	contentWithoutFallback := removeReplyFallback(ctx, evt)
-	if contentWithoutFallback != nil {
-		dbEvt.Content = contentWithoutFallback
-		dbEvt.MarkReplyFallbackRemoved()
+	if h.RemoveFallbacks {
+		contentWithoutFallback := removeReplyFallback(ctx, evt)
+		if contentWithoutFallback != nil {
+			dbEvt.Content = contentWithoutFallback
+		}
 	}
 	var decryptionErr error
 	var decryptedMautrixEvt *event.Event
