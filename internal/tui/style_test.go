@@ -25,8 +25,8 @@ func keepStyle(t *testing.T) string {
 			saved[target] = *target
 		}
 	}
-	oldPinned, oldColors, oldTheme, oldMode := pinnedPrefs, userColors, currentTheme, currentThemeMode
-	pinnedPrefs, userColors = map[string]bool{}, map[string]string{}
+	oldPinned, oldFiles, oldStyle, oldColors, oldTheme, oldMode := pinnedPrefs, pinnedFiles, styleConfig, userColors, currentTheme, currentThemeMode
+	pinnedPrefs, pinnedFiles, userColors = map[string]bool{}, map[string]string{}, map[string]string{}
 	path := filepath.Join(t.TempDir(), "config", "tuimessenger.yaml")
 	t.Setenv("TUIMESSENGER_CONFIG", path)
 	t.Cleanup(func() {
@@ -34,7 +34,7 @@ func keepStyle(t *testing.T) string {
 			*target = color
 		}
 		rebuildToastColors()
-		pinnedPrefs, userColors, currentTheme, currentThemeMode = oldPinned, oldColors, oldTheme, oldMode
+		pinnedPrefs, pinnedFiles, styleConfig, userColors, currentTheme, currentThemeMode = oldPinned, oldFiles, oldStyle, oldColors, oldTheme, oldMode
 	})
 	return path
 }
@@ -288,6 +288,63 @@ func TestThemeBackground(t *testing.T) {
 	}
 	if ColorBackground != tcell.ColorDefault || themed(plain) != plain {
 		t.Error("back to tuimessenger: the terminal's own again")
+	}
+}
+
+// A Ctrl+p change of a key tuimessenger.yaml sets is written into that file (comments kept), so the file doesn't undo
+// it at the next start; keys the file doesn't set leave it alone. A link into dotfiles stays a link.
+func TestCtrlPWritesPinnedKeys(t *testing.T) {
+	ts, _, _ := fakeToasts(t)
+	path := keepStyle(t)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dotfile := filepath.Join(t.TempDir(), "dotfiles", "tuimessenger.yaml")
+	if err := os.MkdirAll(filepath.Dir(dotfile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := "# my settings\ntheme: tuimessenger\npreferences:\n  # columns, not bubbles\n  classic_layout: false\n  timestamp_style: absolute\n"
+	if err := os.WriteFile(dotfile, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(dotfile, path); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Dir: t.TempDir()}
+	cfg.LoadKeybindings()
+	if problems := applyStyleFile(cfg); problems != nil {
+		t.Fatal(problems)
+	}
+
+	cfg.Preferences.ClassicLayout = true
+	pinnedNote("classic_layout")
+	cfg.Preferences.TimestampStyle = "" // relative, spelled out in the file
+	pinnedNote("timestamp_style")
+	cfg.Preferences.HideAliases = true // not in the file: it stays out
+	pinnedNote("hide_aliases")
+
+	data, _ := os.ReadFile(dotfile)
+	got := string(data)
+	for _, want := range []string{"# my settings", "# columns, not bubbles", "classic_layout: true", "timestamp_style: relative"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "hide_aliases") {
+		t.Errorf("a key the file doesn't set is left out:\n%s", got)
+	}
+	if fi, err := os.Lstat(path); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Error("tuimessenger.yaml should still be a link into the dotfiles")
+	}
+	if text := current(ts); strings.Contains(text, "until restart") {
+		t.Errorf("no warning when the file was updated: %q", text)
+	}
+	// And the next start reads the new values.
+	cfg2 := &config.Config{Dir: t.TempDir()}
+	cfg2.LoadKeybindings()
+	applyStyleFile(cfg2)
+	if !cfg2.Preferences.ClassicLayout || cfg2.Preferences.TimestampStyle != "" {
+		t.Errorf("after a restart: %+v", cfg2.Preferences)
 	}
 }
 

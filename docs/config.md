@@ -14,8 +14,9 @@ timestamps, notifications…) and keys.
 The first time tuimessenger starts without one, it writes a **commented template** there: every setting, commented
 out at its default. Uncomment a line to change it, then restart tuimessenger.
 
-tuimessenger only reads this file (it never rewrites it), so it's safe to keep in your dotfiles and link it into
-place.
+tuimessenger only changes this file in one case: when you change a setting in Ctrl+p (layout, timestamps, theme…)
+that the file sets, it updates that line, keeping your comments, so the file doesn't undo the change next time. Settings
+the file doesn't set are never added. It's safe to keep in your dotfiles and link it into place: the link stays a link.
 
 ## Check it
 
