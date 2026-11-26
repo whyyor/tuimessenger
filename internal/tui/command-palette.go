@@ -180,6 +180,13 @@ func (p *CommandPalette) commandItems() []*paletteItem {
 		go view.config.Save()
 		RequestRepaint()
 	}))
+	panels := view.config.Preferences.EnablePanels
+	items = append(items, cmd("Panels (chat list, members and message box on their own background): "+onOff(panels)+" → "+onOff(!panels), "", func() {
+		view.config.Preferences.EnablePanels = !panels
+		pinnedNote("enable_panels")
+		view.config.Save() // inline, like the file picker: two quick toggles mustn't race their saves
+		RequestRepaint()
+	}))
 	room := view.currentRoom
 	if room != nil {
 		muted := view.roomList.IsMuted(room.Room.ID)

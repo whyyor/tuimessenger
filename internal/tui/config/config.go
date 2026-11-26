@@ -62,6 +62,7 @@ type UserPreferences struct {
 	InlineURLMode string `yaml:"inline_url_mode" enum:"auto,enable,disable" default:"auto" doc:"Clickable links (OSC 8): auto turns them on in terminals known to support them (Ghostty, kitty, iTerm2, foot, VTE)."`
 	// ImageProtocol: "" auto-detects kitty graphics, "kitty" forces it, "ansi" forces half-blocks.
 	ImageProtocol string `yaml:"image_protocol" enum:"auto,kitty,ansi" default:"auto" doc:"How images are drawn: auto uses the kitty graphics protocol where it works (kitty, Ghostty…), ansi uses coloured half-blocks everywhere."`
+	EnablePanels  bool   `yaml:"enable_panels" doc:"Draw the chat list, the member list and the message box as titled panels, and each message on a card of its own."`
 	ClassicLayout bool   `yaml:"classic_layout" doc:"Time and name columns instead of chat bubbles (yours right, theirs left)."`
 	// TimestampStyle for bubbles: "" (relative: now, 5m, 3h, 2d), "absolute", "off".
 	TimestampStyle string `yaml:"timestamp_style" enum:"relative,absolute,off" default:"relative" doc:"Times on chat bubbles: relative (now, 5m, 3h), absolute (22:16), or off (only on the selected message)."`

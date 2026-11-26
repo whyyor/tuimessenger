@@ -181,10 +181,16 @@ func (list *RoomList) OnMouseEvent(event mauview.MouseEvent) bool {
 		return true
 	case tcell.Button1:
 		_, y := event.Position()
+		if list.panels() {
+			y-- // the title row
+		}
+		if y < 0 {
+			return false
+		}
 		list.lock.RLock()
 		defer list.lock.RUnlock()
 		y += list.scrollOffset
-		if y < 0 || y > len(list.rooms) {
+		if y >= len(list.rooms) {
 			return false
 		}
 		list.parent.SwitchRoom(list.rooms[y].RoomID)
@@ -201,6 +207,11 @@ func (list *RoomList) addScrollOffset(offset int) {
 	if list.scrollOffset < 0 {
 		list.scrollOffset = 0
 	}
+}
+
+// panels reports whether the list is drawn as a panel, with a title row.
+func (list *RoomList) panels() bool {
+	return list.parent != nil && list.parent.config != nil && list.parent.config.Preferences.EnablePanels
 }
 
 func (list *RoomList) Focus() {}
@@ -245,6 +256,14 @@ func unreadRooms(rooms []*store.RoomListEntry, muted map[id.RoomID]bool) []*stor
 }
 
 func (list *RoomList) Draw(screen mauview.Screen) {
+	if list.panels() {
+		// A panel with its title on the first row; its right column is left
+		// to the screen as the gap before the chat.
+		w, h := screen.Size()
+		paintBackground(screen, 0, 0, w-1, h, ColorPane)
+		drawPanelTitle(screen, 1, 0, w-2, "Chats", ColorStatusText)
+		screen = &mauview.ProxyScreen{Parent: screen, OffsetY: 1, Width: max(w-1, 0), Height: max(h-1, 0)}
+	}
 	list.lock.Lock()
 	list.rooms = applyLocalSeen(list.parent.matrix, listedRooms(list.parent.matrix.ReversedRoomList.Current(), list.selected))
 	list.width, list.height = screen.Size()

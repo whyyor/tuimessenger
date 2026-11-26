@@ -43,6 +43,12 @@ func boolInt(b bool) int {
 	return 0
 }
 
+// panels reports whether the UI is drawn as borderless panels, with every
+// message on a card of its own (preference enable_panels).
+func (view *MessageView) panels() bool {
+	return view.config.Preferences.EnablePanels
+}
+
 // bubbleInnerMax is the content width a bubble may use in a pane.
 func bubbleInnerMax(width int) int {
 	limit := max(min(bubbleMinWidth, width), width*bubbleMaxShare/100)
@@ -110,6 +116,10 @@ func (view *MessageView) layoutBubble(msg *messages.UIMessage, width int, isDM b
 
 	first := startsRun(msg, prev, afterService)
 	lay.gap = first && prev != nil && !afterService
+	if view.panels() {
+		// Every message is its own card: a blank row keeps neighbours apart.
+		lay.gap = prev != nil && !afterService
+	}
 	lay.name = first && !lay.own && !isDM
 	if lay.own {
 		lay.barX = width - 1
@@ -141,12 +151,24 @@ func (view *MessageView) drawBubble(screen mauview.Screen, msg *messages.UIMessa
 	}
 	h := msg.Height()
 	total := h + boolInt(lay.metaRow)
-	barColor := ColorComposerBar
-	if !lay.own {
-		barColor = msg.SenderColor()
-	}
-	for y := range total {
-		screen.SetContent(lay.barX, row+y, '┃', nil, tcell.StyleDefault.Foreground(barColor))
+	if view.panels() {
+		// A card with one cell of padding each side instead of the bar.
+		card := ColorMessage
+		switch {
+		case msg.IsSelected:
+			card = messages.SelectionBackground
+		case lay.own:
+			card = ColorOwnMessage
+		}
+		paintBackground(screen, lay.x-1, row, lay.inner+2, total, card)
+	} else {
+		barColor := ColorComposerBar
+		if !lay.own {
+			barColor = msg.SenderColor()
+		}
+		for y := range total {
+			screen.SetContent(lay.barX, row+y, '┃', nil, tcell.StyleDefault.Foreground(barColor))
+		}
 	}
 	msg.Draw(mauview.NewProxyScreen(screen, lay.x, row, lay.inner, h))
 	if msg.IsSelected {

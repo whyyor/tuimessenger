@@ -30,4 +30,11 @@ var (
 	// ColorComposerBar is the accent line beside the message composer,
 	// Ghostty's Monokai Remastered purple.
 	ColorComposerBar = tcell.NewHexColor(0xa8a9eb)
+	// ColorPane is the background of the panels (chat list, member list,
+	// composer); the chat and the gaps between panels keep the screen's.
+	ColorPane = tcell.NewHexColor(0x16161d)
+	// ColorMessage and ColorOwnMessage are the cards behind others' messages
+	// and yours.
+	ColorMessage    = tcell.NewHexColor(0x22222c)
+	ColorOwnMessage = tcell.NewHexColor(0x2b2a3f)
 )
