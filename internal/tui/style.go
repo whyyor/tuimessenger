@@ -3,10 +3,12 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
 
+	backendconfig "github.com/whyyor/tuimessenger/internal/config"
 	"github.com/whyyor/tuimessenger/internal/tui/config"
 	"github.com/whyyor/tuimessenger/internal/tui/messages"
 	"github.com/whyyor/tuimessenger/internal/tui/messages/html"
@@ -67,9 +69,14 @@ var builtinColors = func() map[string]tcell.Color {
 	return out
 }()
 
-// pinnedPrefs are the preference keys tuimessenger.yaml sets; Ctrl+p toggles of those only last until restart.
-// "theme" is there when the file sets the theme.
-var pinnedPrefs = map[string]bool{}
+// pinnedPrefs are the preference keys tuimessenger.yaml sets ("theme" too when it sets the theme); pinnedFiles is
+// the file that set each (the last one read wins), where a Ctrl+p change of that key is written back.
+var (
+	pinnedPrefs = map[string]bool{}
+	pinnedFiles = map[string]string{}
+	// styleConfig is the config the file was applied to, so a Ctrl+p change can be read back from it.
+	styleConfig *config.Config
+)
 
 // userColors are tuimessenger.yaml's colours, kept so a theme change re-applies them on top.
 var userColors = map[string]string{}
@@ -129,6 +136,7 @@ func setTheme(name string, mode themes.Mode) error {
 // commented template when there's neither, and applies theme, colours, preferences and keys. It returns the
 // problems found (shown as a toast once the UI is up).
 func applyStyleFile(cfg *config.Config) []string {
+	styleConfig = cfg
 	legacy := filepath.Join(cfg.Dir, styleFileName)
 	paths := []string{legacy, config.UserFilePath()}
 	found := false
@@ -150,18 +158,18 @@ func applyStyleFile(cfg *config.Config) []string {
 		}
 		cfg.ApplyKeybindings(uf.Keybindings)
 		for key := range uf.Preferences {
-			pinnedPrefs[key] = true
+			pinnedPrefs[key], pinnedFiles[key] = true, path
 		}
 		for key, value := range uf.Colors {
 			userColors[key] = value
 		}
 		if uf.Set["theme"] {
 			theme = uf.Theme
-			pinnedPrefs["theme"] = true
+			pinnedPrefs["theme"], pinnedFiles["theme"] = true, path
 		}
 		if uf.Set["theme_mode"] {
 			mode = uf.ThemeMode
-			pinnedPrefs["theme_mode"] = true
+			pinnedPrefs["theme_mode"], pinnedFiles["theme_mode"] = true, path
 		}
 	}
 	if !found {
@@ -199,9 +207,60 @@ func rebuildToastColors() {
 	toastColors[toastError] = ColorMonokaiRed
 }
 
-// pinnedNote warns that a Ctrl+p change won't survive a restart.
+// pinnedNote is called after a Ctrl+p change: when tuimessenger.yaml sets that key, the new value is written there
+// too (that one line, comments kept), so the file doesn't undo the change at the next start. Keys the file doesn't
+// set are only saved in terminal.yaml, as before.
 func pinnedNote(key string) {
-	if pinnedPrefs[key] {
-		toasts.Show(toastWarning, "Changed until restart: "+styleFileName+" sets "+key)
+	path := pinnedFiles[key]
+	if path == "" || styleConfig == nil {
+		return
 	}
+	section, value, ok := "preferences", any(nil), false
+	switch key {
+	case "theme":
+		section, value, ok = "", styleConfig.Theme, true
+	case "theme_mode":
+		section, value, ok = "", styleConfig.ThemeMode, true
+	default:
+		value, ok = preferenceValue(styleConfig.Preferences, key)
+	}
+	if !ok {
+		return
+	}
+	// A link into your dotfiles stays a link: write the file it points to.
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		path = real
+	}
+	var err error
+	switch v := value.(type) {
+	case bool:
+		err = backendconfig.SetBool(path, section, key, v)
+	case string:
+		err = backendconfig.SetString(path, section, key, v)
+	}
+	if err != nil {
+		toasts.Show(toastWarning, "Changed until restart: couldn't update "+styleFileName+" ("+err.Error()+")")
+	}
+}
+
+// preferenceValue is a preference by its tuimessenger.yaml key, as the file spells it: an empty string is the
+// option's readable default ("" → "relative").
+func preferenceValue(prefs config.UserPreferences, key string) (any, bool) {
+	v, t := reflect.ValueOf(prefs), reflect.TypeOf(prefs)
+	for i := range t.NumField() {
+		f := t.Field(i)
+		if strings.Split(f.Tag.Get("yaml"), ",")[0] != key {
+			continue
+		}
+		switch f.Type.Kind() {
+		case reflect.Bool:
+			return v.Field(i).Bool(), true
+		case reflect.String:
+			if s := v.Field(i).String(); s != "" {
+				return s, true
+			}
+			return f.Tag.Get("default"), f.Tag.Get("default") != ""
+		}
+	}
+	return nil, false
 }

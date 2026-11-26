@@ -16,8 +16,9 @@ import (
 	"github.com/whyyor/tuimessenger/internal/tui/themes"
 )
 
-// UserFileName is your settings file: theme, colours, preferences and keys. tuimessenger only reads it (apart from
-// writing a commented template when there's none), so it can live in your dotfiles.
+// UserFileName is your settings file: theme, colours, preferences and keys. tuimessenger writes it only to create a
+// commented template when there's none, and to update a line you set when you change that setting in Ctrl+p, so it
+// can live in your dotfiles.
 const UserFileName = "tuimessenger.yaml"
 
 // SchemaURL is the JSON Schema editors use to check and complete tuimessenger.yaml.
@@ -426,7 +427,8 @@ func sameKey(a, b string) bool {
 func Template() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# yaml-language-server: $schema=%s\n", SchemaURL)
-	b.WriteString("# tuimessenger settings. tuimessenger only reads this file, so it can live in your dotfiles.\n")
+	b.WriteString("# tuimessenger settings. It can live in your dotfiles: tuimessenger only updates a line you set here\n")
+	b.WriteString("# when you change that setting in Ctrl+p.\n")
 	b.WriteString("# Uncomment a line to change it; restart tuimessenger to apply. Everything: " + DocsURL + "\n")
 	b.WriteString("# Check it with: tuimessenger config\n\n")
 	for _, o := range TopOptions() {
