@@ -34,9 +34,14 @@ func colorTargets() map[string][]*tcell.Color {
 		"sidebar_selection":      {&ColorSelectionBackground},
 		"sidebar_selection_text": {&ColorSelectionText},
 		"panel":                  {&ColorPanel},
+		"pane_background":        {&ColorPane},
+		"message_background":     {&ColorMessage},
+		"own_message_background": {&ColorOwnMessage},
 		"selection_bar":          {&ColorBarBackground},
 		"border":                 {&ColorBorder},
 		"dim_text":               {&ColorStatusText},
+		"tick":                   {&ColorTick},
+		"tick_read":              {&ColorReadTick},
 		"bar_text":               {&ColorBarText},
 		"switcher_pill":          {&ColorTitlePill},
 		"switcher_pill_text":     {&ColorOnTitlePill},
@@ -118,7 +123,60 @@ func applyColors(theme themes.Colors, yours map[string]string) {
 			}
 		}
 	}
+	deriveSurfaces(set)
 	rebuildToastColors()
+}
+
+// surfaceShares are the panel and message colours a theme with a solid background gets unless it or you set them:
+// how far each lies from the background toward the text (or the accent), in percent.
+var surfaceShares = []struct {
+	key    string
+	target *tcell.Color
+	share  int
+	accent bool
+}{
+	{"pane_background", &ColorPane, 5, false},
+	{"message_background", &ColorMessage, 11, false},
+	{"own_message_background", &ColorOwnMessage, 18, true},
+}
+
+// deriveSurfaces fits the panels and message cards to the theme's background; with the terminal's own background
+// (the tuimessenger theme) they keep their built-in colours.
+func deriveSurfaces(set map[string]tcell.Color) {
+	if !ColorBackground.Valid() {
+		return
+	}
+	text := ColorText
+	if !text.Valid() {
+		text = tcell.ColorWhite
+		if luminance(ColorBackground) > 0.5 {
+			text = tcell.ColorBlack
+		}
+	}
+	for _, s := range surfaceShares {
+		if _, ok := set[s.key]; ok {
+			continue
+		}
+		toward := text
+		if s.accent {
+			toward = ColorComposerBar
+		}
+		*s.target = mixColor(ColorBackground, toward, s.share)
+	}
+}
+
+// mixColor is a share percent of the way from a to b.
+func mixColor(a, b tcell.Color, share int) tcell.Color {
+	ar, ag, ab := a.TrueColor().RGB()
+	br, bg, bb := b.TrueColor().RGB()
+	mix := func(x, y int32) int32 { return x + (y-x)*int32(share)/100 }
+	return tcell.NewRGBColor(mix(ar, br), mix(ag, bg), mix(ab, bb))
+}
+
+// luminance is a colour's brightness, 0 (black) to 1 (white).
+func luminance(c tcell.Color) float64 {
+	r, g, b := c.TrueColor().RGB()
+	return (0.2126*float64(r) + 0.7152*float64(g) + 0.0722*float64(b)) / 255
 }
 
 // setTheme loads a theme and puts it on screen with your colours on top.

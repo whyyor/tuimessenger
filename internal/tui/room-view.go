@@ -395,7 +395,13 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	// The composer is a padded box: a blank row above and below the input,
 	// with an accent line running down the left of the whole box.
 	composerHeight := inputHeight + 2
-	contentHeight := height - composerHeight - topicBarHeight - StatusBarHeight
+	// Panels: the composer and the member list are panels, the member list
+	// with a title row; the chat stays on the screen's background, a blank row
+	// between it and the composer.
+	panels := view.config.Preferences.EnablePanels
+	panelGap := boolInt(panels)
+	titleRow := boolInt(panels)
+	contentHeight := height - composerHeight - topicBarHeight - StatusBarHeight - panelGap
 	hideUserList := view.shouldHideUserList()
 	contentWidth := width - StaticHorizontalSpace
 	if hideUserList {
@@ -414,11 +420,32 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.statusScreen.Width = width - 1
 	view.inputScreen.OffsetX = inputOffsetX
 	view.inputScreen.Width = width - inputOffsetX
-	view.inputScreen.OffsetY = view.statusScreen.YEnd() + 1
+	composerTop := view.statusScreen.YEnd() + panelGap
+	// The padding row (search, attachments), then the input.
+	padTop := composerTop
+	view.inputScreen.OffsetY = padTop + 1
 	view.inputScreen.Height = inputHeight
 	// The old border column stays as blank spacing before the member list.
-	view.ulScreen.OffsetX = view.contentScreen.XEnd() + UserListBorderWidth
+	ulPanelX := view.contentScreen.XEnd() + UserListBorderWidth
+	view.ulScreen.OffsetX = ulPanelX
 	view.ulScreen.Height = contentHeight
+	if panels {
+		// One column of padding, and the title above.
+		view.ulScreen.OffsetX++
+		view.ulScreen.OffsetY += titleRow
+		view.ulScreen.Height -= titleRow
+	}
+
+	if panels {
+		// The chat itself stays on the screen's background: only the member
+		// list and the composer (and the chat list) are panels.
+		if !hideUserList {
+			paintBackground(screen, ulPanelX, 0, width-ulPanelX, view.statusScreen.YEnd(), ColorPane)
+			drawPanelTitle(screen, ulPanelX+1, topicBarHeight, width-ulPanelX-1, "Members", ColorStatusText)
+		}
+		// No title on the composer: its placeholder already says what it is.
+		paintBackground(screen, 0, composerTop, width, composerHeight, ColorPane)
+	}
 
 	// Draw everything
 	if topicBarHeight > 0 {
@@ -441,12 +468,12 @@ func (view *RoomView) Draw(screen mauview.Screen) {
 	view.input.Draw(view.inputScreen)
 	// The composer's top padding row: the search line, else attached files.
 	if view.search != nil {
-		view.drawSearch(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
+		view.drawSearch(screen, inputOffsetX, padTop, width-inputOffsetX-1)
 	} else {
-		view.drawAttachments(screen, inputOffsetX, view.statusScreen.YEnd(), width-inputOffsetX-1)
+		view.drawAttachments(screen, inputOffsetX, padTop, width-inputOffsetX-1)
 	}
 	barStyle := tcell.StyleDefault.Foreground(ColorComposerBar)
-	for y := view.statusScreen.YEnd(); y < view.statusScreen.YEnd()+composerHeight; y++ {
+	for y := padTop; y < composerTop+composerHeight; y++ {
 		screen.SetContent(1, y, '│', nil, barStyle)
 	}
 	if !hideUserList {

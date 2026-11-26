@@ -94,6 +94,9 @@ type frameBuffer struct {
 	cursorY     int
 	cursorShown bool
 	locked      []bool // cells locked in the real screen as an emoji's right half; tcell drops locks on resize
+	// bg is each cell's panel background (see paintBackground): what a cell
+	// that keeps the terminal's own background (ColorDefault) gets instead.
+	bg []tcell.Color
 }
 
 func (fb *frameBuffer) begin(real mauview.Screen) {
@@ -103,7 +106,9 @@ func (fb *frameBuffer) begin(real mauview.Screen) {
 		fb.w, fb.h = w, h
 		fb.cells = make([]frameCell, w*h)
 		fb.locked = make([]bool, w*h)
+		fb.bg = make([]tcell.Color, w*h)
 	}
+	clear(fb.bg) // ColorDefault is 0
 	fb.style = tcell.StyleDefault
 	fb.cursorShown = false
 	fb.Fill(' ', tcell.StyleDefault)
@@ -121,7 +126,7 @@ func (fb *frameBuffer) flush(real mauview.Screen) {
 		for x := 0; x < fb.w; x++ {
 			i := y*fb.w + x
 			c := &fb.cells[i]
-			style := themed(c.style)
+			style := themedOn(c.style, fb.bg[i])
 			if c.tail && canLock {
 				// The emoji to the left covers this column on screen; tcell must not draw over it.
 				if !fb.locked[i] {
@@ -155,14 +160,56 @@ func (fb *frameBuffer) flush(real mauview.Screen) {
 // themed paints the theme's background and text where a cell uses the terminal's own (ColorDefault), so a theme
 // covers the whole screen; the tuimessenger theme leaves both to the terminal.
 func themed(style tcell.Style) tcell.Style {
+	return themedOn(style, tcell.ColorDefault)
+}
+
+// themedOn is themed for a cell that lies on a panel of colour panel (ColorDefault: on no panel), which then
+// replaces the screen's background.
+func themedOn(style tcell.Style, panel tcell.Color) tcell.Style {
 	fg, bg, _ := style.Decompose()
-	if bg == tcell.ColorDefault && ColorBackground != tcell.ColorDefault {
+	switch {
+	case bg != tcell.ColorDefault:
+	case panel != tcell.ColorDefault:
+		style = style.Background(panel)
+	case ColorBackground != tcell.ColorDefault:
 		style = style.Background(ColorBackground)
 	}
 	if fg == tcell.ColorDefault && ColorText != tcell.ColorDefault {
 		style = style.Foreground(ColorText)
 	}
 	return style
+}
+
+// paintBackground gives the rectangle x, y, w×h of screen the background color wherever what's drawn there keeps
+// the terminal's own (ColorDefault): panels and message cards get their colour without every widget on them
+// knowing about it. A later call paints over an earlier one. screen is the frame buffer or a ProxyScreen on it;
+// on any other screen (tests, measuring) nothing happens.
+func paintBackground(screen mauview.Screen, x, y, w, h int, color tcell.Color) {
+	for {
+		switch s := screen.(type) {
+		case *mauview.ProxyScreen:
+			x, y, w, h = clipRect(x, y, w, h, s.Width, s.Height)
+			x, y, screen = x+s.OffsetX, y+s.OffsetY, s.Parent
+		case *frameBuffer:
+			x, y, w, h = clipRect(x, y, w, h, s.w, s.h)
+			for row := y; row < y+h; row++ {
+				line := s.bg[row*s.w : (row+1)*s.w]
+				for col := x; col < x+w; col++ {
+					line[col] = color
+				}
+			}
+			return
+		default:
+			return
+		}
+	}
+}
+
+// clipRect cuts x, y, w×h down to what lies inside 0, 0, width×height.
+func clipRect(x, y, w, h, width, height int) (int, int, int, int) {
+	x0, y0 := max(x, 0), max(y, 0)
+	x1, y1 := min(x+w, width), min(y+h, height)
+	return x0, y0, max(x1-x0, 0), max(y1-y0, 0)
 }
 
 func (fb *frameBuffer) Clear() {

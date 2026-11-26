@@ -50,6 +50,18 @@
           "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
           "type": "string"
         },
+        "message_background": {
+          "default": "#22222c",
+          "description": "Background of others' messages (other themes: a step further toward text).",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "own_message_background": {
+          "default": "#2b2a3f",
+          "description": "Background of your messages (other themes: a step from background toward accent).",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
         "palette_accent": {
           "default": "#adda78",
           "description": "Ctrl+p's ▌ and magnifier.",
@@ -65,6 +77,12 @@
         "palette_pill_text": {
           "default": "#000000",
           "description": "Text on Ctrl+p's pill.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "pane_background": {
+          "default": "#16161d",
+          "description": "Background of the panels (enable_panels): chat list, member list, message box (other themes: a step from background toward text).",
           "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
           "type": "string"
         },
@@ -155,6 +173,18 @@
         "text": {
           "default": "default",
           "description": "Text colour (default: your terminal's own).",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "tick": {
+          "default": "#8a8a94",
+          "description": "Ticks on your messages: sent ✓, delivered ✓✓ and on its way ◌.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "tick_read": {
+          "default": "#3a9bff",
+          "description": "Ticks on your messages the other side has seen ✓✓.",
           "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
           "type": "string"
         },
@@ -344,6 +374,11 @@
         "disable_show_urls": {
           "default": false,
           "description": "Don't show a link's address after its text when they differ.",
+          "type": "boolean"
+        },
+        "enable_panels": {
+          "default": false,
+          "description": "Draw the chat list, the member list and the message box as titled panels, and each message on a card of its own.",
           "type": "boolean"
         },
         "file_picker": {

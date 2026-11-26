@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"go.mau.fi/mauview"
 	"go.mau.fi/util/jsontime"
 	"maunium.net/go/mautrix/id"
 
@@ -302,6 +303,84 @@ func TestSelectionPaddingAndColours(t *testing.T) {
 		}
 		if r, _, _, _ := sim.GetContent(lay.barX, 0); r != '┃' {
 			t.Errorf("own=%v: the bar stays", own)
+		}
+	}
+}
+
+func TestBubblePanels(t *testing.T) {
+	view, room := bubbleView(t)
+	view.config.Preferences.EnablePanels = true
+	now := time.Date(2026, 10, 21, 17, 20, 0, 0, time.Local)
+	a := textMsg(room, "@bob:x", now, "one")
+	b := textMsg(room, "@bob:x", now.Add(2*time.Minute), "two")
+	mine := textMsg(room, me, now.Add(3*time.Minute), "hi")
+	const width = 60
+
+	lb := view.layoutBubble(b, width, false, a, false)
+	if !lb.gap || lb.name {
+		t.Errorf("with panels every message is its own card, a blank row apart: %+v", lb)
+	}
+	if l := view.layoutBubble(a, width, false, nil, true); l.gap {
+		t.Errorf("no blank row before the first message: %+v", l)
+	}
+
+	deliveries.entries[mine.ID] = &deliveryEntry{state: deliveryDelivered, checked: time.Now()}
+	lm := view.layoutBubble(mine, width, false, b, false)
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(width, 6)
+	var fb frameBuffer
+	fb.begin(sim)
+	view.drawBubble(&fb, b, lb, 0, width)
+	view.drawBubble(&fb, mine, lm, 2, width)
+	fb.flush(sim)
+	bgAt := func(x, y int) tcell.Color {
+		_, _, st, _ := sim.GetContent(x, y)
+		_, bg, _ := st.Decompose()
+		return bg
+	}
+	row := 1 // after the gap row
+	if bgAt(lb.x-1, row) != ColorMessage || bgAt(lb.x+lb.inner, row) != ColorMessage || bgAt(lb.x, row) != ColorMessage {
+		t.Error("their card covers the text and one cell each side")
+	}
+	if bgAt(lb.x-2, row) == ColorMessage || bgAt(lb.x+lb.inner+1, row) == ColorMessage {
+		t.Error("their card stops at its padding")
+	}
+	if bgAt(lb.x, 0) == ColorMessage {
+		t.Error("the gap row stays off the card")
+	}
+	if r, _, _, _ := sim.GetContent(lb.barX, row); r == '┃' {
+		t.Error("no bar on a card")
+	}
+	if bgAt(lm.x, 3) != ColorOwnMessage || bgAt(width-1, 3) == ColorOwnMessage {
+		t.Error("your card has its own colour and leaves the last column")
+	}
+}
+
+func TestPaintBackgroundThroughProxies(t *testing.T) {
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(10, 4)
+	var fb frameBuffer
+	fb.begin(sim)
+	proxy := &mauview.ProxyScreen{Parent: &fb, OffsetX: 2, OffsetY: 1, Width: 5, Height: 2}
+	paintBackground(proxy, -1, 0, 99, 99, ColorPane) // clipped to the proxy
+	proxy.SetContent(0, 0, 'x', nil, tcell.StyleDefault)
+	fb.SetContent(0, 0, 'y', nil, tcell.StyleDefault.Background(tcell.ColorRed))
+	fb.flush(sim)
+	for y := range 4 {
+		for x := range 10 {
+			_, _, st, _ := sim.GetContent(x, y)
+			_, bg, _ := st.Decompose()
+			inside := x >= 2 && x < 7 && y >= 1 && y < 3
+			switch {
+			case x == 0 && y == 0:
+				if bg != tcell.ColorRed {
+					t.Error("an explicit background wins")
+				}
+			case inside && bg != ColorPane, !inside && bg == ColorPane:
+				t.Errorf("cell %d,%d: background %v", x, y, bg)
+			}
 		}
 	}
 }

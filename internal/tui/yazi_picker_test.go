@@ -113,3 +113,28 @@ func TestNoDialogUsesYazi(t *testing.T) {
 		t.Error("yazi should have been used as the picker")
 	}
 }
+
+// Panels are switched on and off from Ctrl+p, like the layout.
+func TestPaletteTogglesPanels(t *testing.T) {
+	_, _, _ = fakeToasts(t)
+	main := aliasMain(t)
+	main.config.Dir = t.TempDir()
+	run := func(prefix string) {
+		t.Helper()
+		for _, item := range (&CommandPalette{parent: main}).commandItems() {
+			if strings.HasPrefix(item.title, prefix) {
+				item.run()
+				return
+			}
+		}
+		t.Fatalf("no %q in the palette", prefix)
+	}
+	run("Panels (")
+	if !main.config.Preferences.EnablePanels {
+		t.Fatal("panels should be on")
+	}
+	run("Panels (")
+	if main.config.Preferences.EnablePanels {
+		t.Error("panels should be off again")
+	}
+}

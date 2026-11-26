@@ -204,6 +204,7 @@ Generated from tuimessenger's code, so it's always complete.
 | `disable_show_urls` | `false` | `true`, `false` | Don't show a link's address after its text when they differ. |
 | `inline_url_mode` | `auto` | `auto`, `enable`, `disable` | Clickable links (OSC 8): auto turns them on in terminals known to support them (Ghostty, kitty, iTerm2, foot, VTE). |
 | `image_protocol` | `auto` | `auto`, `kitty`, `ansi` | How images are drawn: auto uses the kitty graphics protocol where it works (kitty, Ghostty…), ansi uses coloured half-blocks everywhere. |
+| `enable_panels` | `false` | `true`, `false` | Draw the chat list, the member list and the message box as titled panels, and each message on a card of its own. |
 | `classic_layout` | `false` | `true`, `false` | Time and name columns instead of chat bubbles (yours right, theirs left). |
 | `timestamp_style` | `relative` | `relative`, `absolute`, `off` | Times on chat bubbles: relative (now, 5m, 3h), absolute (22:16), or off (only on the selected message). |
 | `backspace1_removes_word` | `true` | `true`, `false` | Backspace deletes a whole word (in terminals that send it as ^H, e.g. Ctrl+Backspace in some). |
@@ -223,9 +224,14 @@ The defaults are the `tuimessenger` theme's. A colour marked *follows* takes the
 | `sidebar_selection` | `#f92672` | The selected chat in the sidebar. |
 | `sidebar_selection_text` | `#fff1f3` | Text of the selected chat. |
 | `panel` | `#0e0e13` | Background of Ctrl+k, Ctrl+p and other popups. |
+| `pane_background` | `#16161d` | Background of the panels (enable_panels): chat list, member list, message box (other themes: a step from background toward text). |
+| `message_background` | `#22222c` | Background of others' messages (other themes: a step further toward text). |
+| `own_message_background` | `#2b2a3f` | Background of your messages (other themes: a step from background toward accent). |
 | `selection_bar` | `#1f1f28` | The selected row in Ctrl+k and Ctrl+p. |
 | `border` | `#54546d` | Popup borders. |
 | `dim_text` | `#8a8a94` | Status line, details and aliases. |
+| `tick` | `#8a8a94` | Ticks on your messages: sent ✓, delivered ✓✓ and on its way ◌. *Follows `dim_text`.* |
+| `tick_read` | `#3a9bff` | Ticks on your messages the other side has seen ✓✓. |
 | `bar_text` | `#c8c9c5` | Text in bars and popups. |
 | `switcher_pill` | `#f92672` | Ctrl+k's title pill and its ▌. *Follows `sidebar_selection`.* |
 | `switcher_pill_text` | `#fff1f3` | Text on Ctrl+k's pill. *Follows `sidebar_selection_text`.* |

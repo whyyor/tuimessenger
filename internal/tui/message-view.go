@@ -56,6 +56,7 @@ type MessageView struct {
 	msgBuffer    []*messages.UIMessage
 	prevTimeline *[]*database.Event
 	prevWidth    int
+	prevPanels   bool // EnablePanels at the last layout: it adds and removes rows between messages
 	selected     database.EventRowID
 	// anchor is the other end of a visual-mode range (v); 0 means none.
 	anchor database.EventRowID
@@ -685,9 +686,11 @@ func (view *MessageView) update(width int) {
 	timelinePtr := view.parent.Room.TimelineCache.Current()
 	clearAD := view.parent.Room.GetAccountData(store.AccountDataCleared)
 	viewAD := view.parent.Room.GetAccountData(AccountDataChatView)
-	if timelinePtr == nil || timelinePtr == view.prevTimeline && width == view.prevWidth && clearAD == view.clearAD && viewAD == view.viewAD {
+	panels := view.config.Preferences.EnablePanels
+	if timelinePtr == nil || timelinePtr == view.prevTimeline && width == view.prevWidth && clearAD == view.clearAD && viewAD == view.viewAD && panels == view.prevPanels {
 		return
 	}
+	view.prevPanels = panels
 	view.clearAD, view.viewAD = clearAD, viewAD
 	chatViewOpts := chatView(view.parent.Room)
 	clearState := view.parent.Room.ClearState()
