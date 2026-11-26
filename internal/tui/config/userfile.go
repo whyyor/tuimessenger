@@ -71,6 +71,8 @@ var ColorOptions = []Option{
 	{Key: "selection_bar", Default: "#1f1f28", Doc: "The selected row in Ctrl+k and Ctrl+p."},
 	{Key: "border", Default: "#54546d", Doc: "Popup borders."},
 	{Key: "dim_text", Default: "#8a8a94", Doc: "Status line, details and aliases."},
+	{Key: "tick", Default: "#8a8a94", Follows: "dim_text", Doc: "Ticks on your messages: sent ✓, delivered ✓✓ and on its way ◌."},
+	{Key: "tick_read", Default: "#3a9bff", Doc: "Ticks on your messages the other side has seen ✓✓."},
 	{Key: "bar_text", Default: "#c8c9c5", Doc: "Text in bars and popups."},
 	{Key: "switcher_pill", Default: "#f92672", Follows: "sidebar_selection", Doc: "Ctrl+k's title pill and its ▌."},
 	{Key: "switcher_pill_text", Default: "#fff1f3", Follows: "sidebar_selection_text", Doc: "Text on Ctrl+k's pill."},

@@ -38,6 +38,8 @@ func colorTargets() map[string][]*tcell.Color {
 		"selection_bar":          {&ColorBarBackground},
 		"border":                 {&ColorBorder},
 		"dim_text":               {&ColorStatusText},
+		"tick":                   {&ColorTick},
+		"tick_read":              {&ColorReadTick},
 		"bar_text":               {&ColorBarText},
 		"switcher_pill":          {&ColorTitlePill},
 		"switcher_pill_text":     {&ColorOnTitlePill},

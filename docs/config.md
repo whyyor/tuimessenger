@@ -229,6 +229,8 @@ The defaults are the `tuimessenger` theme's. A colour marked *follows* takes the
 | `selection_bar` | `#1f1f28` | The selected row in Ctrl+k and Ctrl+p. |
 | `border` | `#54546d` | Popup borders. |
 | `dim_text` | `#8a8a94` | Status line, details and aliases. |
+| `tick` | `#8a8a94` | Ticks on your messages: sent ✓, delivered ✓✓ and on its way ◌. *Follows `dim_text`.* |
+| `tick_read` | `#3a9bff` | Ticks on your messages the other side has seen ✓✓. |
 | `bar_text` | `#c8c9c5` | Text in bars and popups. |
 | `switcher_pill` | `#f92672` | Ctrl+k's title pill and its ▌. *Follows `sidebar_selection`.* |
 | `switcher_pill_text` | `#fff1f3` | Text on Ctrl+k's pill. *Follows `sidebar_selection_text`.* |

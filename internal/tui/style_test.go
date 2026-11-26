@@ -290,3 +290,20 @@ func TestThemeBackground(t *testing.T) {
 		t.Error("back to tuimessenger: the terminal's own again")
 	}
 }
+
+// Tick colours are colour keys: tick follows dim_text (so themes colour it), and your own tick and tick_read win.
+func TestTickColors(t *testing.T) {
+	path := keepStyle(t)
+	if _, problems := applyYAML(t, path, "theme: tokyonight\n"); problems != nil {
+		t.Fatal(problems)
+	}
+	if ColorTick != ColorStatusText {
+		t.Errorf("tick follows the theme's dim_text: %s vs %s", hex(ColorTick), hex(ColorStatusText))
+	}
+	if _, problems := applyYAML(t, path, "colors:\n  tick: \"#5a5a64\"\n  tick_read: \"#00aaff\"\n"); problems != nil {
+		t.Fatal(problems)
+	}
+	if hex(ColorTick) != "#5a5a64" || hex(ColorReadTick) != "#00aaff" {
+		t.Errorf("your tick colours: %s %s", hex(ColorTick), hex(ColorReadTick))
+	}
+}

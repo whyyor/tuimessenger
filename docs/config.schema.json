@@ -176,6 +176,18 @@
           "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
           "type": "string"
         },
+        "tick": {
+          "default": "#8a8a94",
+          "description": "Ticks on your messages: sent ✓, delivered ✓✓ and on its way ◌.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
+        "tick_read": {
+          "default": "#3a9bff",
+          "description": "Ticks on your messages the other side has seen ✓✓.",
+          "pattern": "^(#[0-9a-fA-F]{6}|[a-z]+)$",
+          "type": "string"
+        },
         "toast_error": {
           "default": "#fd6883",
           "description": "Error toasts.",
