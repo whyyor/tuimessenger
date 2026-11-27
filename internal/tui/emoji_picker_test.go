@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"go.mau.fi/mauview"
@@ -20,7 +19,9 @@ func freshRecent(t *testing.T, dir string) {
 	old := recentEmoji
 	recentEmoji = &recentEmojis{}
 	recentEmoji.use(dir)
-	t.Cleanup(func() { recentEmoji = old })
+	r := recentEmoji
+	// Runs before t.TempDir's cleanup (cleanups go last-in first-out): no save may still be writing into dir.
+	t.Cleanup(func() { r.flush(); recentEmoji = old })
 }
 
 func TestRecentEmojiTopAndPersist(t *testing.T) {
@@ -37,12 +38,9 @@ func TestRecentEmojiTopAndPersist(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	path := filepath.Join(dir, "recent-emoji.json")
-	for i := 0; i < 200; i++ {
-		if data, _ := os.ReadFile(path); strings.HasPrefix(string(data), `["🔥","❤"]`) {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
+	recentEmoji.flush() // every save done: the file is final, and nothing writes into dir afterwards
+	if data, _ := os.ReadFile(filepath.Join(dir, "recent-emoji.json")); !strings.HasPrefix(string(data), `["🔥","❤"]`) {
+		t.Errorf("saved file: %s", data)
 	}
 	reloaded := (&recentEmojis{}).use(dir)
 	if got := reloaded.Top(2); !slices.Equal(got, []string{"🔥", "❤"}) {
