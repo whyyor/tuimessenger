@@ -19,6 +19,7 @@ const recentEmojiMax = 24
 type recentEmojis struct {
 	mu     sync.Mutex
 	saveMu sync.Mutex
+	saving sync.WaitGroup // saves still running in the background (flush waits for them)
 	path   string
 	list   []string
 	loaded bool
@@ -78,7 +79,9 @@ func (r *recentEmojis) Add(e string) {
 	if path == "" {
 		return
 	}
+	r.saving.Add(1)
 	go func() {
+		defer r.saving.Done()
 		defer debug.Recover()
 		// Each save writes the list as it is now, so the last one wins.
 		r.saveMu.Lock()
@@ -94,6 +97,11 @@ func (r *recentEmojis) Add(e string) {
 			}
 		}
 	}()
+}
+
+// flush waits until every background save has finished, e.g. before quitting.
+func (r *recentEmojis) flush() {
+	r.saving.Wait()
 }
 
 // textBeforeWidth cuts s at a cursor offset, measured like mauview's input.

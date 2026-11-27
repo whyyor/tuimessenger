@@ -324,6 +324,7 @@ func (ui *App) keepDrafts() {
 func (ui *App) Stop() {
 	debug.Print("Stopping")
 	ui.keepDrafts()
+	recentEmoji.flush() // os.Exit below would cut a save of the last picked emoji short
 	ui.cancel()
 	ui.gmx.Backend.Disconnect()
 	debug.Print("Disconnection complete")
@@ -335,6 +336,7 @@ func (ui *App) Stop() {
 
 func (ui *App) Finish() {
 	ui.keepDrafts()
+	recentEmoji.flush()
 	ui.app.ForceStop()
 	ui.runOnExit()
 	os.Exit(0)
