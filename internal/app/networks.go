@@ -115,7 +115,10 @@ func (a *App) SetNetworkSetting(ctx context.Context, network, key string, value 
 // hiddenLoginFlows are ways to log in that aren't offered: they didn't work in practice or don't fit a personal app.
 var hiddenLoginFlows = map[string][]string{
 	"instagram": {"android"}, // "Native Android": failed in testing; the web ways work
-	"telegram":  {"bot"},     // logs in as a BotFather bot, not as you
+	// messenger.com: in testing the login ended on facebook.com and never finished. iOS: poses as an old Messenger Lite
+	// iPhone app. facebook.com stays (the safest), and Android as the way in without a browser.
+	"facebook": {"messenger", "messenger-lite"},
+	"telegram": {"bot"}, // logs in as a BotFather bot, not as you
 }
 
 func loginFlowHidden(network, flowID string) bool {
