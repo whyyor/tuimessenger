@@ -1,8 +1,9 @@
 package bridges
 
 import (
-	"github.com/whyyor/tuimessenger/internal/config"
 	facebook "go.mau.fi/mautrix-meta/pkg/connector"
+
+	"github.com/whyyor/tuimessenger/internal/config"
 )
 
 func init() {
