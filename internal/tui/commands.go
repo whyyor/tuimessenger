@@ -265,7 +265,7 @@ func (view *RoomView) HandleCommand(cmd *event.MessageEventContent) {
 // leaveNetworks names the networks where leaving a chat here also leaves it there.
 var leaveNetworks = map[string]string{
 	"whatsapp": "WhatsApp", "telegram": "Telegram", "slack": "Slack", "slackgo": "Slack",
-	"instagram": "Instagram", "instagramgo": "Instagram",
+	"instagram": "Instagram", "instagramgo": "Instagram", "facebook": "Messenger", "metago": "Messenger",
 }
 
 // confirmLeave asks before /leave: leaving here leaves the chat on the network too, which others can see.
