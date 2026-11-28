@@ -81,8 +81,8 @@ func CookieHelp(network string, params *bridgev2.LoginCookiesParams) string {
 // headless hides the window; only tests use it, a real login needs you to see the page.
 var headless = false
 
-// closeTabs, when set (tests only), closes the window partway through, as you would.
-var closeTabs func(ctx context.Context)
+// afterPoll, when set (tests only), runs after each successful check with what it found, e.g. to close the window.
+var afterPoll func(ctx context.Context, values map[string]string)
 
 // CollectCookies opens params.URL in a fresh browser profile and returns the requested values once you've logged in.
 func CollectCookies(ctx context.Context, browser string, params *bridgev2.LoginCookiesParams, out io.Writer) (map[string]string, error) {
@@ -128,9 +128,6 @@ func CollectCookies(ctx context.Context, browser string, params *bridgev2.LoginC
 		return nil, err
 	}
 	fmt.Fprintln(out, "Log in in the browser window that opened; it closes by itself once you're logged in.")
-	if closeTabs != nil {
-		go closeTabs(browserCtx)
-	}
 
 	var found map[string]string
 	var tabs []string
@@ -142,6 +139,9 @@ func CollectCookies(ctx context.Context, browser string, params *bridgev2.LoginC
 			found, tabs = st.values, st.urls
 			if hasRequired(params.Fields, found) && st.atURL {
 				return found, nil
+			}
+			if afterPoll != nil {
+				afterPoll(browserCtx, found)
 			}
 			if !st.open {
 				break // the window was closed (on macOS the browser itself keeps running)

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/network"
-	"github.com/chromedp/cdproto/storage"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 	"maunium.net/go/mautrix/bridgev2"
@@ -211,14 +210,10 @@ func TestHandsOffWindowClosed(t *testing.T) {
 		Fields: []bridgev2.LoginCookieField{cookieField("sessionid")}}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	closeTabs = func(ctx context.Context) {
-		// Close only once "logged in" (the cookie exists): a fixed wait raced slow CI machines.
-		for ctx.Err() == nil {
-			res, _ := chromedp.CallBrowser(ctx, storage.GetCookies, storage.GetCookiesParams{})
-			if pickCookies(params.Fields, res.Cookies)["sessionid"] != "" {
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
+	// You close the window after logging in: once a check has seen the cookie. On Linux that quits the browser.
+	afterPoll = func(ctx context.Context, values map[string]string) {
+		if values["sessionid"] == "" {
+			return
 		}
 		tabs, _ := chromedp.CallBrowser(ctx, target.GetTargets, target.GetTargetsParams{})
 		for _, tab := range tabs.TargetInfos {
@@ -227,7 +222,7 @@ func TestHandsOffWindowClosed(t *testing.T) {
 			}
 		}
 	}
-	t.Cleanup(func() { closeTabs = nil })
+	t.Cleanup(func() { afterPoll = nil })
 	start := time.Now()
 	values, err := CollectCookies(ctx, browser, params, io.Discard)
 	if err != nil || values["sessionid"] != "s3cret" {
