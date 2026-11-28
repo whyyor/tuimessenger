@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"regexp"
@@ -129,14 +130,16 @@ func CollectCookies(ctx context.Context, browser string, params *bridgev2.LoginC
 	}
 	fmt.Fprintln(out, "Log in in the browser window that opened; it closes by itself once you're logged in.")
 
-	var found map[string]string
+	found := make(map[string]string)
 	var tabs []string
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for done := false; !done; {
 		st, err := w.poll(browserCtx, params, urlPattern)
 		if err == nil {
-			found, tabs = st.values, st.urls
+			// Merged, not replaced: closing the window can drop session cookies before a last check sees it closed.
+			maps.Copy(found, st.values)
+			tabs = st.urls
 			if hasRequired(params.Fields, found) && st.atURL {
 				return found, nil
 			}

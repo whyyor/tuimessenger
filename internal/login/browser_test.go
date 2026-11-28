@@ -212,6 +212,7 @@ func TestHandsOffWindowClosed(t *testing.T) {
 	defer cancel()
 	// You close the window after logging in: once a check has seen the cookie. On Linux that quits the browser.
 	afterPoll = func(ctx context.Context, values map[string]string) {
+		t.Logf("a check saw %v", values) // printed only if the test fails
 		if values["sessionid"] == "" {
 			return
 		}
