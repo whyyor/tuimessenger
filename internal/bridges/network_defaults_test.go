@@ -3,6 +3,7 @@ package bridges
 import (
 	"testing"
 
+	facebook "go.mau.fi/mautrix-meta/pkg/connector"
 	instagram "go.mau.fi/mautrix-meta/pkg/igconnector"
 	whatsapp "go.mau.fi/mautrix-whatsapp/pkg/connector"
 
@@ -33,5 +34,25 @@ func TestNetworkDefaults(t *testing.T) {
 	igCfg := ig.Connector.(*instagram.IGConnector).Config
 	if igCfg.ThreadBackfill.BatchCount != 0 {
 		t.Errorf("Instagram should sync only the recent chats, like Beeper: %+v", igCfg.ThreadBackfill)
+	}
+}
+
+func TestMessengerNetwork(t *testing.T) {
+	fb, err := New("facebook", &config.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	connector := fb.Connector.(*facebook.MetaConnector)
+	if connector.Config.ThreadBackfill.BatchCount != 0 {
+		t.Errorf("Messenger should sync only the recent chats, like Beeper: %+v", connector.Config.ThreadBackfill)
+	}
+	if !connector.Config.CacheConnectionState {
+		t.Error("Expected connector cache to be true")
+	}
+	if got := fb.Config.CommandPrefix; got != "!fb" {
+		t.Errorf("Got wrong command prefix %q", got)
+	}
+	if got := connector.GetName().NetworkID; got != "facebook" {
+		t.Errorf("Got wrong network name %q", got)
 	}
 }

@@ -159,6 +159,13 @@ func TestOfferedFlows(t *testing.T) {
 	if len(tg) != 3 || tg[2].ID != "manual" {
 		t.Errorf("Telegram keeps manual, drops bot: %v", tg)
 	}
+	fb := offeredFlows("facebook", []bridgev2.LoginFlow{{ID: "facebook"}, {ID: "messenger"}, {ID: "messenger-lite"}, {ID: "messenger-lite-android"}})
+	if len(fb) != 2 || fb[0].ID != "facebook" || fb[1].ID != "messenger-lite-android" {
+		t.Errorf("Messenger keeps facebook.com and Android: %v", fb)
+	}
+	if _, err := (&App{}).StartLogin(context.Background(), "facebook", "messenger"); !errors.Is(err, mautrix.MForbidden) {
+		t.Errorf("messenger.com can't be started: %v", err)
+	}
 	if _, err := (&App{}).StartLogin(context.Background(), "instagram", "android"); !errors.Is(err, mautrix.MForbidden) {
 		t.Errorf("a hidden flow can't be started: %v", err)
 	}

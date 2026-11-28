@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/storage"
+	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 	"maunium.net/go/mautrix/bridgev2"
 )
@@ -80,6 +82,9 @@ func CookieHelp(network string, params *bridgev2.LoginCookiesParams) string {
 // headless hides the window; only tests use it, a real login needs you to see the page.
 var headless = false
 
+// afterPoll, when set (tests only), runs after each successful check with what it found, e.g. to close the window.
+var afterPoll func(ctx context.Context, values map[string]string)
+
 // CollectCookies opens params.URL in a fresh browser profile and returns the requested values once you've logged in.
 func CollectCookies(ctx context.Context, browser string, params *bridgev2.LoginCookiesParams, out io.Writer) (map[string]string, error) {
 	var urlPattern *regexp.Regexp
@@ -96,6 +101,8 @@ func CollectCookies(ctx context.Context, browser string, params *bridgev2.LoginC
 	}
 	defer os.RemoveAll(profile)
 
+	// No user agent from params: Meta asks for a Linux Chrome one, which contradicts everything else the real browser
+	// shows, and its login answers that with captchas that never let you in. Instagram's login doesn't ask for one.
 	opts := []chromedp.ExecAllocatorOption{
 		chromedp.ExecPath(browser),
 		chromedp.UserDataDir(profile),
@@ -103,9 +110,9 @@ func CollectCookies(ctx context.Context, browser string, params *bridgev2.LoginC
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.Flag("headless", headless),
 		chromedp.WindowSize(1100, 900),
-	}
-	if params.UserAgent != "" {
-		opts = append(opts, chromedp.UserAgent(params.UserAgent))
+		// Any remote-controlled Chrome tells pages navigator.webdriver = true, the first thing bot checks look at;
+		// Meta then shows captchas that never let you in. This keeps it false, as in a browser you opened yourself.
+		chromedp.Flag("disable-blink-features", "AutomationControlled"),
 	}
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(ctx, opts...)
 	defer cancelAlloc()
@@ -114,8 +121,158 @@ func CollectCookies(ctx context.Context, browser string, params *bridgev2.LoginC
 	browserCtx, cancelTimeout := context.WithTimeout(browserCtx, browserLoginTimeout)
 	defer cancelTimeout()
 
-	if _, err = chromedp.Call(browserCtx, network.Enable, network.EnableParams{}); err != nil {
-		return nil, fmt.Errorf("failed to open the browser: %w", err)
+	var w watcher = handsOff{}
+	if needsPage(params) {
+		w = attached{}
+	}
+	if err = w.open(browserCtx, params); err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out, "Log in in the browser window that opened; it closes by itself once you're logged in.")
+
+	found := make(map[string]string)
+	var tabs []string
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for done := false; !done; {
+		st, err := w.poll(browserCtx, params, urlPattern)
+		if err == nil {
+			// Merged, not replaced: closing the window can drop session cookies before a last check sees it closed.
+			maps.Copy(found, st.values)
+			tabs = st.urls
+			if hasRequired(params.Fields, found) && st.atURL {
+				return found, nil
+			}
+			if afterPoll != nil {
+				afterPoll(browserCtx, found)
+			}
+			if !st.open {
+				break // the window was closed (on macOS the browser itself keeps running)
+			}
+		}
+		select {
+		case <-browserCtx.Done():
+			done = true
+		case <-ticker.C:
+		}
+	}
+	// Closing the window after logging in still counts, even if the final page wasn't reached.
+	if hasRequired(params.Fields, found) {
+		return found, nil
+	}
+	// Say what was missing, so a login that never finishes can be told apart from one on an unexpected page.
+	where := fmt.Sprintf("missing %s; tabs: %s", strings.Join(missingFields(params.Fields, found), ", "), strings.Join(tabs, " "))
+	switch {
+	case errors.Is(browserCtx.Err(), context.DeadlineExceeded):
+		return nil, fmt.Errorf("gave up waiting for the login after 10 minutes (%s)", where)
+	case ctx.Err() != nil:
+		return nil, fmt.Errorf("login cancelled (%s)", where)
+	}
+	return nil, fmt.Errorf("the browser was closed before logging in (%s)", where)
+}
+
+func missingFields(fields []bridgev2.LoginCookieField, values map[string]string) []string {
+	var missing []string
+	for _, field := range fields {
+		if field.Required && values[field.ID] == "" {
+			missing = append(missing, field.ID)
+		}
+	}
+	return missing
+}
+
+// watcher opens the login page and reports, every second, what the browser has so far.
+type watcher interface {
+	open(ctx context.Context, params *bridgev2.LoginCookiesParams) error
+	poll(ctx context.Context, params *bridgev2.LoginCookiesParams, urlPattern *regexp.Regexp) (pollState, error)
+}
+
+type pollState struct {
+	values map[string]string
+	atURL  bool // a tab is on the page the network waits for (or it waits for none)
+	open   bool // a tab is still open
+	urls   []string
+}
+
+// needsPage says whether a value can only be read from inside the page (local storage, a script), not from cookies.
+func needsPage(params *bridgev2.LoginCookiesParams) bool {
+	if params.ExtractJS != "" {
+		return true
+	}
+	for _, field := range params.Fields {
+		for _, src := range field.Sources {
+			if src.Type != bridgev2.LoginCookieTypeCookie {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// handsOff never attaches to the page: it only asks the browser for its cookies and tabs. Attaching turns on
+// debugging inside the page, which bot checks (Meta's) detect, and then their captchas never let you in.
+type handsOff struct{}
+
+func (handsOff) open(ctx context.Context, params *bridgev2.LoginCookiesParams) error {
+	if len(params.InitialCookies) > 0 {
+		cookies := make([]*network.CookieParam, 0, len(params.InitialCookies))
+		for _, c := range params.InitialCookies {
+			path := c.Path
+			if path == "" {
+				path = "/"
+			}
+			cookies = append(cookies, &network.CookieParam{
+				Name: c.Name, Value: c.Value, Domain: c.Domain, Path: path, Secure: c.Secure, HTTPOnly: c.HTTPOnly,
+			})
+		}
+		if _, err := chromedp.CallBrowser(ctx, storage.SetCookies, storage.SetCookiesParams{Cookies: cookies}); err != nil {
+			return fmt.Errorf("failed to continue the earlier login: %w", err)
+		}
+	}
+	blank, err := chromedp.CallBrowser(ctx, target.GetTargets, target.GetTargetsParams{})
+	if err != nil {
+		return fmt.Errorf("failed to open the browser: %w", err)
+	}
+	created, err := chromedp.CallBrowser(ctx, target.CreateTarget, target.CreateTargetParams{URL: params.URL})
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %w", params.URL, err)
+	}
+	for _, t := range blank.TargetInfos {
+		if t.Type == "page" && t.TargetID != created.TargetID {
+			_, _ = chromedp.CallBrowser(ctx, target.CloseTarget, target.CloseTargetParams{TargetID: t.TargetID})
+		}
+	}
+	return nil
+}
+
+func (handsOff) poll(ctx context.Context, params *bridgev2.LoginCookiesParams, urlPattern *regexp.Regexp) (pollState, error) {
+	tabs, err := chromedp.CallBrowser(ctx, target.GetTargets, target.GetTargetsParams{})
+	if err != nil {
+		return pollState{}, err
+	}
+	st := pollState{atURL: urlPattern == nil}
+	for _, t := range tabs.TargetInfos {
+		if t.Type == "page" {
+			st.open = true
+			st.urls = append(st.urls, t.URL)
+			st.atURL = st.atURL || urlPattern.MatchString(t.URL)
+		}
+	}
+	// storage.GetCookies returns every cookie in the browser, HttpOnly ones included.
+	res, err := chromedp.CallBrowser(ctx, storage.GetCookies, storage.GetCookiesParams{})
+	if err != nil {
+		return pollState{}, err
+	}
+	st.values = pickCookies(params.Fields, res.Cookies)
+	return st, nil
+}
+
+// attached drives the page itself, for networks whose values live in local storage or come from a script (Slack).
+type attached struct{}
+
+func (attached) open(ctx context.Context, params *bridgev2.LoginCookiesParams) error {
+	if _, err := chromedp.Call(ctx, network.Enable, network.EnableParams{}); err != nil {
+		return fmt.Errorf("failed to open the browser: %w", err)
 	}
 	for _, c := range params.InitialCookies {
 		path := c.Path
@@ -125,38 +282,24 @@ func CollectCookies(ctx context.Context, browser string, params *bridgev2.LoginC
 		cookie := network.SetCookieParams{
 			Name: c.Name, Value: c.Value, Domain: c.Domain, Path: path, Secure: &c.Secure, HTTPOnly: &c.HTTPOnly,
 		}
-		if _, err = chromedp.Call(browserCtx, network.SetCookie, cookie); err != nil {
-			return nil, fmt.Errorf("failed to continue the earlier login: %w", err)
+		if _, err := chromedp.Call(ctx, network.SetCookie, cookie); err != nil {
+			return fmt.Errorf("failed to continue the earlier login: %w", err)
 		}
 	}
-	if err = chromedp.Do(browserCtx, chromedp.Navigate(params.URL)); err != nil {
-		return nil, fmt.Errorf("failed to open %s: %w", params.URL, err)
+	if err := chromedp.Do(ctx, chromedp.Navigate(params.URL)); err != nil {
+		return fmt.Errorf("failed to open %s: %w", params.URL, err)
 	}
-	fmt.Fprintln(out, "Log in in the browser window that opened; it closes by itself once you're logged in.")
+	return nil
+}
 
-	var found map[string]string
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	for {
-		if values, err := readFields(browserCtx, params); err == nil {
-			found = values
-			if hasRequired(params.Fields, found) && urlMatches(browserCtx, urlPattern) {
-				return found, nil
-			}
-		}
-		select {
-		case <-browserCtx.Done():
-			// Closing the window after logging in still counts, even if the final page wasn't reached.
-			if hasRequired(params.Fields, found) {
-				return found, nil
-			}
-			if errors.Is(browserCtx.Err(), context.DeadlineExceeded) {
-				return nil, errors.New("gave up waiting for the login after 10 minutes")
-			}
-			return nil, errors.New("the browser was closed before logging in")
-		case <-ticker.C:
-		}
+func (attached) poll(ctx context.Context, params *bridgev2.LoginCookiesParams, urlPattern *regexp.Regexp) (pollState, error) {
+	values, err := readFields(ctx, params)
+	if err != nil {
+		return pollState{}, err
 	}
+	// Closing its tab ends the browser context, so the loop notices that on its own.
+	location, _ := chromedp.Run(ctx, chromedp.Location())
+	return pollState{values: values, atURL: urlPattern == nil || urlPattern.MatchString(location), open: true, urls: []string{location}}, nil
 }
 
 // readFields collects every value it can find right now: cookies, local storage, and the network's own script.
@@ -225,12 +368,4 @@ func hasRequired(fields []bridgev2.LoginCookieField, values map[string]string) b
 		}
 	}
 	return true
-}
-
-func urlMatches(ctx context.Context, pattern *regexp.Regexp) bool {
-	if pattern == nil {
-		return true
-	}
-	location, err := chromedp.Run(ctx, chromedp.Location())
-	return err == nil && pattern.MatchString(location)
 }
