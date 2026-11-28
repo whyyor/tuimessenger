@@ -767,12 +767,15 @@ func (view *MessageView) update(width int) {
 			increaseScrollOffset = increaseScrollOffset || startIncreasingScrollOffset
 			continue
 		}
-		if cached, _ := evt.RenderMeta.(*messages.UIMessage); evt.RenderMeta == nil || cached.ReplyArrived() {
-			evt.RenderMeta = messages.ParseEvent(view.matrix, &view.config.Preferences, view.parent.Room, evt)
-		}
-		uiMsg := evt.RenderMeta.(*messages.UIMessage)
-		if uiMsg == nil {
-			continue
+		uiMsg, _ := evt.RenderMeta.(*messages.UIMessage)
+		if uiMsg == nil || uiMsg.ReplyArrived() {
+			uiMsg = messages.ParseEvent(view.matrix, &view.config.Preferences, view.parent.Room, evt)
+			if uiMsg == nil {
+				// Not cached: a typed nil in RenderMeta isn't == nil, so the event would never be parsed again.
+				evt.RenderMeta = nil
+				continue
+			}
+			evt.RenderMeta = uiMsg
 		}
 		if !uiMsg.SameDate(prev) {
 			dateChange := messages.NewDateChangeMessage(view.parent.Room, fmt.Sprintf("Date changed to %s", uiMsg.FormatDate()))

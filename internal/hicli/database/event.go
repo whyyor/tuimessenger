@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/tidwall/gjson"
@@ -490,10 +491,10 @@ type Event struct {
 
 	StickyDuration jsontime.Milliseconds `json:"sticky_duration_ms,omitzero"`
 
-	parsedContent *event.Content
-	LastEditRef   *Event `json:"-"`
-	Pending       bool   `json:"-"`
-	RenderMeta    any    `json:"-"`
+	parsedContent atomic.Pointer[event.Content] // read by the screen and the notifier at once
+	LastEditRef   *Event                        `json:"-"`
+	Pending       bool                          `json:"-"`
+	RenderMeta    any                           `json:"-"`
 }
 
 func MautrixToEvent(evt *event.Event) *Event {
@@ -597,12 +598,17 @@ func (e *Event) AsMautrix() *event.Event {
 }
 
 func (e *Event) GetMautrixContent() *event.Content {
-	if e.parsedContent == nil {
-		e.parsedContent = &event.Content{VeryRaw: e.GetContent()}
-		_ = json.Unmarshal(e.parsedContent.VeryRaw, &e.parsedContent.Raw)
-		_ = e.parsedContent.ParseRaw(e.GetType())
+	if c := e.parsedContent.Load(); c != nil {
+		return c
 	}
-	return e.parsedContent
+	// Built completely before it's shared: another goroutine must never see it half-parsed (empty, or torn).
+	c := &event.Content{VeryRaw: e.GetContent()}
+	_ = json.Unmarshal(c.VeryRaw, &c.Raw)
+	_ = c.ParseRaw(e.GetType())
+	if e.parsedContent.CompareAndSwap(nil, c) {
+		return c
+	}
+	return e.parsedContent.Load() // another goroutine finished first: everyone uses the same one
 }
 
 func (e *Event) Scan(row dbutil.Scannable) (*Event, error) {
