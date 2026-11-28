@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/storage"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 	"maunium.net/go/mautrix/bridgev2"
@@ -211,7 +212,14 @@ func TestHandsOffWindowClosed(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	closeTabs = func(ctx context.Context) {
-		time.Sleep(2 * time.Second)
+		// Close only once "logged in" (the cookie exists): a fixed wait raced slow CI machines.
+		for ctx.Err() == nil {
+			res, _ := chromedp.CallBrowser(ctx, storage.GetCookies, storage.GetCookiesParams{})
+			if pickCookies(params.Fields, res.Cookies)["sessionid"] != "" {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
 		tabs, _ := chromedp.CallBrowser(ctx, target.GetTargets, target.GetTargetsParams{})
 		for _, tab := range tabs.TargetInfos {
 			if tab.Type == "page" {
@@ -220,9 +228,13 @@ func TestHandsOffWindowClosed(t *testing.T) {
 		}
 	}
 	t.Cleanup(func() { closeTabs = nil })
+	start := time.Now()
 	values, err := CollectCookies(ctx, browser, params, io.Discard)
 	if err != nil || values["sessionid"] != "s3cret" {
 		t.Errorf("closing the window after logging in: %v, %v", values, err)
+	}
+	if waited := time.Since(start); waited > 20*time.Second {
+		t.Errorf("it took %v: closing the window should end the login, not the timeout", waited)
 	}
 }
 
