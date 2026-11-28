@@ -409,12 +409,15 @@ func (p *NetworksPanel) waitLocked() {
 
 // collectCookiesLocked opens a browser on this computer and hands what it collects to the backend.
 func (p *NetworksPanel) collectCookiesLocked(browser string) {
-	gen, loginID, step := p.gen, p.login.LoginID, p.login.Step
+	gen, loginID, step, name := p.gen, p.login.LoginID, p.login.Step, p.network.Name
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	p.cancel = cancel
 	go func() {
 		defer debug.Recover()
 		cookies, err := login.CollectCookies(ctx, browser, step.CookiesParams, io.Discard)
+		if err != nil {
+			debug.Print("Browser login for", name, "ended:", err)
+		}
 		if ctx.Err() != nil && err != nil {
 			return
 		}
