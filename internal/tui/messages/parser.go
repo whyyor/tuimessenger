@@ -169,7 +169,9 @@ func ParseStateEvent(room *store.RoomStore, evt *database.Event) *UIMessage {
 }
 
 func ParseMessage(matrix *client.Client, prefs *config.UserPreferences, room *store.RoomStore, evt *database.Event) *UIMessage {
-	content := evt.GetMautrixContent().AsMessage()
+	// A copy: the event's content is shared with other goroutines (the notifier), and the lines below change it.
+	contentCopy := *evt.GetMautrixContent().AsMessage()
+	content := &contentCopy
 	if evt.GetType() == event.EventSticker {
 		// m.sticker content has no msgtype but is otherwise an image; without
 		// this it fell through the switch and rendered as nothing at all.

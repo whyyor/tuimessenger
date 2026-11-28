@@ -98,9 +98,9 @@ func TestAnchorSurvivesLastEventReplaced(t *testing.T) {
 	bottom := view.msgBuffer[len(view.msgBuffer)-1-10].RowID
 	before := screenRowOf(view, bottom)
 
-	sent := *pending
-	sent.RowID, sent.TimelineRowID, sent.ID = 40, 40, "$sent:x"
-	room.ApplySendComplete(&sent)
+	sent := &database.Event{RowID: 40, TimelineRowID: 40, ID: "$sent:x", RoomID: room.ID, Sender: me, Type: "m.room.message",
+		Content: pending.Content, Timestamp: pending.Timestamp}
+	room.ApplySendComplete(sent)
 	addMsgs(room, 41, 2)
 	view.update(anchorWidth)
 	if got := screenRowOf(view, bottom); got != before {
